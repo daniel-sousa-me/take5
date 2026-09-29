@@ -18,13 +18,14 @@ from core import PAL, SHADE, cr_path, pot, svg_doc, T, f, uid, reset_ids  # noqa
 
 P = PAL
 SC, DX = 1.08, 10  # plant scale about (300, 640) and x-shift before scaling
-MUST_SH = "#AE8436"  # shaded mustard (flower turned-away side)
-BUTTER = "#E3C677"   # mustard lifted toward cream: inner face of the petals
-BUTTER2 = "#D6B45F"  # a half step deeper, for alternating petals
-THROAT = "#A47E34"   # the inside of the cup: a mid ochre, one step under the back petals
-BACK1 = "#CFA84F"    # back petals' inner face (alternates with mustard so the pair reads)
-BACK2 = "#B28839"    # outermost back petals, turned furthest from the light
-LIT = "#EBD48E"      # the front petal square to the light
+FL_MUST = "#DCB93A"  # flower mid tone: lemon-butter yellow (a step yellower than PAL mustard)
+MUST_SH = "#C09E2C"  # its shaded side (flower turned-away side)
+BUTTER = "#EFD463"   # mustard lifted toward cream: inner face of the petals
+BUTTER2 = "#E3C348"  # a half step deeper, for alternating petals
+THROAT = "#AA8B28"   # the inside of the cup: a mid ochre, one step under the back petals
+BACK1 = "#CFAC34"    # back petals' inner face (alternates with mustard so the pair reads)
+BACK2 = "#C2A02E"    # outermost back petals, turned furthest from the light
+LIT = "#F4E186"      # the front petal square to the light
 STAMEN = "#D5D08E"   # pale yellow-green anthers: low contrast on the ochre throat
 STIGMA = "#C9CB84"   # stigma, a hair greener
 BAND = {  # thickness band tone for each face tone (a clear step darker)
@@ -244,7 +245,7 @@ def flower(x, y, deg, s=1.0, bud=False):
                 f'L{f(w)} 2Z" fill="{sh}" clip-path="url(#{c})"/></g>')
     if bud:
         # closed bud: three furled petals (same mustard family as the open flower)
-        for a, L, c, sh in ((-8, 31, BUTTER2, None), (8, 31, BUTTER2, None), (0, 34, P["mustard"], MUST_SH)):
+        for a, L, c, sh in ((-8, 31, BUTTER2, None), (8, 31, BUTTER2, None), (0, 34, FL_MUST, MUST_SH)):
             g.append(petal(a, L, 16, c, sh, oy=-19, claw=0.4, bw=0.3))
     else:
         # open cup seen from the side, a little from above. The back petals
@@ -254,7 +255,7 @@ def flower(x, y, deg, s=1.0, bud=False):
         # stamens + stigma; the three front petals face the light and are the
         # lightest part of the flower (lit / turned-away halves), so the cup
         # reads as a rounded form rather than a flat disc.
-        for a, L, c in ((-62, 31, BACK2), (62, 31, BACK2), (-21, 38, P["mustard"]), (21, 38, BACK1)):
+        for a, L, c in ((-62, 31, BACK2), (62, 31, BACK2), (-21, 38, FL_MUST), (21, 38, BACK1)):
             g.append(petal(a, L, 18, c, oy=-22, claw=0.3))
         g.append(f'<ellipse cx="0" cy="-41.5" rx="14" ry="7.5" fill="{THROAT}"/>')
         for sx_, sy_, r_ in ((-3.6, -42.6, 1.6), (3.4, -42.9, 1.6), (-1.4, -45.4, 1.6), (1.9, -45.6, 1.5),

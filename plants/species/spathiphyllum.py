@@ -19,7 +19,9 @@ SPADIX_SH = "#CDBB6C"
 # the dark leaves placed behind every spathe; no outline.
 SPATHE_LT = "#FFFFFF"    # paper white
 SPATHE_SH = "#D3D9CB"    # cupped half
-SPATHE_VEIN = "#C3C8B0"  # pale green midvein, pre-blended solid
+SPATHE_VEIN = "#C3C8B0"
+SPATHE_FREE_LT = "#E3E2D1"  # cool cream tint (L* ~89.5) for a spathe seen against bare paper
+SPATHE_FREE_SH = "#C6CDBA"  # its cupped half (L* ~81)  # pale green midvein, pre-blended solid
 
 
 def rot_pt(x, y, deg):
@@ -128,7 +130,7 @@ class Plant:
 
 
 # ------------------------------------------------------------------ flower
-def spathe_svg(bx, by, deg, H, bend=0.06, flip=False, open_=1.0):
+def spathe_svg(bx, by, deg, H, bend=0.06, flip=False, open_=1.0, lt=SPATHE_LT, sh=SPATHE_SH):
     """White spathe (hood) with cream-yellow spadix. base at (bx,by)."""
     wr = 0.245 * open_
     right = [(0.0, 0.03), (0.1, 0.12), (0.32, wr), (0.52, wr * 1.02),
@@ -141,10 +143,10 @@ def spathe_svg(bx, by, deg, H, bend=0.06, flip=False, open_=1.0):
     cid = uid("sp")
     g = [f'<g transform="{T(bx, by, deg, 1, sx)}">',
          f'<clipPath id="{cid}"><path d="{d}"/></clipPath>',
-         f'<path d="{d}" fill="{SPATHE_LT}"/>',
+         f'<path d="{d}" fill="{lt}"/>',
          f'<g clip-path="url(#{cid})">']
     # cupped half: warm off-white shade on one side of the midvein
-    g.append(f'<path d="{half(sp, "r")}" fill="{SPATHE_SH}"/>')
+    g.append(f'<path d="{half(sp, "r")}" fill="{sh}"/>')
     # green throat: a slim wedge from the spathe base narrowing up the midvein into the
     # midvein itself (straight-ish concave sides, no rounded blob behind the spadix)
     b0, bl, br, tp = sp.axis(-0.05), sp.pt(0.0, -0.085), sp.pt(0.0, 0.085), sp.axis(0.4)
@@ -170,13 +172,13 @@ def spathe_svg(bx, by, deg, H, bend=0.06, flip=False, open_=1.0):
     return "".join(g)
 
 
-def flower(x0, pts, H, deg, bend=0.06, flip=False, open_=1.0, w=(5.2, 3.4), col=None):
+def flower(x0, pts, H, deg, bend=0.06, flip=False, open_=1.0, w=(5.2, 3.4), col=None, **kw):
     """Stalk from soil through pts, spathe base at pts[-1]; stalk ends under the base."""
     bx, by = pts[-1]
     d = rot_pt(0, -1, deg)
     inside = (bx + d[0] * H * 0.06, by + d[1] * H * 0.06)
     stalk = f'<path d="{ribbon([(x0, SOIL_Y)] + pts + [inside], w[0], w[1], per=4)}" fill="{col or P["light"]}"/>'
-    return stalk, spathe_svg(bx, by, deg, H, bend, flip, open_)
+    return stalk, spathe_svg(bx, by, deg, H, bend, flip, open_, **kw)
 
 
 # ------------------------------------------------------------------ build
@@ -206,11 +208,20 @@ def build():
     fan("back", 44, 196, 160, D, 0.06, lean=1.45, pet=F)
     add("back", pl.leaf(292, 252, 362, -29, 196, N, bend=-0.03, side="l", pet=F))
     add("back", pl.leaf(310, 386, 366, 38, 196, N, bend=0.04, side="r", pet=F))
-    add("back", pl.leaf(300, 308, 334, 3, 228, D, bend=-0.03, side="r", pet=F, wide=0.92))
+    add("back", pl.leaf(300, 300, 350, -7, 186, D, bend=-0.03, side="r", pet=F, wide=0.95))
     # --- flowers (stalks behind the foliage, spathes on top of it)
-    add("flow", flower(296, [(290, 470), (268, 384), (238, 332), (224, 303)], 98, -31, bend=0.06, flip=True))
-    add("flow", flower(314, [(330, 470), (330, 360), (325, 270)], 114, -5, bend=-0.05, open_=0.9))
-    add("flow", flower(310, [(352, 500), (416, 414), (430, 336)], 90, 20, bend=0.07, open_=0.85))
+    add("flow", flower(296, [(290, 470), (268, 384), (238, 332), (224, 303)], 98, -31, bend=0.06, flip=True,
+                       lt=SPATHE_FREE_LT, sh=SPATHE_FREE_SH))
+    # the tallest spathe rises clear of the foliage into open paper: its stalk runs behind the
+    # centre leaf and emerges from its right edge; on bare paper the lit half is a cream tint
+    # (paper white would vanish) and the cupped half a step deeper
+    tall = flower(316, [(326, 470), (338, 340), (350, 230), (354, 196)], 112, 4, bend=-0.05, open_=0.9,
+                  lt=SPATHE_FREE_LT, sh=SPATHE_FREE_SH)
+    layers["back"].insert(0, (tall[0], ""))
+    layers["flow"].append(("", tall[1]))
+    # the third spathe only half overlaps its leaf: base on the blade, hood in the open gap
+    add("flow", flower(310, [(352, 500), (398, 420), (418, 318)], 92, 6, bend=0.07, open_=0.85,
+                       lt=SPATHE_FREE_LT, sh=SPATHE_FREE_SH))
     # --- mid: forest leaves filling the clump
     fan("mid", -25, 192, 164, M, 0.05, lean=1.3, pet=M)
     fan("mid", 15, 184, 156, F, 0.05, lean=1.55, pet=M)

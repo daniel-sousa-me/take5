@@ -506,7 +506,7 @@ def emit_stubs(stubs):
 
 def build():
     DEFS.clear()
-    back, front = pot("classic", rx=98, rim_y=588, base_w=70, band=True)
+    back, front = pot("classic", rx=100, rim_y=588, base_w=71, band=True)  # rx 98 -> 100: printed rim back to ~10.3 mm after the deck scale change
     rnd = random.Random(7)
     HL = HP.L
     # A leaves the hoop on the right and ends in a free, tapering growing tip

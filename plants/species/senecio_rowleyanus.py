@@ -49,7 +49,8 @@ ULOW = 1 + len(LOW) / (len(PROFILE) - 1) - 0.02
 
 # tone sets: body, crescent, highlight, stem
 TONES = {
-    "d": (P["deep"], P["night"], P["mid"], P["night"]),
+    # far side / back layer: a step lighter than it was (deep -> forest) so the mound is less of a dark block
+    "d": (P["forest"], P["deep"], P["sage"], P["night"]),
     "m": (P["mid"], "#4B6349", P["light"], P["night"]),
     # front highlight: a pale green-cream tint at L* 89 (white stock: a visible tint must sit <= L* 90,
     # below the speckle band; a paper-white dot would make the mass read as foam)
@@ -304,7 +305,7 @@ def cushion_shadow():
             + [proj(0, 0.975, 90)]
             + [proj(rf * 0.94, hf * 0.985, 0) for rf, hf in PROFILE][1:]
             + [proj(0.9, 0.2, 0), (CX + RX - 4, RIM_Y + 4), (CX, RIM_Y + 14)])
-    return f'<path d="{cr_path(ring, closed=True)}" fill="{P["night"]}"/>'
+    return f'<path d="{cr_path(ring, closed=True)}" fill="{P["deep"]}"/>'
 
 
 def layout():

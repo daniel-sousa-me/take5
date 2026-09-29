@@ -207,8 +207,8 @@ def rim_hide_clip():
 
 
 # ------------------------------------------------------------------ runners
-RUN_COL = "#B3AF74"     # pale straw-green stolon, apart from every leaf green
-RUN_SH = "#8F8C57"      # its shaded underside
+RUN_COL = "#CBD3AA"     # pale cream-green stolon (L* ~83, C* ~20: live, not straw; off the speckle band)
+RUN_SH = "#9DAA82"      # its shaded underside (L* ~68)
 
 
 def runner(pts, w0=6.2, w1=4.4):

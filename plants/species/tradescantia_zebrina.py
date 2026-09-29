@@ -319,11 +319,11 @@ def build():
     crown = [
         # --- back tier (dusky)
         Shoot([(297, Y), (292, 530), (282, 450), (278, 370), (286, 296), (304, 236)], 7.0, 3.8, 0,
-              grow(7, 96, 44, 0, first=1, f0=0.26, seed=1, ang0=56, up=0.1, tier_tip=1)),
+              grow(7, 96, 44, 0, first=1, f0=0.26, seed=1, ang0=56, up=0.1, tier_tip=1, drop={0, 1})),
         Shoot([(308, Y), (320, 540), (346, 468), (388, 408), (436, 374), (484, 368)], 6.8, 3.6, 0,
               # all upper sides: this shoot's leaves stand upright, so none is turned to show its underside
               # (plum undersides are kept for the trailing / turned leaves)
-              grow(7, 94, 42, 0, first=-1, f0=0.26, seed=2, up=0.35, tier_tip=1, drop={0})),
+              grow(7, 94, 42, 0, first=-1, f0=0.26, seed=2, up=0.35, tier_tip=1, drop={0, 1})),
         Shoot([(290, Y), (278, 544), (250, 476), (206, 424), (158, 404), (116, 412)], 6.8, 3.6, 0,
               grow(7, 92, 40, 0, first=1, f0=0.28, seed=3, up=0.35, tier_tip=1, drop={0})),
         # --- middle tier

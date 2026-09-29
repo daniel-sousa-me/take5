@@ -386,9 +386,13 @@ def stalk_svg(pts, w0, w1, bracts, flowers, rise_side=1, bud_turn=0.0):
 
 # ------------------------------------------------------------------ build
 RC = (300, 548)          # rosette centre (soil level of the rosette, projected)
-# x, y, scale (drawn PLANT_DY lower, like the rosette): a larger pup on the left and a clearly smaller
-# one lower down on the right, so the two do not pair up either side of the rim like ears
-PUPS = [(210, 612, .34), (404, 634, .21)]
+# x, y, scale (drawn PLANT_DY lower, like the rosette): offsets hanging over the rim on short visible
+# stolons that run out from under the parent's leaves -- a larger one higher on the left and a clearly
+# smaller one lower on the right, so the two do not pair up either side of the rim like ears
+PUPS = [(176, 654, .27), (428, 668, .19)]
+STOLONS = [[(236, 606), (212, 598), (190, 610), (180, 630), (177, 646)],
+           [(380, 600), (402, 602), (420, 622), (427, 642), (428, 660)]]
+STOLON = mix(RAMP[2], P["rose"], 0.22)
 PLANT_DY = 12            # rosette + pups + stalks sit this much lower (the shallow bowl's rim is at RIM_Y)
 
 
@@ -411,14 +415,15 @@ def build():
                 + stalk_svg(stalk1, 9.0, 4.6, [0.30, 0.44], fl1, bud_turn=-34))
 
     main = rosette(*RC, hook=stalks, hook_after=1, bud=(7, 5), blush_rings=BLUSH_RINGS)
-    # the pups' outer ring is a step lighter (RAMP[4]) than the rosette's outer leaves behind them
-    pup_rings = [(7, 10, 24, 150, .40, 4, 0), (6, 34, 20, 112, .42, 5, 30),
-                 (5, 56, 14, 72, .46, 7, 10), (3, 76, 8, 40, .52, 8, 40)]
+    # the pups' outer ring is a step darker (RAMP[1]) than the rosette's leaves behind them
+    pup_rings = [(7, 10, 24, 150, .40, 1, 0), (6, 34, 20, 112, .42, 3, 30),
+                 (5, 56, 14, 72, .46, 5, 10), (3, 76, 8, 40, .52, 7, 40)]
     pup = rosette(0, 0, 1.0, pup_rings, k=0.22, ps=MMU * min(p[2] for p in PUPS), bud=(15, 11))
     defs = f'<defs><g id="bell">{bell_def()}</g><g id="pup">{pup}</g></defs>'
     pups = "".join(f'<use href="#pup" transform="translate({x} {y}) scale({s:g})"/>'
                    for x, y, s in PUPS)
-    return defs + back + front + f'<g transform="translate(0 {PLANT_DY})">' + main + pups + "</g>"
+    stolons = "".join(f'<path d="{ribbon(pts, 6.0, 4.6, per=5)}" fill="{STOLON}"/>' for pts in STOLONS)
+    return defs + back + front + f'<g transform="translate(0 {PLANT_DY})">' + stolons + main + pups + "</g>"
 
 
 if __name__ == "__main__":
