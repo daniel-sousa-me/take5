@@ -90,17 +90,115 @@ def glyph(ch):
     return p.getCommands(), g.width
 
 
+_profiles = {}
+
+
+def glyph_profile(ch):
+    """(ys, left, right): for every font-unit row y of the digit's ink, its leftmost and rightmost ink x
+    (NaN where the row has no ink). Rasterised from the outline at 1 font unit per pixel."""
+    if ch not in _profiles:
+        import numpy as np
+        from PIL import Image, ImageDraw
+        from fontTools.pens.basePen import BasePen
+
+        class Flat(BasePen):                        # outline -> polygons (curves sampled 16x)
+            def __init__(self):
+                super().__init__(_gs); self.rings, self.cur = [], []
+            def _moveTo(self, p): self.cur = [p]
+            def _lineTo(self, p): self.cur.append(p)
+            def _curveToOne(self, a, b, c):
+                p0 = self.cur[-1]
+                for i in range(1, 17):
+                    t = i / 16; u = 1 - t
+                    self.cur.append(tuple(u ** 3 * p0[k] + 3 * u * u * t * a[k] + 3 * u * t * t * b[k] + t ** 3 * c[k] for k in (0, 1)))
+            def _qCurveToOne(self, a, b):
+                p0 = self.cur[-1]
+                for i in range(1, 17):
+                    t = i / 16; u = 1 - t
+                    self.cur.append(tuple(u * u * p0[k] + 2 * u * t * a[k] + t * t * b[k] for k in (0, 1)))
+            def _closePath(self): self.rings.append(self.cur); self.cur = []
+            _endPath = _closePath
+
+        f = Flat(); _gs[_cmap[ord(ch)]].draw(f)
+        pad = 200                                                  # font units of room round the glyph
+        im = Image.new("1", (UPM + 2 * pad, UPM + 2 * pad), 0)
+        d = ImageDraw.Draw(im)
+        for r in f.rings:                                          # fill every contour: extents ignore holes
+            if len(r) > 2:
+                d.polygon([(x + pad, UPM + pad - y) for x, y in r], fill=1)
+        m = np.array(im)
+        rows = np.nonzero(m.any(axis=1))[0]
+        m = m[rows]
+        left = np.array([np.argmax(r) for r in m], float) - pad
+        right = np.array([len(r) - 1 - np.argmax(r[::-1]) for r in m], float) - pad + 1
+        _profiles[ch] = (UPM + pad - rows.astype(float), left, right)
+    return _profiles[ch]
+
+
+def pair_distance(a, b, dx):
+    """Shortest distance (font units) between the ink of digit a and that of digit b drawn dx units to its
+    right (origin to origin). Exact to the 1-unit raster: the nearest ink to the other glyph is always on its
+    facing frontier, so each glyph is reduced to its row-by-row right (a) / left (b) edge. 0 if they touch."""
+    import numpy as np
+    ya, _, ra = glyph_profile(a)
+    yb, lb, _ = glyph_profile(b)
+    hx = lb[None, :] + dx - ra[:, None]
+    if (hx[ya[:, None] == yb[None, :]] <= 0).any():
+        return 0.0
+    hx = np.maximum(hx, 0)
+    return float(np.sqrt((hx ** 2 + (ya[:, None] - yb[None, :]) ** 2).min()))
+
+
+DIGIT_GAP = 0.6      # min paper between neighbouring digits' ink (mm): 0.5 mm spec + 0.1 for ink spread on uncoated card
+DIGIT_GAP_MAX_3 = 1.0   # 100-104: the loose 1->0 pair is closed to this, so "1 00" doesn't read as two groups
+_pair_cache = {}
+
+
+def pair_advance(a, b, size, track, n_digits=2):
+    """Distance (font units) from digit a's origin to digit b's: advance + tracking, opened just enough to leave
+    DIGIT_GAP mm of paper between their ink (and, on 3-digit numbers, closed to at most DIGIT_GAP_MAX_3)."""
+    key = (a, b, size, track, n_digits == 3)
+    if key not in _pair_cache:
+        s = size / UPM
+        adv = glyph(a)[1] + track * UPM
+        lo, hi = DIGIT_GAP / s, (DIGIT_GAP_MAX_3 / s if n_digits == 3 else None)
+        dist = pair_distance(a, b, adv)
+        target = lo if dist < lo else hi if hi is not None and dist > hi else None
+        if target is not None:                                    # bisect the advance to hit the target gap
+            x0, x1 = (adv, adv + 2 * target) if dist < lo else (adv - 2 * target, adv)
+            for _ in range(30):
+                xm = (x0 + x1) / 2
+                if pair_distance(a, b, xm) < target: x0 = xm
+                else: x1 = xm
+            adv = x1
+        _pair_cache[key] = adv
+    return _pair_cache[key]
+
+
+def digit_origins(n, size, track):
+    """Glyph origins (font units) of each digit of n, centred on the advance box (as number_path draws them)."""
+    t = str(n)
+    xs = [0.0]
+    for a, b in zip(t, t[1:]):
+        xs.append(xs[-1] + pair_advance(a, b, size, track, len(t)))
+    total = xs[-1] + glyph(t[-1])[1]
+    return [x - total / 2 for x in xs]
+
+
 def number_path(n, size, cx, baseline, track=-0.02):
-    """Centred number as a single path, `size` = font size in mm."""
+    """Centred number as a single path, `size` = font size in mm; digit spacing from pair_advance."""
     s = size / UPM
-    items = [glyph(ch) for ch in str(n)]
-    total = sum(w for _, w in items) + track * UPM * (len(items) - 1)
-    x = cx / s - total / 2
-    parts = []
-    for d, w in items:
-        parts.append(f'<path transform="translate({x:.2f} 0)" d="{d}"/>')
-        x += w + track * UPM
+    parts = [f'<path transform="translate({cx / s + x:.2f} 0)" d="{glyph(ch)[0]}"/>'
+             for ch, x in zip(str(n), digit_origins(n, size, track))]
     return (f'<g transform="translate(0 {baseline:.3f}) scale({s:.6f} {-s:.6f})">' + "".join(parts) + "</g>")
+
+
+def digit_gaps(n):
+    """Paper (mm) between each pair of neighbouring digits on card n, as drawn."""
+    size, track = num_style(n)
+    xs = digit_origins(n, size, track)
+    t = str(n)
+    return [pair_distance(t[i], t[i + 1], xs[i + 1] - xs[i]) * size / UPM for i in range(len(t) - 1)]
 
 
 class PathFont:
@@ -252,7 +350,9 @@ POT_GAP = 4.0       # min gap (mm) between the pot and a bottom-right number tha
                     # the plant is lifted on those cards to keep it
 SHOWPIECE = {55: 1.15}   # cards whose plant may be drawn up to this much larger than its species size, as large
 SHOWPIECE_SHIFTS = (0.0, 0.5, 1.0, 1.5, -0.5, -1.0)   # as fits (collision-checked), pot sliding up to these mm
-SHOWPIECE_MARK_CLEAR = 2.4   # the showpiece card is the busiest (7 marks a side): its marks get this much air (mm)
+SHOWPIECE_MARK_CLEAR = 2.0   # air round the showpiece card's top-left marks (mm; the top half is open anyway) ...
+SHOWPIECE_BR_CLEAR = 3.5     # ... and round its bottom-right block (number + 7 marks, right beside the pot), so the
+                             # busiest corner of the busiest card doesn't feel crowded (box clearance; ink gap ~4.6 mm)
 GLYPH = 4.0
 # Plant size. Each plant is measured (ink box of its master SVG) and scaled so the deck reads as one
 # consistent size: a blend of height-fit and area-fit, damped and clamped so pots never jump wildly.
@@ -279,16 +379,11 @@ def num_style(n):
 def number_ink(n, size, track=NUM_TRACK):
     """(xmin, xmax) of the number's ink relative to its centring point (see number_path)."""
     s = size / UPM
-    items = [(ch, glyph(ch)[1]) for ch in str(n)]
-    track = track * UPM
-    total = sum(w for _, w in items) + track * (len(items) - 1)
-    x = -total / 2
     xmin, xmax = 1e9, -1e9
-    for ch, w in items:
+    for ch, x in zip(str(n), digit_origins(n, size, track)):
         bp = BoundsPen(_gs); _gs[_cmap[ord(ch)]].draw(bp)
         x0, _, x1, _ = bp.bounds
         xmin, xmax = min(xmin, x + x0), max(xmax, x + x1)
-        x += w + track
     return xmin * s, xmax * s
 
 
@@ -467,6 +562,8 @@ def obstacles(n, species, showpiece=False):
     for x0, y0, x1, y1, *k in boxes:
         c = (SHOWPIECE_MARK_CLEAR if showpiece else k[0]) if k else PLANT_CLEAR
         obs.append((x0 - c, y0 - c, x1 + c, y1 + c))
+        if showpiece:                    # the bottom-right block sits beside the pot: number and marks get more air
+            c = max(c, SHOWPIECE_BR_CLEAR)
         obs.append((CW - x1 - c, CH - y1 - c, CW - x0 + c, CH - y0 + c))      # 180-degree twin
     c = PLANT_CLEAR
     x0, y0, x1, y1 = label_box(species, *LABEL_POS)
@@ -590,6 +687,9 @@ def page(cards, idx, total):
 if __name__ == "__main__":
     import cairosvg
     from pypdf import PdfWriter, PdfReader
+    gaps = sorted((min(digit_gaps(n)), n) for n in range(10, 105))
+    assert gaps[0][0] >= DIGIT_GAP - 0.01, gaps[:5]
+    print("digit gaps (mm), tightest:", ", ".join(f"{n} {g:.2f}" for g, n in gaps[:5]))
     outdir = sys.argv[1] if len(sys.argv) > 1 else str(paths.BUILD / "deck_sheets")
     os.makedirs(outdir, exist_ok=True)
     A = assign()

@@ -41,8 +41,10 @@ for history; where it disagrees with this file, this file wins (card size and pr
   darker again over the pot's shaded side), so masters and cards match.
 - The proof page tests line weights, the leaf-green steps (plus four burgundy pairs that meet on the cards:
   Tradescantia's leaf-band tiers and the oxalis / tradescantia wine–burgundy–plum steps, `BURG_PAIRS` in
-  `deck/proof.py`, which warns if those colours leave the plant art), the corner tints and solid colours, and shows the
-  neighbouring tiers side by side: the top 30.5 mm of real cards 25, 30, 22 and 55 (tiers 2, 3, 5, 7), drawn with
+  `deck/proof.py`, which warns if those colours leave the plant art), the corner tints and solid colours, the
+  scale, the 3-digit numerals at 100 % (the top-left 30 × 24 mm of real cards 100 and 104, the tightest digit pairs in the deck,
+  so digit spacing can be judged on the real stock; the print-setting reminders that stood beside the scale test
+  moved into the intro lines), and shows the neighbouring tiers side by side: the top 30.5 mm of real cards 25, 30, 22 and 55 (tiers 2, 3, 5, 7), drawn with
   the deck's own `info_block` / `field_blob` / `sprig` exactly as on the card (number top-left, marks 3 over 2 and
   4 over 3, field top-right; plant and label left out), at 68 % so four fit inside the recommended area. If a green
   pair merges on the real card (most likely night/deep or deep/forest), lift the darks in `plants/core.py`
@@ -55,7 +57,15 @@ for history; where it disagrees with this file, this file wins (card size and pr
   5 mm from the top cut; its 180° twin at the bottom right. 100–104 are too wide and shift in just enough to
   keep 5 mm clear. 100–104 use a size step smaller (`NUM_SIZE_3` 18.5, cap ~12 mm) with tighter tracking,
   and their plant is lifted (≈ 0.5 mm) so the pot clears the bottom-right number by `POT_GAP` = 4 mm; before, the
-  wide numeral sat ~2 mm under the pot as if the pot stood on it. 6/9-style ambiguous numbers get a conventional underline: the full width of the numeral ink
+  wide numeral sat ~2 mm under the pot as if the pot stood on it.
+- Digit spacing (`pair_advance` in `deck/deck.py`): advance + tracking (−0.02 em; −0.045 on 100–104), then
+  each neighbouring pair is opened just enough to leave `DIGIT_GAP` = 0.6 mm of paper between the two glyphs'
+  ink (0.5 mm minimum + 0.1 mm for ink spread on uncoated card), measured as the true shortest distance between
+  the outlines. On 100–104 every pair is also closed to at most 1.0 mm (`DIGIT_GAP_MAX_3`), so the loose 1|0
+  (1.44 mm before) doesn't split "100" into "1 00" and the numeral stays as wide as it was. Before this the
+  two zeros of 100 overlapped and 104's 4 ran into the 0. Tightest pairs now: 71, 77, 100 (0|0), 104 (0|4) at
+  0.60 mm, 11 at 0.61; every other pair is wider. `deck.py` asserts the minimum on every build and prints the
+  tightest five; `deck.digit_gaps(n)` gives the gaps of any number. 6/9-style ambiguous numbers get a conventional underline: the full width of the numeral ink
   (less 0.3 mm each end), centred, 0.7 mm thick.
 - Penalty = repeated wilted-leaf marks centred under the number: 1–3 in one row, 5 as 3 over 2, 7 as 4 over 3
   (4.0 mm marks, 0.8 mm apart, rows 0.7 mm apart; a row never crosses the EDGE line).
@@ -82,9 +92,11 @@ for history; where it disagrees with this file, this file wins (card size and pr
   takes the largest scale that fits all of them, so a species is the same size everywhere; a plant blocked
   by the bottom-right block may slide up to 3 mm left instead of shrinking (string of pearls, spider plant, wax plant).
   Card 55 is the one exception to "same size everywhere" (`SHOWPIECE`): its bird of paradise is drawn as large as
-  fits, up to 1.15× its species size, still checked against the same obstacles but with 2.4 mm (`SHOWPIECE_MARK_CLEAR`)
-  instead of 2.0 mm round its penalty marks, since 55 carries the most marks (currently ≈ 1.08×, pot 1 mm right;
-  ≈ 3.5–3.9 mm of paper between plant ink and the nearest mark on each side).
+  fits, up to 1.15× its species size, still checked against the same obstacles, with 2.0 mm (`SHOWPIECE_MARK_CLEAR`)
+  round the top-left marks and 3.5 mm (`SHOWPIECE_BR_CLEAR`) round the whole bottom-right block (number and its
+  7 marks), which sits right beside the pot on the busiest card (currently ≈ 1.05×, pot on the standard base point;
+  ≈ 4.6 mm of ink-to-ink paper to the bottom-right marks, ≈ 3.4 mm from the pot rim to the nearest mark column,
+  ≈ 3.7 mm to the top-left marks; before, at 1.08× with the pot 1 mm right, the bottom-right corner felt crowded).
 - Plant name (common + botanical, Fraunces) runs up the right edge, 5 mm from the cut. Common name in forest
   green `#405D43`; botanical name in italic warm grey-brown `#625444` (darker than the first `#7A6A58`, which was
   too faint on ivory stock).

@@ -17,6 +17,8 @@ BURG_PAIRS = [("#4A3441", "#5E3A40", "zebrina 0 / 1"), ("#5E3A40", "#6C4150", "z
               ("#5E3A40", "#74464D", "wine / burgundy"), ("#74464D", "#8A5560", "burgundy / plum")]
 TIER_CARDS = ((2, 25), (3, 30), (5, 22), (7, 55))   # section 5: one real card per tier, neighbours side by side
 CARD_S = 0.68     # section 5 card scale (four trim-wide cards across x 14..196 mm)
+NUM3_CARDS = (100, 104)   # section 4: 3-digit numbers at 100 %, top-left corner of the trim
+NUM3_W, NUM3_H, X3 = 30.0, 24.0, 133   # crop (mm) and left edge of that test
 CROP = 30.5       # section 5: card shown from the top cut down to this depth (mm), just below two rows of marks
 
 
@@ -53,8 +55,8 @@ def build():
          '<rect width="210" height="297" fill="#fff"/>']
     y = deck.REC_TOP + 5
     g.append(t(X0, y, "Take 5 · Botanical — print proof (GX5050, 250 gsm uncoated)", 4.0, 'font-weight="bold"'))
-    g.append(t(X0, y + 5.5, "Rear tray · 100% / Actual size · borderless OFF. Print once per paper-type setting, tick it below, dry 10 min, judge.", 2.3))
-    g.append(t(X0, y + 9, "Then print sheet 1 of the deck on the same setting: cut one card and try it in a 66 × 91 mm sleeve.", 2.3))
+    g.append(t(X0, y + 5.5, "Rear tray, one sheet at a time · 100% / Actual size · borderless OFF · Prevent paper abrasion ON. Print once per", 2.3))
+    g.append(t(X0, y + 9, "paper-type setting, tick it below, dry 10 min, judge. Then print deck sheet 1 on the same setting: cut one card, try it in a 66 × 91 mm sleeve.", 2.3))
 
     # 1 — line weights
     y += 16
@@ -111,7 +113,7 @@ def build():
     y += 38
     g.append(h(y, "4  Scale"))
     g.append(f'<path d="M{X0} {y + 6}h100M{X0} {y + 4.5}v3M{X0 + 100} {y + 4.5}v3" stroke="#333" stroke-width="0.25"/>')
-    g.append(t(X0 + 103, y + 6.8, "must measure 100 mm", 2.3))
+    g.append(t(X0 + 71, y + 3.6, "must measure 100 mm", 2.3))
     g.append(f'<rect x="{X0}" y="{y + 10}" width="30" height="30" fill="none" stroke="#333" stroke-width="0.25"/>')
     g.append(t(X0 + 5, y + 26, "30 × 30 mm", 2.3))
     x5 = 70
@@ -120,8 +122,18 @@ def build():
         yy = y + 20 + i * 5.2
         g.append(f'<rect x="{x5}" y="{yy - 2.8}" width="3.2" height="3.2" fill="none" stroke="#333" stroke-width="0.25"/>')
         g.append(t(x5 + 5, yy, o, 2.3))
-    g.append(t(130, y + 20, "Also: Prevent paper abrasion ON", 2.2))
-    g.append(t(130, y + 25.2, "Load one sheet at a time", 2.2))
+    # 3-digit numbers at 100 %: the top-left corner of real cards 100 and 104 (deck.info_block, as on the card),
+    # the tightest digit pairs in the deck (0|0 and 0|4, opened to deck.DIGIT_GAP)
+    g.append(t(X3, y, "3-digit numbers, 100 % — no digit may touch", 2.2, 'font-weight="bold"'))
+    for j, n in enumerate(NUM3_CARDS):
+        x, yy = X3 + j * (NUM3_W + 2), y + 3
+        cid = f"n3{n}"
+        g.append(f'<defs><clipPath id="{cid}"><rect x="{deck.B}" y="{deck.B}" width="{NUM3_W}" height="{NUM3_H}"/></clipPath></defs>'
+                 f'<g transform="translate({x:.3f} {yy:.3f}) translate({-deck.B} {-deck.B})">'
+                 f'<g clip-path="url(#{cid})">{card_top(n)}</g></g>'
+                 f'<rect x="{x:.3f}" y="{yy:.3f}" width="{NUM3_W}" height="{NUM3_H}" fill="none" stroke="#bbb" stroke-width="0.15"/>')
+        g.append(t(x, yy + NUM3_H + 2.8, f"card {n} · top-left {NUM3_W:g} × {NUM3_H:g} mm", 2.0))
+    assert X3 + 2 * NUM3_W + 2 <= 196
     # 5 — neighbouring tiers as they really print: the top of real cards, drawn with the deck's own functions
     # (card_top below = the top half of deck.card: field + sprig top-right, number + marks top-left), without
     # the plant and name label, cropped below the marks and shown at CARD_S scale
