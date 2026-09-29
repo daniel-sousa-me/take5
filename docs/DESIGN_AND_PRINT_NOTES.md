@@ -40,7 +40,9 @@ for history; where it disagrees with this file, this file wins (card size and pr
 - The pot band (`pot(band=True)` in `plants/core.py`) is an opaque pre-blended line 4 units wide (a step
   darker again over the pot's shaded side), so masters and cards match.
 - The proof page tests line weights, the leaf-green steps, the corner tints and solid colours, and shows the
-  neighbouring tiers side by side as on the cards (2 vs 3, 3 vs 5: field, sprig, number, marks). If a green
+  neighbouring tiers side by side: the top 30.5 mm of real cards 25, 30, 22 and 55 (tiers 2, 3, 5, 7), drawn with
+  the deck's own `info_block` / `field_blob` / `sprig` exactly as on the card (number top-left, marks 3 over 2 and
+  4 over 3, field top-right; plant and label left out), at 68 % so four fit inside the recommended area. If a green
   pair merges on the real card (most likely night/deep or deep/forest), lift the darks in `plants/core.py`
   `PAL`/`SHADE` and rebuild.
 
@@ -94,10 +96,12 @@ for history; where it disagrees with this file, this file wins (card size and pr
   placed along their stems at a constant angle, alternating sides and shrinking to the tip. Like the card-face
   plants, each leaf has a darker turned-away half (a solid, about the same step as `plants/core.py` `SHADE`) and an
   opaque pre-blended midrib 0.3 mm wide; no opacity anywhere on the back.
-- The three burgundy berries sit fully inside the trim (≥ 1 mm), drawn in front of the upright stem's leaves.
-- Art only crosses the cut at those two corners (within ~22 mm of them), and only as leaves and stems (no berry is
+- The three burgundy berries sit fully inside the trim (≥ 1.2 mm; currently 1.8 mm at the closest), fanned out on
+  stalks from one point on the upright stem, drawn in front of the upright stem's leaves.
+- Art only crosses the cut at those two corners (within 22 mm of them), and only as leaves and stems (no berry is
   cut in half); everything else stays ≥ 1 mm inside,
-  so cutting or duplex drift just crops a leaf differently.
+  so cutting or duplex drift just crops a leaf differently. `back.check()` asserts both rules on every build
+  (rasterises the back and looks for ink in the bleed or the 1 mm band inside the cut away from the two corners).
 - The "TAKE 5" wordmark is the focal point: deep green (`#314B37`), the largest and darkest element. The
   top-right sweep is drawn a step lighter (mid/sage/light greens), with shorter leaves and a thinner stem than
   the bottom arrangement, and the lily is a little smaller, sits low (≥ 11 mm from the "5") and is a

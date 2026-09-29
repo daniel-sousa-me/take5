@@ -4,7 +4,8 @@ Units: 0.1 mm. Trim = 0..635 x 0..880 (63.5 x 88 mm poker). Bleed 15 units (1.5 
 Design rules for hand cutting + manual duplex:
   * no frame, nothing that runs parallel to a cut edge
   * art only crosses the edges at the top-right and bottom-left corners, as organic shapes,
-    so a 1-2 mm cut/registration drift just crops a leaf a little differently
+    so a 1-2 mm cut/registration drift just crops a leaf a little differently (check() asserts this and the
+    berries' >= 1.2 mm clearance on every build)
   * paper is left unprinted (use ivory stock for the cream look) -> no big flat tint to band
   * lines >= 0.25 mm, light-on-dark lines >= 0.25 mm
 """
@@ -119,6 +120,10 @@ def branch(pts, leaves, back_cols, front_cols, width=0.2, angle=46, w0=8, w1=3.2
     return out
 
 
+BERRY_R = 17
+BERRIES = ((104, 852), [((38, 770), -20), ((34, 845), 2), ((80, 814), -3)], STEM_R, BERRY_R, BERRY, BERRY_S)
+
+
 def build_body():
     reset_ids()
     o = []
@@ -138,9 +143,9 @@ def build_body():
     o.append(branch(br, [(0.52, 98), (0.65, 80), (0.78, 96), (0.90, 62)], angle=38,
                     back_cols=[G["forest"], G["dark"]], front_cols=[G["sage"], G["mid"]], tip=(56, G["light"]), first=1, w0=7, w1=3))
     # berries branch off the upright stem (drawn first so the join sits under the stem)
-    # all three berries sit fully inside the trim (>= 1 mm), none cut by the left edge; stalks go under the
+    # all three berries sit fully inside the trim (>= 1.2 mm, see check()), none cut by the left edge; stalks go under the
     # upright stem, the berries themselves are drawn after it so the leaves don't hide them
-    berries = ((104, 850), [((34, 792), -6), ((31, 847), 0), ((76, 836), -2)], STEM_R, 17, BERRY, BERRY_S)
+    berries = BERRIES
     o.append(sprig(*berries, w=3.4, part="stalks"))
     # lily stem forks off the upright stem low down
     o.append(stem([(100, 890), (150, 862), (212, 842), (256, 818)], 7, 4, STEM_G))
@@ -162,6 +167,40 @@ def build_body():
     return "".join(o)
 
 
+BERRY_MIN = 12       # berries stay >= 1.2 mm inside the trim
+CORNER_R = 220       # art may reach into the bleed / the 1 mm band inside the cut only within 22 mm of the
+EDGE_BAND = 10       # top-right and bottom-left trim corners
+
+
+def berry_circles():
+    """(x, y, r) of the burgundy berries, exactly as sprig() draws them."""
+    return [(tx, ty, BERRY_R * (0.85 + 0.3 * ((tx * 7 + ty * 3) % 10) / 10)) for (tx, ty), _ in BERRIES[1]]
+
+
+def check(px_per_mm=10):
+    """Assert the edge rules: berries fully inside the trim (>= BERRY_MIN), and ink in the bleed or within
+    EDGE_BAND of a cut only near the top-right and bottom-left corners. Returns the berries' clearances (mm)."""
+    import io, cairosvg, numpy as np
+    from PIL import Image
+    clear = []
+    for x, y, r in berry_circles():
+        c = min(x - r, y - r, W - x - r, H - y - r)
+        assert c >= BERRY_MIN, f"berry at ({x}, {y}) only {c / 10:.2f} mm inside the trim"
+        clear.append(round(c / 10, 2))
+    k = px_per_mm / 10                                          # px per body unit
+    svg = (f'<svg xmlns="http://www.w3.org/2000/svg" width="{W + 2 * BLEED + 200}" height="{H + 2 * BLEED + 200}" '
+           f'viewBox="{-BLEED - 100} {-BLEED - 100} {W + 2 * BLEED + 200} {H + 2 * BLEED + 200}">{build_body()}</svg>')
+    a = np.array(Image.open(io.BytesIO(cairosvg.svg2png(bytestring=svg.encode(), scale=k))).convert("RGBA"))[..., 3] > 40
+    ys, xs = np.nonzero(a)
+    bx, by = xs / k - BLEED - 100, ys / k - BLEED - 100            # body units
+    near_edge = (bx < EDGE_BAND) | (bx > W - EDGE_BAND) | (by < EDGE_BAND) | (by > H - EDGE_BAND)
+    d_tr = np.hypot(bx - W, by)
+    d_bl = np.hypot(bx, by - H)
+    bad = near_edge & (d_tr > CORNER_R) & (d_bl > CORNER_R)
+    assert not bad.any(), f"ink at the cut away from the two corners, e.g. {bx[bad][0]:.0f}, {by[bad][0]:.0f}"
+    return clear
+
+
 def back_group():
     """Card-local group in deck units (mm, envelope 0..CW x 0..CH incl. bleed)."""
     s = 0.1
@@ -179,6 +218,7 @@ def standalone(path, scale_px=8):
 
 if __name__ == "__main__":
     import cairosvg
+    print("back edge check ok; berry clearance to the trim (mm):", check())
     paths.BUILD.mkdir(exist_ok=True)
     svg = standalone(str(paths.BUILD / "card_back.svg"))
     guide = svg.replace("</svg>", f'<rect x="{deck.B}" y="{deck.B}" width="{deck.TW}" height="{deck.TH}" fill="none" stroke="#f0f" stroke-width="0.12"/></svg>')

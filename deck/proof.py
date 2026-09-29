@@ -10,6 +10,9 @@ PAL = dict(night="#27392C", deep="#314B37", forest="#405D43", mid="#5B7458", sag
            burgundy="#74464D", blush="#D79C9A", mustard="#C49A41", amber="#D48A4C")
 F = 'font-family="DejaVu Sans" fill="#333"'
 X0 = 14
+TIER_CARDS = ((2, 25), (3, 30), (5, 22), (7, 55))   # section 5: one real card per tier, neighbours side by side
+CARD_S = 0.68     # section 5 card scale (four trim-wide cards across x 14..196 mm)
+CROP = 30.5       # section 5: card shown from the top cut down to this depth (mm), just below two rows of marks
 
 
 def t(x, y, s, size=2.4, extra=""):
@@ -18,6 +21,17 @@ def t(x, y, s, size=2.4, extra=""):
 
 def h(y, s):
     return t(X0, y, s, 3.0, 'font-weight="bold"')
+
+
+def card_top(n):
+    """Card-local top half of card n exactly as deck.card() draws it (colour field + sprig in the top-right
+    corner, number + penalty marks from deck.info_block top-left), without the plant and name label."""
+    p = deck.penalty(n)
+    tint, acc, spr, ncol, gcol = deck.TIER[p]
+    block, _, _ = deck.info_block(n, p, ncol, gcol)
+    field = (f'<g transform="translate({deck.CW} 0) scale(-1 1) scale({deck.FIELD_SCALE})">'
+             + deck.field_blob(tint, acc) + deck.sprig(spr) + "</g>")
+    return field + block
 
 
 def build():
@@ -46,7 +60,7 @@ def build():
     g.append(t(52, y + 42, "The artwork uses ≥ 0.15 mm for dark lines and ≥ 0.20 mm for light-on-dark lines.", 2.1))
 
     # 2 — tone steps
-    y += 49
+    y += 47
     g.append(h(y, "2  Leaf tone steps — each pair must still read as two different greens"))
     order = ["night", "deep", "forest", "mid", "sage", "light", "pale"]
     for i in range(len(order) - 1):
@@ -59,7 +73,7 @@ def build():
     g.append(t(X0, y + 28, "If a pair merges (most likely night/deep or deep/forest), note which — the darks can be lifted.", 2.1))
 
     # 3 — flat fields + solids
-    y += 35
+    y += 33
     g.append(h(y, "3  Flat colour — look for banding or grain; dry-rub the solids"))
     for i, p in enumerate([1, 2, 3, 5, 7]):
         tint, acc, sprig, ncol, gcol = deck.TIER[p]
@@ -76,7 +90,7 @@ def build():
         g.append(t(X0 + i * 23, y + 32, k, 2.0))
 
     # 4 — scale + setting log
-    y += 40
+    y += 38
     g.append(h(y, "4  Scale"))
     g.append(f'<path d="M{X0} {y + 6}h100M{X0} {y + 4.5}v3M{X0 + 100} {y + 4.5}v3" stroke="#333" stroke-width="0.25"/>')
     g.append(t(X0 + 103, y + 6.8, "must measure 100 mm", 2.3))
@@ -90,24 +104,22 @@ def build():
         g.append(t(x5 + 5, yy, o, 2.3))
     g.append(t(130, y + 20, "Also: Prevent paper abrasion ON", 2.2))
     g.append(t(130, y + 25.2, "Load one sheet at a time", 2.2))
-    # 5 — neighbouring tiers side by side: field + sprig + number + marks, as on the cards
+    # 5 — neighbouring tiers as they really print: the top of real cards, drawn with the deck's own functions
+    # (card_top below = the top half of deck.card: field + sprig top-right, number + marks top-left), without
+    # the plant and name label, cropped below the marks and shown at CARD_S scale
     y += 44
-    g.append(h(y, "5  Neighbouring tiers — each pair must read as two different penalties at a glance"))
-    for k, (pa, pb) in enumerate(((2, 3), (3, 5))):
-        for j, (p, n) in enumerate(((pa, {2: 25, 3: 30, 5: 22}[pa]), (pb, {2: 25, 3: 30, 5: 22}[pb]))):
-            x = X0 + k * 94 + j * 43
-            yy = y + 3
-            tint, acc, spr, ncol, gcol = deck.TIER[p]
-            cid = f"tp{k}{j}"
-            g.append(f'<clipPath id="{cid}"><rect x="{x}" y="{yy}" width="41" height="18"/></clipPath>'
-                     f'<rect x="{x}" y="{yy}" width="41" height="18" fill="none" stroke="#bbb" stroke-width="0.15"/>'
-                     f'<g clip-path="url(#{cid})"><g transform="translate({x} {yy}) scale(0.55)">'
-                     + deck.field_blob(tint, acc) + deck.sprig(spr) + "</g></g>")
-            g.append(f'<g fill="{ncol}">' + deck.number_path(n, 11, x + 29, yy + 8.5) + "</g>")
-            g.append(deck.wilt_row(deck.penalty(n), x + 28, yy + 11, 3.2, gcol))
-            g.append(t(x, yy + 21, f"tier {p} (card {n})", 2.0))
-        g.append(t(X0 + k * 94 + 38, y + 14, "vs", 2.2))
-    assert y + 24 <= deck.REC_BOT, y + 24
+    g.append(h(y, "5  Neighbouring tiers — each neighbour (2|3, 3|5, 5|55) must read as a different penalty"))
+    pw, ph = deck.TW * CARD_S, CROP * CARD_S
+    gap = (196 - X0 - 4 * pw) / 3
+    for j, (p, n) in enumerate(TIER_CARDS):
+        x, yy = X0 + j * (pw + gap), y + 3
+        cid = f"tc{n}"
+        g.append(f'<defs><clipPath id="{cid}"><rect x="{deck.B}" y="{deck.B}" width="{deck.TW}" height="{CROP}"/></clipPath></defs>'
+                 f'<g transform="translate({x:.3f} {yy:.3f}) scale({CARD_S}) translate({-deck.B} {-deck.B})">'
+                 f'<g clip-path="url(#{cid})">{card_top(n)}</g></g>'
+                 f'<rect x="{x:.3f}" y="{yy:.3f}" width="{pw:.3f}" height="{ph:.3f}" fill="none" stroke="#bbb" stroke-width="0.15"/>')
+        g.append(t(x, yy + ph + 2.8, f"tier {p} · card {n} (top {CROP:g} mm, at {CARD_S * 100:g} %)", 2.0))
+    assert yy + ph + 3.3 <= deck.REC_BOT, yy + ph + 3.3
     g.append("</svg>")
     return "".join(g)
 
