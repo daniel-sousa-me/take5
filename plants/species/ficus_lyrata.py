@@ -25,7 +25,8 @@ def mix(a, b, t):
     return "#" + "".join(f"{round(x + (y - x) * t):02X}" for x, y in zip(ca, cb))
 
 
-VEIN_W = 4.0     # light-on-dark lateral veins: print-safe knockout weight
+VEIN_W = 4.8     # light-on-dark lateral veins at their base (tapered ribbons, print-safe widest point)
+VEIN_TS = [0.14, 0.31, 0.48, 0.65]   # four sub-opposite pairs of laterals
 
 # half-width profile of the violin-shaped blade (t along midrib, w as fraction of L)
 # Few, evenly spread nodes -> smooth margin: narrow base, one gentle waist (~0.42),
@@ -104,15 +105,23 @@ class Fig:
         b = self.M(0.3, -0.5)
         return (b[0] - a[0]) + 0.35 * (b[1] - a[1]) > 0
 
-    def veins(self, ts, reach=0.82, dt=0.13):
+    def veins(self, ts, reach=0.8, dt=0.17, w0=4.8, w1=1.8, stagger=0.035):
+        """Lateral veins as tapered ribbons (page coords, so widths are print-true).
+        Each one leaves the midrib at ~60 deg, then bends gently toward the apex
+        and thins out before the margin. Left/right are sub-opposite (staggered)
+        so a pair never joins into one arc across the midrib."""
         d = []
         for t in ts:
             for side, sg in (("r", 1), ("l", -1)):
-                t2 = min(t + dt, 0.95)
-                p0 = self.M(*self.ax(t))
-                p1 = self.M(*self.lp(t + dt * 0.3, sg * self.wid(t + dt * 0.3, side) * reach * 0.62))
-                p2 = self.M(*self.lp(t2, sg * self.wid(t2, side) * reach))
-                d.append(f"M{f(p0[0])} {f(p0[1])}Q{f(p1[0])} {f(p1[1])} {f(p2[0])} {f(p2[1])}")
+                t0 = t + (stagger if side == "l" else 0.0)
+                t2 = min(t0 + dt, 0.93)
+                ex = sg * self.wid(t2, side) * reach
+                p0 = self.ax(t0)
+                # control: most of the lateral run happens early (steep take-off),
+                # the last stretch turns up toward the tip
+                c = self.lp(t0 + (t2 - t0) * 0.42, ex * 0.72)
+                p2 = self.lp(t2, ex)
+                d.append(taper(self.M(*p0), self.M(*c), self.M(*p2), w0, w1))
         return "".join(d)
 
     def rib_shape(self, w):
@@ -145,11 +154,27 @@ class Fig:
              f'<path d="{d}" fill="{fill}"/>',
              f'<g clip-path="url(#{cid})">',
              f'<path d="{self.half(sg)}" fill="{shade}"/>',
-             f'<path d="{self.veins([0.16, 0.36, 0.56], reach=0.74, dt=0.2)}" fill="none" stroke="{vein_col}" '
-             f'stroke-width="{VEIN_W}" stroke-linecap="round"/>',
+             f'<path d="{self.veins(VEIN_TS)}" fill="{vein_col}"/>',
              f'<path d="{self.rib_shape(rib_w)}" fill="{rib_col}"/>',
              "</g>"]
         return "".join(o)
+
+
+def taper(p0, c, p2, w0, w1):
+    """Compact tapered vein: a quadratic (p0, control c, p2) widened w0 -> w1,
+    written as two offset quadratics (keeps the file small)."""
+    def nrm(a, b):
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        m = math.hypot(dx, dy) or 1
+        return (-dy / m, dx / m)
+    n0, n2, nc = nrm(p0, c), nrm(c, p2), nrm(p0, p2)
+    wc = (w0 + w1) / 4
+    A = [(p0[0] + n0[0] * w0 / 2, p0[1] + n0[1] * w0 / 2), (c[0] + nc[0] * wc, c[1] + nc[1] * wc),
+         (p2[0] + n2[0] * w1 / 2, p2[1] + n2[1] * w1 / 2)]
+    B = [(p0[0] - n0[0] * w0 / 2, p0[1] - n0[1] * w0 / 2), (c[0] - nc[0] * wc, c[1] - nc[1] * wc),
+         (p2[0] - n2[0] * w1 / 2, p2[1] - n2[1] * w1 / 2)]
+    q = lambda P: f"{f(P[0])} {f(P[1])}"
+    return f"M{q(A[0])}Q{q(A[1])} {q(A[2])}L{q(B[2])}Q{q(B[1])} {q(B[0])}Z"
 
 
 def petiole(stem_pt, fig, length_in=0.06, w0=5.0, w1=3.6, col=BARK):
@@ -223,8 +248,8 @@ def build():
         dark = tone in ("deep", "forest")
         # opaque pre-blended vein tones: pale tint of the blade colour
         # (kept ~25 % below the silhouette contrast so vein detail reads as detail)
-        vein = mix(P[tone], P["light"] if dark else P["ivory"], 0.24 if dark else 0.25)
-        rib = mix(P[tone], P["light"] if dark else P["ivory"], 0.4 if dark else 0.45)
+        vein = mix(P[tone], P["light"] if dark else P["ivory"], 0.17 if dark else 0.25)
+        rib = mix(P[tone], P["light"] if dark else P["ivory"], 0.3 if dark else 0.45)
         pw = 5.5 if L > 150 else 4.6
         s = petiole(sp, fig, w0=pw, w1=pw * 0.7)
         s += fig.svg(P[tone], vein, rib)
