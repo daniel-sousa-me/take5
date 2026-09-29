@@ -21,9 +21,9 @@ TONES = {
     "deep":   (P["deep"],   SHADE[P["deep"]],   "#4A634D", P["light"]),
     "forest": (P["forest"], SHADE[P["forest"]], "#587558", P["pale"]),
     "mid":    (P["mid"],    SHADE[P["mid"]],    "#728A6C", P["pale"]),
-    "sage":   (P["sage"],   SHADE[P["sage"]],   "#95A688", "#DCE2D1"),  # pale green tint, L* 89
+    "sage":   (P["sage"],   SHADE[P["sage"]],   "#95A688", "#D7DDCC"),  # pale green tint, L* 87.3 (<= 88 on white stock)
     "light":  (P["light"],  SHADE[P["light"]],  "#B9C4AB", "#FFFFFF"),  # paper-white dot (white stock)
-    "pale":   (P["pale"],   SHADE[P["pale"]],   "#DAE0CF", "#FFFFFF"),
+    "pale":   (P["pale"],   SHADE[P["pale"]],   "#D7DDCC", "#FFFFFF"),  # vein tint L* 87.3
 }
 VEIN_W0, VEIN_W1 = 4.4, 1.0   # world units at the dot / at the vein end
 DOT_MIN_R = 2.5               # world minor radius of the attachment dot (>= 4.5 across)

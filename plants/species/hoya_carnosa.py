@@ -33,7 +33,7 @@ TONES = {
 STEM = "#8E9E80"
 HOOP = P["terra_dark"]
 HOOP_WRAP = "#774C37"  # soil over terra_dark @50 %, pre-blended
-PETAL = "#F0DAD0"      # pale blush tint, L* 88.6 (white stock: visible tints stay <= L* 90)
+PETAL = "#ECD6CD"      # pale blush tint, L* 87.2 (white stock: visible tints stay <= L* 88)
 PETAL_SH = "#E4C3BB"
 PETAL_BK = "#DDB0AA"
 CORONA = P["red"]

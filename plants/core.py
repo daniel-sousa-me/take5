@@ -310,10 +310,10 @@ def pot(kind="classic", cx=300, rim_y=584, bottom=752, rx=104, rim_h=32, base_w=
              f"L{f(cx + 200)} {f(bottom + 10)} L{f(cx + 200)} {f(by0)}Z")
     hi = (f"M{f(cx - body_top_w * 0.70)} {f(by0 + 14)} Q{f(cx - bw * 0.78)} {f((by0 + bottom) / 2)} {f(cx - bw * 0.62)} {f(bottom - 12)}")
     front = [
-        # ground shadow: opaque pre-blend (deep over white paper @ ~16 %, L* 89.5) -- white card stock
-        # prints an even tint only at L* <= ~90, so it sits just below the 90-95 speckle band;
+        # ground shadow: opaque pre-blend (deep over white paper @ ~18 %, L* 87.4) -- white card stock
+        # prints an even tint only at L* <= ~90, so it sits with margin (<= 88) below the speckle band;
         # a touch smaller than the old 11 % translucent ellipse so the solid tone stays quiet
-        f'<ellipse cx="{f(cx)}" cy="{f(bottom + 3)}" rx="{f(bw + 34)}" ry="8" fill="#DEE2DF"/>',
+        f'<ellipse cx="{f(cx)}" cy="{f(bottom + 3)}" rx="{f(bw + 34)}" ry="8" fill="#D8DCD9"/>',
         f'<clipPath id="{bid}"><path d="{body}"/></clipPath>',
         f'<path d="{body}" fill="{P["terra"]}"/>',
         f'<g clip-path="url(#{bid})">',

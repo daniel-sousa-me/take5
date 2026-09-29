@@ -34,7 +34,7 @@ SILVER_EDGE = {-1: 1.03, 1: 0.96}   # silver stripes run almost to the edge: mar
 TIERS = {
     0: ("#5B6B5C", "#4F5E50", "#4A3441", "#3E2C37", "#8E9A8B", "#7D897A"),
     1: ("#788A72", "#6B7C65", P["wine"], "#4E3036", "#BAC3AE", "#A3AD98"),
-    2: ("#94A48B", "#86957D", "#6C4150", "#5A3743", "#E0E3D3", "#C8CFBB"),
+    2: ("#94A48B", "#86957D", "#6C4150", "#5A3743", "#D9DCCD", "#C2C9B5"),  # silver L* 87.2 / its shade L* 79.9 (white stock: tints <= L* 88)
 }
 # undersides: lit, shade, midrib
 UNDER = {

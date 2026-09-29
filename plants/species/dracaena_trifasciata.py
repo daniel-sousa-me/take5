@@ -162,7 +162,7 @@ class Sword:
         m = 4.4
         outer = self.outline(0)
         inner = self.outline(m, fade=self.fade)
-        cid = uid("dt")
+        cid, hid, lid, did = uid("dt"), uid("dh"), uid("dl"), uid("dd")
         bd, bl = self.bands(m)
         # concave shade: one half of the body a step darker (leaf is slightly channelled)
         side = 1 if self.lean > 0 else -1
@@ -179,9 +179,18 @@ class Sword:
              f'<clipPath id="{cid}"><path d="{inner}"/></clipPath>',
              f'<g clip-path="url(#{cid})">',
              f'<rect x="-70" y="{f(-self.H - 10)}" width="140" height="{f(self.H + 50)}" fill="{body}"/>',
-             f'<path d="{bl}" fill="{light}"/>',
-             f'<path d="{bd}" fill="{dark}"/>',
-             f'<path d="{hp}" fill="{P["night"]}" opacity=".16"/>',
+             # band shapes defined once, drawn twice (plain and in the channelled half) via <use>
+             f'<defs><path id="{lid}" d="{bl}"/><path id="{did}" d="{bd}"/></defs>',
+             f'<use href="#{lid}" fill="{light}"/>',
+             f'<use href="#{did}" fill="{dark}"/>',
+             # the channelled half: the same body + bands again, clipped to the half, each tone an OPAQUE
+             # pre-blend of night @ 16 % over it (identical look to the old translucent overlay, no transparency)
+             f'<clipPath id="{hid}"><path d="{hp}"/></clipPath>',
+             f'<g clip-path="url(#{hid})">',
+             f'<rect x="-70" y="{f(-self.H - 10)}" width="140" height="{f(self.H + 50)}" fill="{mix(body, P["night"], .16)}"/>',
+             f'<use href="#{lid}" fill="{mix(light, P["night"], .16)}"/>',
+             f'<use href="#{did}" fill="{mix(dark, P["night"], .16)}"/>',
+             '</g>',
              '</g>']
         # (the tiny dry tip point was removed: at ~0.1 mm printed it is below the dark-sliver minimum)
         s.append("</g>")
@@ -207,6 +216,11 @@ LEAVES = [
     Sword(286, -5, 222, 25, "fore", bend=-0.03, seed=18),
     Sword(319, 13.5, 196, 23, "front", bend=0.05, seed=19),
 ]
+
+
+def mix(a, b, t):
+    """b laid over a at opacity t, as one opaque hex colour."""
+    return "#" + "".join(f"{round(int(a[i:i + 2], 16) * (1 - t) + int(b[i:i + 2], 16) * t):02X}" for i in (1, 3, 5))
 
 
 def build():

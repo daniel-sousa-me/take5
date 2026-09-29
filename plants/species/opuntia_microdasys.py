@@ -161,7 +161,7 @@ class Pad:
         while y0 > -self.L * 0.97:
             shift = (gx / 2 if j % 2 else 0) + ox
             for i in range(-8, 9):
-                jx, jy = rnd.uniform(-2.5, 2.5), rnd.uniform(-2.0, 2.0)   # drawn for every slot: stable
+                jx, jy = rnd.uniform(-5.5, 5.5), rnd.uniform(-4.5, 4.5)   # drawn for every slot: stable
                 wx = i * gx + shift + jx     # world-ish x before foreshortening
                 y = y0 + jy
                 t = -y / self.L
@@ -276,7 +276,7 @@ def build():
     D, F, M, S, Lt, Pa = P["deep"], P["forest"], P["mid"], P["sage"], P["light"], P["pale"]
 
     # base pad, rooted below the rim
-    p0 = Pad(292, 672, -4, 228, 168, M, asym=0.04, seed=1)
+    p0 = Pad(292, 672, -4, 228, 142, M, asym=0.04, seed=1)
     # tier 2: left pad leans out, right pad more upright (no mirror symmetry)
     a3 = p0.top(4, 14)
     p3 = Pad(a3[0], a3[1], 6, 196, 150, BACKPAD, sx=0.42, seed=3)            # edge-on, centre-back

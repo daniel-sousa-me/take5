@@ -15,7 +15,7 @@ P = PAL
 RED = P["red"]            # spathe
 RED_DK = "#9C4640"        # deeper red for the turned-away half / veins
 RED_HI = "#E3AFA6"        # pale glossy highlight (blush, lifted)
-SPADIX = "#EFE3BC"        # ivory-cream spadix
+SPADIX = "#E6DBB4"        # ivory-cream spadix (L* 87.4: pale tints <= 88 on white stock)
 SPADIX_SH = P["mustard"]
 
 

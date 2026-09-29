@@ -29,8 +29,8 @@ EL = math.radians(46)                 # camera elevation above the horizon
 SE, CE = math.sin(EL), math.cos(EL)
 
 # powdery blue-green ramp (bluer extension of PAL sage / light / pale), dark -> light
-RAMP = ["#4A6155", "#5A7165", "#6B8377", "#7F968A", "#94AB9F", "#AABFB4", "#C0D1C7", "#D5E1D8",
-        "#DCE4DC"]  # heart tint held at L* 89.8 (white stock: keep pale tints out of the 90-95 speckle band)
+RAMP = ["#4A6155", "#5A7165", "#6B8377", "#7F968A", "#94AB9F", "#AABFB4", "#C0D1C7", "#CDD9D0",
+        "#D5DDD5"]  # heart tint held at L* 87.3 (white stock: pale tints stay <= L* 88, clear of the 90-95 speckle band)
 BLUSH = "#DCA29E"      # tip cap (between PAL blush and its lighter tint)
 CAP_K = 0.15           # blush cap = leaf outline scaled by this about its tip
 BAND_K = 1.6           # mid-pink band under the cap: the outline scaled by CAP_K * BAND_K
@@ -389,9 +389,11 @@ RC = (300, 548)          # rosette centre (soil level of the rosette, projected)
 # x, y, scale (drawn PLANT_DY lower, like the rosette): offsets hanging over the rim on short visible
 # stolons that run out from under the parent's leaves -- a larger one higher on the left and a clearly
 # smaller one lower on the right, so the two do not pair up either side of the rim like ears
-PUPS = [(176, 654, .27), (428, 668, .19)]
-STOLONS = [[(236, 606), (212, 598), (190, 610), (180, 630), (177, 646)],
-           [(380, 600), (402, 602), (420, 622), (427, 642), (428, 660)]]
+# Both pups overlap the bowl's wall decisively (about a third of their width in front of it), never
+# near-tangent to it.
+PUPS = [(198, 654, .27), (390, 668, .19)]
+STOLONS = [[(242, 606), (223, 598), (207, 610), (200, 630), (199, 646)],
+           [(362, 600), (375, 605), (384, 622), (389, 642), (390, 660)]]
 STOLON = mix(RAMP[2], P["rose"], 0.22)
 PLANT_DY = 12            # rosette + pups + stalks sit this much lower (the shallow bowl's rim is at RIM_Y)
 

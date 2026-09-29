@@ -376,7 +376,7 @@ def build():
         ("C", "tip", -4, 88, False, "mid", "top", 0.1, 41, 2),
         ("C", 3, 110, 172, False, "mid", "top", 0.12, 42, 2),
         ("C", 2, -114, 200, True, "mid", "top", 0.12, 43, 2),
-        ("C", 1, 158, 181, False, "mid", "edge", 0.06, 44, 3),  # tip stops mid-lip, clear of the rim edge
+        ("C", 1, 162, 218, False, "mid", "edge", 0.06, 44, 3),  # drapes in front: tip crosses the rim band, ends on the body
         # ("C", 0, -152, 138, True, "forest", "top", 0.1, 45, 3),
     ]
 

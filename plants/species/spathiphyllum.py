@@ -20,8 +20,8 @@ SPADIX_SH = "#CDBB6C"
 SPATHE_LT = "#FFFFFF"    # paper white
 SPATHE_SH = "#D3D9CB"    # cupped half
 SPATHE_VEIN = "#C3C8B0"
-SPATHE_FREE_LT = "#E3E2D1"  # cool cream tint (L* ~89.5) for a spathe seen against bare paper
-SPATHE_FREE_SH = "#C6CDBA"  # its cupped half (L* ~81)  # pale green midvein, pre-blended solid
+SPATHE_FREE_LT = "#DDDCCB"  # cool cream tint (L* 87.4, <= 88 on white stock) for a spathe seen against bare paper
+SPATHE_FREE_SH = "#C0C7B4"  # its cupped half (L* 79.2, same ~8 L* step)  # pale green midvein, pre-blended solid
 
 
 def rot_pt(x, y, deg):
