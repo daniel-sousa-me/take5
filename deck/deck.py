@@ -38,7 +38,7 @@ TIER = {  # (field tint, field accent, sprig ornament, number colour, glyph colo
     1: ("#D8DDBF", "#CDD4AF", "#A3AF83", C["deep"], "#6B7C52"),
     2: ("#EFD8A0", "#E8CC87", "#C9A45A", C["deep"], "#A0722C"),
     3: ("#F0C4A4", "#E9B592", "#CF906B", C["deep"], "#A9583A"),
-    5: ("#E5B7BE", "#DCA5AE", "#BD8490", "#6A3A45", "#86465A"),
+    5: ("#D8A3B0", "#CD94A3", "#B07282", "#6A3A45", "#86465A"),   # cooler + ~10 L darker than tier 3 so they never merge
     7: ("#E38E62", "#D97D51", "#F4C2A2", "#A8452A", "#A8452A"),
 }
 
@@ -131,6 +131,7 @@ class PathFont:
 
 
 LABEL_FONT = PathFont(str(paths.FRAUNCES_MEDIUM))
+LATIN_COL = "#625444"    # botanical name: warm grey-brown, a step darker than the old #7A6A58 for uncoated ivory
 LATIN_FONT = PathFont(str(paths.FRAUNCES_ITALIC))
 
 NAMES = {  # common name, currently accepted botanical name
@@ -184,14 +185,16 @@ def needs_mark(n):
     return r != s and not r.startswith("0") and 1 <= int(r) <= 104
 
 # ------------------------------------------------------------------ penalty glyph: wilted leaf
-# 10x10 box, origin top-left. A stem rises and flops over into a crook; the main leaf hangs from the crook,
-# tip down, and a second small leaf droops off the stem. Designed to read at ~4 mm: no inner detail (a
-# paper-coloured midrib turned it into a coffee bean), pointed tips, open silhouette. Ink box x -0.4..9.4.
-WILT = ('<path d="M2.7 10 C2.5 7.0 2.7 4.2 3.7 2.6 C4.6 1.2 6.3 0.9 6.95 2.4" fill="none" stroke="{c}" '
+# 10x10 box, origin top-left. A stem rises and bends over at the top; from the bend a broad, ovate leaf hangs
+# limp, widest near its stalk and tapering to a pointed tip straight down (a hanging pothos-style leaf), and a
+# second small leaf droops off the stem. Designed to read at ~4 mm: no inner detail (a paper-coloured midrib
+# turned an earlier version into a coffee bean), solid silhouette, stroke 0.85 (= 0.34 mm). Ink box x 0..9.2.
+WILT = ('<path d="M2.8 10 C2.7 7.4 2.9 4.9 3.6 3.4 C4.2 2.1 5.4 1.4 6.6 1.9" fill="none" stroke="{c}" '
         'stroke-width="0.85" stroke-linecap="round"/>'
-        '<path d="M6.90 2.30 C5.32 4.85 6.78 8.18 8.40 9.36 C9.37 7.43 9.30 3.71 6.90 2.30Z" fill="{c}"/>'
-        '<path d="M2.75 6.00 C1.21 5.52 -0.15 6.72 -0.44 7.71 C0.70 7.98 2.52 7.46 2.75 6.00Z" fill="{c}"/>')
-WILT_C = (4.5, 5.5)   # visual centre of the ink in the 10x10 box
+        '<path d="M6.5 1.85 C5.4 2.6 5.2 4.2 5.8 5.8 C6.4 7.3 7.3 8.6 7.7 10.0 C8.4 8.6 9.2 6.9 9.2 5.0 '
+        'C9.2 3.2 8.0 2.0 6.5 1.85Z" fill="{c}"/>'
+        '<path d="M2.78 6.2 C1.4 6.1 0.2 7.3 0.0 8.8 C1.4 8.7 2.5 7.6 2.78 6.2Z" fill="{c}"/>')
+WILT_C = (4.6, 5.8)   # visual centre of the ink in the 10x10 box
 
 
 def wilt_row(count, cx, y, size, col):
@@ -254,7 +257,10 @@ PLANT_CLAMP = (0.92, 1.2)  # limits on the per-plant factor
 POT_MAX = 13.5            # widest pot rim on the card (mm): squat plants in wide bowls don't balloon
 PLANT_X, PLANT_Y = CW / 2 - 1.5, 68.6   # card position of the pot's bottom centre
 PLANT_SHIFTS = (0.0, -1.0, -2.0, -3.0)  # allowed leftward pot shifts (mm) when a plant is blocked
-PLANT_CLEAR = 1.2         # min gap between plant ink and numbers / marks / label (mm); plants also stay inside EDGE
+PLANT_CLEAR = 1.2         # min gap between plant ink and numbers / label (mm); plants also stay inside EDGE
+MARK_CLEAR = 2.0          # ... and the (smaller, busier) penalty marks get more air
+NUM_AXIS = B + TW / 4 - 0.5   # number axis: 0.5 mm outside the 1/4 line (the most that keeps 88/99 off the EDGE),
+                              # so the bottom-right block sits a little nearer its corner
 FIELD_SCALE = 0.6   # corner colour field size
 
 
@@ -320,6 +326,8 @@ def penalty_marks(style, p, gcol, left, top, nh, num_right, base_extra):
 
 
 ROWS_Q = {1: [1], 2: [2], 3: [3], 5: [3, 2], 7: [4, 3]}
+GLYPH_Q = 4.0      # penalty mark size in the "quarter" layout (mm)
+UL_INSET = 0.3     # underline = numeral ink width minus this at each end
 
 
 def info_block(n, p, ncol, gcol):
@@ -330,7 +338,7 @@ def info_block(n, p, ncol, gcol):
     base = top + nh
     xmin, xmax = number_ink(n, NUM_SIZE)
     if PEN_STYLE == "quarter":
-        axis = B + TW / 4                                   # the 1/4 line of the trim
+        axis = NUM_AXIS                                     # just outside the 1/4 line of the trim
         cx = axis - (xmin + xmax) / 2                       # centre the ink (not the advance) on the axis
         if cx + xmin < B + EDGE:                            # 3-digit numbers: keep them off the edge
             cx = B + EDGE - xmin
@@ -340,22 +348,24 @@ def info_block(n, p, ncol, gcol):
     out = [f'<g fill="{ncol}">' + number_path(n, NUM_SIZE, cx, base) + "</g>"]
     boxes = [(cx + xmin, top, cx + xmax, base)]
     extra = 0.0
-    if needs_mark(n):
-        out.append(f'<rect x="{mid - 4:.2f}" y="{base + 1.0:.2f}" width="8" height="0.7" rx="0.35" fill="{ncol}"/>')
+    if needs_mark(n):   # 6/9 underline: the full width of the numeral ink less a small inset, centred
+        u0, u1 = cx + xmin + UL_INSET, cx + xmax - UL_INSET
+        out.append(f'<rect x="{u0:.2f}" y="{base + 1.0:.2f}" width="{u1 - u0:.2f}" height="0.7" rx="0.35" fill="{ncol}"/>')
         extra = 1.2
-        boxes.append((mid - 4, base + 1.0, mid + 4, base + 1.7))
+        boxes.append((u0, base + 1.0, u1, base + 1.7))
     if PEN_STYLE != "quarter":
         marks, bottom = penalty_marks(PEN_STYLE, p, gcol, B + EDGE, top, nh, cx + xmax, extra)
         out.append(marks)
         boxes.append((B + EDGE, top, cx + xmax + 20, bottom))       # rough: alternative styles only
         return "".join(out), bottom, boxes
-    gs, gap, lead = 4.2, 0.9, 1.0
-    y = base + 2.0 + extra
+    gs, gap, lead = GLYPH_Q, 0.8, 0.7
+    y = base + 1.8 + extra
     for k in ROWS_Q[p]:
         w = k * gs + (k - 1) * gap
+        x0 = max(mid - w / 2, B + EDGE)                     # a wide row never crosses the EDGE line
         for i in range(k):
-            out.append(wilt_at(mid - w / 2 + gs / 2 + i * (gs + gap), y + gs / 2, gs, 0, gcol))
-        boxes.append((mid - w / 2, y, mid + w / 2, y + gs))
+            out.append(wilt_at(x0 + gs / 2 + i * (gs + gap), y + gs / 2, gs, 0, gcol))
+        boxes.append((x0, y, x0 + w, y + gs, MARK_CLEAR))
         y += gs + lead
     return "".join(out), y - lead, boxes
 
@@ -423,11 +433,12 @@ def obstacles(n, species):
     """Boxes (card-local mm) the plant ink must stay out of."""
     p = penalty(n)
     _, _, boxes = info_block(n, p, "#000", "#000")
-    c = PLANT_CLEAR
     obs = []
-    for x0, y0, x1, y1 in boxes:
+    for x0, y0, x1, y1, *k in boxes:
+        c = k[0] if k else PLANT_CLEAR
         obs.append((x0 - c, y0 - c, x1 + c, y1 + c))
         obs.append((CW - x1 - c, CH - y1 - c, CW - x0 + c, CH - y0 + c))      # 180-degree twin
+    c = PLANT_CLEAR
     x0, y0, x1, y1 = label_box(species, *LABEL_POS)
     obs.append((x0 - c, y0 - c, x1 + c, y1 + c))
     fw, fh = 36 * FIELD_SCALE, 35 * FIELD_SCALE                                 # corner colour fields
@@ -492,7 +503,7 @@ def card(n, species):
     plant = (f'<g transform="translate({PLANT_X + dx:.3f} {PLANT_Y:.3f}) scale({s:.5f}) translate(-300 -752)">'
              f'{uniq(plant_inner(species), f"k{n}-")}</g>')
     # vertical name label on the right edge (the side without a number), caps on the EDGE line
-    label = name_label(species, *LABEL_POS, "#405D43", "#7A6A58", rot=90)
+    label = name_label(species, *LABEL_POS, "#405D43", LATIN_COL, rot=90)
     bg = f'<rect x="0" y="0" width="{CW}" height="{CH}" fill="{PAPER_BG}"/>' if PAPER_BG else ""
     return (bg + half
             + f'<g transform="rotate(180 {CW / 2} {CH / 2})">{half}</g>'

@@ -116,28 +116,29 @@ def build_body():
     o = []
     CX = W / 2
     # ---------------------------------------------------------------- top-right spray: one sweep from the corner toward the title
-    # kept a step lighter and smaller than the bottom arrangement so the wordmark stays the focal point
-    tr = [(700, -60), (618, 30), (538, 100), (460, 148), (398, 172)]
-    o.append(branch(tr, [(0.34, 132), (0.54, 116), (0.73, 94)], sides=[1, -1, 1], w0=6.5, w1=2.8,
-                    back_cols=[G["mid"]], front_cols=[G["sage"], G["sage"], G["light"]], tip=(66, G["light"])))
-    o.append(sprig((474, 150), [((452, 204), -5), ((480, 216), 5)], STEM_G, 10, MUSTARD, MUSTARD_S, w=2.8))
+    # kept a step lighter and thinner than the bottom arrangement so the wordmark stays the focal point
+    tr = [(700, -60), (618, 30), (538, 100), (460, 148), (380, 178)]
+    o.append(branch(tr, [(0.22, 138), (0.36, 132), (0.50, 124), (0.64, 108), (0.78, 90)], sides=[1, -1, 1, -1, 1], w0=6.5,
+                    w1=2.8, back_cols=[G["mid"], G["sage"]], front_cols=[G["sage"], G["sage"], G["light"]], tip=(66, G["light"])))
+    o.append(sprig((470, 144), [((440, 206), -5), ((474, 222), 5), ((506, 204), 6)], STEM_G, 11, MUSTARD, MUSTARD_S, w=2.8))
 
-    # ---------------------------------------------------------------- bottom-left arrangement: two sweeps + one lily
-    # base leaves, off the bottom-left corner
-    o.append(leaf(-20, 905, -40, 240, G["dark"], width=0.2, bend=0.14, side="r"))
-    # left sweep: up the left side, ending in a mustard sprig
-    bl = [(120, 930), (110, 820), (100, 710), (108, 610)]
-    o.append(branch(bl, [(0.22, 165), (0.42, 140), (0.60, 100), (0.80, 92)],
+    # ---------------------------------------------------------------- bottom-left arrangement
+    # One bunch: every stem springs from the bottom-left corner (the only place, with the top-right,
+    # where the art crosses the cut) -- the upright sweep, the berries, the lily and the right sweep.
+    # right sweep: low arc out to the right, echoing the top-right spray; stays >= 1 mm above the bottom cut
+    br = [(70, 930), (170, 856), (290, 830), (400, 804), (470, 788), (520, 780), (552, 776)]
+    o.append(branch(br, [(0.52, 98), (0.65, 80), (0.78, 96), (0.90, 62)], angle=38,
+                    back_cols=[G["forest"], G["dark"]], front_cols=[G["sage"], G["mid"]], tip=(56, G["light"]), first=1, w0=7, w1=3))
+    # berries branch off the upright stem (drawn first so the join sits under the stem)
+    o.append(sprig((104, 850), [((20, 774), -8), ((44, 826), 0), ((-12, 862), -4)], STEM_R, 19, BERRY, BERRY_S, w=3.4))
+    # lily stem forks off the upright stem low down
+    o.append(stem([(100, 890), (150, 862), (212, 842), (256, 818)], 7, 4, STEM_G))
+    # upright sweep: up the left side, ending in a mustard sprig
+    bl = [(85, 945), (106, 830), (100, 720), (108, 620)]
+    o.append(branch(bl, [(0.24, 160), (0.43, 136), (0.61, 100), (0.80, 90)],
                     back_cols=[G["dark"], G["forest"]], front_cols=[G["mid"], G["sage"]], first=1, w0=8))
-    o.append(sprig((108, 612), [((72, 556), -6), ((112, 534), 4), ((152, 560), 6)], STEM_G, 16, MUSTARD, MUSTARD_S))
-    # right sweep: arcs out to the right, echoing the top-right spray
-    br = [(330, 930), (392, 854), (458, 808), (515, 784), (552, 778)]
-    o.append(branch(br, [(0.40, 138), (0.58, 118), (0.74, 100), (0.88, 82)],
-                    back_cols=[G["forest"], G["dark"]], front_cols=[G["sage"], G["mid"]], tip=(58, G["light"]), first=1, w0=8))
-    o.append(sprig((60, 870), [((12, 800), -8), ((58, 790), 6), ((-10, 850), -4)], STEM_R, 20, BERRY, BERRY_S, w=3.4))
-    # lily on its own stem, between the two sweeps
-    o.append(stem([(250, 930), (268, 860), (290, 792)], 8, 4, STEM_G))
-    o.append(lily(290, 800, 2, 0.78, ORANGE, ORANGE_S, ORANGE_HI, "#D9A04A"))
+    o.append(sprig((108, 622), [((72, 566), -6), ((112, 544), 4), ((152, 570), 6)], STEM_G, 16, MUSTARD, MUSTARD_S))
+    o.append(lily(258, 824, 10, 0.74, ORANGE, ORANGE_S, ORANGE_HI, "#D9A04A"))
 
     # ---------------------------------------------------------------- wordmark
     ink = deck.C["deep"]      # the darkest, largest element on the back: the eye lands here first

@@ -34,18 +34,23 @@ for history; where it disagrees with this file, this file wins (card size and pr
 
 ## Card face
 
-- Number (DM Serif Display, ~13.6 mm cap) centred on the ¼ line, 5 mm from the top cut; its 180° twin on
-  the ¾ line at the bottom. 100–104 are too wide for the ¼ line and shift in just enough to keep 5 mm clear.
-  6/9-style ambiguous numbers get an underline.
-- Penalty = repeated wilted-leaf marks centred under the number: 1–3 in one row, 5 as 3 over 2, 7 as 4 over 3.
-  The mark (~4.2 mm) is a stem that flops over into a crook with a pointed leaf hanging tip-down, plus a small
-  drooping leaf lower on the stem; solid silhouette, no inner midrib (a paper-coloured midrib made the old
-  mark read as a coffee bean at card size).
+- Number (DM Serif Display, ~13.6 mm cap) centred on an axis 0.5 mm outside the ¼ line (`NUM_AXIS`; the most
+  that keeps 88/99 off the 5 mm EDGE, and it moves the bottom-right block that much further from the pot),
+  5 mm from the top cut; its 180° twin at the bottom right. 100–104 are too wide and shift in just enough to
+  keep 5 mm clear. 6/9-style ambiguous numbers get a conventional underline: the full width of the numeral ink
+  (less 0.3 mm each end), centred, 0.7 mm thick.
+- Penalty = repeated wilted-leaf marks centred under the number: 1–3 in one row, 5 as 3 over 2, 7 as 4 over 3
+  (4.0 mm marks, 0.8 mm apart, rows 0.7 mm apart; a row never crosses the EDGE line).
+  The mark is a stem that bends over at the top with a broad ovate leaf hanging limp from the bend, widest near
+  its stalk and tapering to a pointed tip straight down, plus a small drooping leaf lower on the stem; solid
+  silhouette, stroke 0.34 mm, no inner midrib (a paper-coloured midrib made an early mark read as a coffee bean
+  at card size). It replaced a narrower crook-and-pod mark that read as a cane at small sizes.
   Rules: 55 → 7, other multiples of 11 → 5, multiples of 10 → 3, other multiples of 5 → 2, else 1.
 - Colour corners (top-right and bottom-left, opposite the numbers) show the penalty tier; organic shapes that
   cross the cut so drift is invisible. No frame anywhere. Five hue families so a tier reads at a glance:
-  1 sage `#D8DDBF`, 2 ochre `#EFD8A0`, 3 terracotta `#F0C4A4`, 5 dusty rose `#E5B7BE` (burgundy number
-  `#6A3A45`), and 55 alone in bird-of-paradise orange `#E38E62` with a burnt-orange number and marks `#A8452A`.
+  1 sage `#D8DDBF`, 2 ochre `#EFD8A0`, 3 terracotta `#F0C4A4`, 5 dusty rose `#D8A3B0` (burgundy number
+  `#6A3A45`; the rose is ~10 L* darker and redder than tier 3 — ΔE ≈ 25 — so the two can't drift together on
+  uncoated stock), and 55 alone in bird-of-paradise orange `#E38E62` with a burnt-orange number and marks `#A8452A`.
   Numbers on 1–3 are deep green; each tier's marks take a darker shade of its field hue. The small sprig in
   each field is a visibly darker (or, on 55, lighter) tone of the field, not a 5 % step that vanishes in print.
 - Plant: every pot stands on the same base point (bottom centre at x = 31.75, y = 68.6 mm card-local incl.
@@ -54,22 +59,29 @@ for history; where it disagrees with this file, this file wins (card size and pr
   (^0.8) and clamped to 0.92–1.2 × the reference scale of 0.054 mm/unit (≈ 40 mm for the full 740-unit canvas,
   ≈ 35.5 mm of actual ink for a typical plant), with the pot rim capped at 13.5 mm so squat plants in wide
   bowls don't balloon. Each plant is then checked against the ink boxes of the numbers, marks, underline,
-  name label and corner fields of every card it appears on (≥ 1.2 mm gap, and inside the 5 mm EDGE) and
+  name label and corner fields of every card it appears on (≥ 1.2 mm from numbers, underline and label,
+  ≥ 2.0 mm from the penalty marks, and inside the 5 mm EDGE) and
   takes the largest scale that fits all of them, so a species is the same size everywhere; a plant blocked
   by the bottom-right block may slide up to 3 mm left instead of shrinking (string of pearls, spider plant, wax plant).
-- Plant name (common + botanical, Fraunces) runs up the right edge, 5 mm from the cut.
+- Plant name (common + botanical, Fraunces) runs up the right edge, 5 mm from the cut. Common name in forest
+  green `#405D43`; botanical name in italic warm grey-brown `#625444` (darker than the first `#7A6A58`, which was
+  too faint on ivory stock).
 - Showy plants go on the high-penalty cards (bird of paradise on 55; flowering/striking plants on the other
   multiples of 11). Other plants cycle; no two consecutive numbers share a plant; each plant appears 4–5 times.
 
 ## Card back
 
-- Asymmetric spray: one sweep in from the top-right corner, one arrangement rising from the bottom-left,
-  one orange lily; leaves placed along their stems at a constant angle, alternating sides and shrinking to the tip.
-- Art only crosses the cut at those two corners; everything else stays ≥ 1 mm inside, so cutting or duplex
-  drift just crops a leaf differently.
+- Asymmetric spray: one sweep in from the top-right corner (five leaves and three mustard berries), and one
+  bunch rising from the bottom-left corner: an upright stem with a mustard sprig, burgundy berries on stalks that
+  branch off it, a lily stem forking off it low down, and a low sweep arcing out to the right. Every stem of the
+  bunch springs from the corner, so nothing floats and nothing crosses the bottom cut mid-width. Leaves are
+  placed along their stems at a constant angle, alternating sides and shrinking to the tip.
+- Art only crosses the cut at those two corners (within ~22 mm of them); everything else stays ≥ 1 mm inside,
+  so cutting or duplex drift just crops a leaf differently.
 - The "TAKE 5" wordmark is the focal point: deep green (`#314B37`), the largest and darkest element. The
   top-right sweep is drawn a step lighter (mid/sage/light greens), with shorter leaves and a thinner stem than
-  the bottom arrangement, and the lily is a little smaller, so neither competes with the title.
+  the bottom arrangement, and the lily is a little smaller and sits low (≥ 11 mm from the "5"), so neither
+  competes with the title.
 
 ## Printing sequence
 
