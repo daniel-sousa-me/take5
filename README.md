@@ -41,11 +41,12 @@ A clean rebuild reproduces the files in `dist/` exactly.
 - **Card face layout** — constants at the top of the card section in `deck/deck.py`:
   `EDGE` (clear space to the cut, 5 mm), `NUM_SIZE` / `NUM_SIZE_3` (100–104), `DIGIT_GAP` (min paper between digits), `NUM_AXIS`, `POT_GAP`, `GLYPH_Q` (mark size), `FIELD_SCALE`, `PEN_STYLE`
   (`"quarter"` is current; `"under"`, `"beside"`, `"rosette"`, `"corner"` are the explored alternatives).
-- **Which plant is on which card** — `ORDER`, `SHOWY_55`, `SHOWY_11` and `assign()` in `deck/deck.py`;
+- **Which plant is on which card** — `ORDER`, `SHOWY_55`, `SHOWY_11` and `assign()` in `deck/deck.py`
+  (`NOT_ON_ROSE`: burgundy/pink plants that must never land on a tier-5 or tier-7 card, asserted);
   `SHOWPIECE` lets a card (55) draw its plant larger than the species size.
 - **Plant names** — `NAMES` in `deck/deck.py`.
 - **Plant size** — `PLANT_S` (reference scale, 0.054 mm/unit ≈ 40 mm for the full canvas), `PLANT_REF`,
-  `PLANT_FIT`, `PLANT_CLAMP`, `POT_MAX`, `PLANT_X/PLANT_Y` (pot base point), `PLANT_CLEAR` / `MARK_CLEAR` in `deck/deck.py`.
+  `PLANT_FIT`, `PLANT_CLAMP`, `POT_MAX`, `PLANT_X/PLANT_Y` (pot base point), `PLANT_CLEAR` / `MARK_CLEAR` / `MARK_CLEAR_2ROW` (tier-5 two-row mark blocks) in `deck/deck.py`.
   Each plant is measured from its master SVG and fitted automatically; it shrinks only if it would touch a
   number, mark or label on one of its cards. `python -c "import sys; sys.path.insert(0,'deck'); import deck; print(deck.plant_scales())"` lists the result.
 - **Penalty colours** — `TIER` in `deck/deck.py`: (field, field accent, sprig ornament, number, marks) per tier.

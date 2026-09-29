@@ -25,6 +25,9 @@ NUM3_W, NUM3_H, X3 = 30.0, 24.0, 133   # crop (mm) and left edge of that test
 # are the pale tints the plants may use. The proof prints them all as drawn, to show where the printer stops dithering a speckle
 # and lays down an even tint.
 TINTS = ("#FEF5E7", "#F5EDDE", "#F0E7D9", "#EAE1D3", "#E1D9CB")
+# ... plus, last in the row, the pot ground shadow: the opaque pre-blended solid every pot stands on
+# (plants/core.py pot(), L* 89.5, just under the speckle band), so it is judged on the real card. Update if pot() changes.
+POT_SHADOW = "#DEE2DF"
 CROP = 30.5       # section 5: card shown from the top cut down to this depth (mm), just below two rows of marks
 
 
@@ -144,25 +147,34 @@ def build():
     # near-whites (L* >= 95) that print_prep.py sends as no ink (#FFFFFF) in the plant print copies; ! marks the
     # speckle band (L* 90-95), which it prints as drawn but warns about.
     # (2.5+ mm of paper between the solid labels and the tick marks above the tints)
-    # patch 7 wide, green bar 6 wide, label, then >= 1.5 mm of paper before the next patch's corner ticks (the
-    # labels used to run into them); the legend ends ~8 mm inside x 196
-    ty, th, tp, pw, lx, fs = y + 35, 4.5, 27.6, 7.0, 15.6, 1.9
-    for i, c in enumerate(TINTS):
+    # patch 6 wide, green bar 4.4 wide (the pot shadow: a terracotta bar, as it meets the pot), label, then >= 1.5 mm
+    # of paper before the next patch's corner ticks (the labels used to run into them); the legend ends >= 6 mm
+    # inside x 196
+    ty, th, tp, pw, bx, bw, lx, fs = y + 35, 4.5, 24.2, 6.0, 7.2, 4.4, 12.6, 1.9
+    row = [(c, c + ("*" if paper_white(c) else "!" if speckle_band(c) else ""), None, PAL["mid"]) for c in TINTS]
+    row.append((POT_SHADOW, POT_SHADOW, "pot shadow", PAL["terra"]))
+    for i, (c, lbl, sub, bar) in enumerate(row):
         x = X0 + i * tp
         k6, e = 0.6, 1.2
         ticks = "".join(f'M{cx + sx * k6} {cy + sy * k6 - sy * e}v{sy * e}h{-sx * e}'
                         for cx, cy, sx, sy in ((x, ty, -1, -1), (x + pw, ty, 1, -1), (x, ty + th, -1, 1), (x + pw, ty + th, 1, 1)))
         g.append(f'<path d="{ticks}" fill="none" stroke="#999" stroke-width="0.12"/>'
                  f'<rect x="{x}" y="{ty}" width="{pw}" height="{th}" fill="{c}"/>'
-                 f'<rect x="{x + 8.4}" y="{ty}" width="6" height="{th}" fill="{PAL["mid"]}"/>'
-                 f'<rect x="{x + 10.6}" y="{ty}" width="1.6" height="{th}" fill="{c}"/>')
-        lbl = c + ("*" if paper_white(c) else "!" if speckle_band(c) else "")
-        g.append(t(x + lx, ty + 3.1, lbl, fs))
-        fits(lbl, x + lx, x + tp - 0.6 - 1.5, fs)      # next patch's ticks start 0.6 mm left of it
-    Ls = " · ".join(f"{cielab(c)[0]:.0f}" for c in TINTS)
-    for i, s in enumerate((f"Tints at L* {Ls}", "* no ink on cards · ! speckle band")):
-        g.append(t(X0 + 5 * tp + 1.4, ty + 1.7 + i * 2.9, s, 2.0))
-        fits(s, X0 + 5 * tp + 1.4, 190, 2.0)
+                 f'<rect x="{x + bx}" y="{ty}" width="{bw}" height="{th}" fill="{bar}"/>'
+                 f'<rect x="{x + bx + (bw - 1.4) / 2}" y="{ty}" width="1.4" height="{th}" fill="{c}"/>')
+        end = x + tp - 0.6 - 1.5                       # next patch's ticks start 0.6 mm left of it
+        if sub:                                        # two lines: hex, then what it is
+            g.append(t(x + lx, ty + 1.9, lbl, fs) + t(x + lx, ty + 4.3, sub, 1.7))
+            fits(sub, x + lx, end, 1.7)
+        else:
+            g.append(t(x + lx, ty + 3.1, lbl, fs))
+        fits(lbl, x + lx, end, fs)
+    assert not (paper_white(POT_SHADOW) or speckle_band(POT_SHADOW)), POT_SHADOW
+    Ls = " · ".join(f"{cielab(c)[0]:.0f}" for c in TINTS) + f" · {cielab(POT_SHADOW)[0]:.1f}"
+    lx0 = X0 + len(row) * tp + 1.4
+    for i, s in enumerate((f"L* {Ls}", "* no ink on cards · ! speckle band")):
+        g.append(t(lx0, ty + 1.7 + i * 2.9, s, 2.0 - 0.2 * i))
+        fits(s, lx0, 190, 2.0 - 0.2 * i)
 
     # 4 — scale + setting log  (heading ~3 mm below the tints' lower tick marks)
     y += 46

@@ -45,7 +45,11 @@ TIER = {  # (field tint, field accent, sprig ornament, number colour, glyph colo
 SPECIES = sorted(f[:-4] for f in os.listdir(paths.PLANTS_SRC) if f.endswith(".svg"))
 SHOWY_55 = "strelitzia_reginae"
 SHOWY_11 = ["anthurium_andraeanum", "spathiphyllum", "hoya_carnosa", "echeveria_elegans",
-            "begonia_maculata", "oxalis_triangularis", "alocasia_amazonica", "opuntia_microdasys"]
+            "begonia_maculata", "monstera_deliciosa", "alocasia_amazonica", "opuntia_microdasys"]
+# Predominantly burgundy/pink plants never go on a tier-5 (dusty rose, burgundy marks) or tier-7 (orange) card:
+# leaf, marks and corner field would be one hue family and the marks would sink into the leaves (oxalis used
+# to be on 77). assign() asserts it; every multiple of 11 is a SHOWY card, so these only ever cycle.
+NOT_ON_ROSE = {"oxalis_triangularis", "tradescantia_zebrina"}
 ORDER = ["monstera_deliciosa", "chlorophytum_comosum", "ficus_lyrata", "aloe_vera", "calathea_ornata",
          "senecio_rowleyanus", "zamioculcas_zamiifolia", "crassula_ovata", "epipremnum_aureum",
          "dracaena_trifasciata", "pilea_peperomioides", "nephrolepis_exaltata", "ficus_elastica",
@@ -74,6 +78,7 @@ def assign():
             pick = ORDER[k % len(ORDER)]; k += 1
         out[n] = pick
     assert all(out[n] != out[n + 1] for n in range(1, 104))
+    assert not [n for n in out if penalty(n) >= 5 and out[n] in NOT_ON_ROSE], "burgundy plant on a rose/orange card"
     return out
 
 
@@ -389,6 +394,7 @@ PLANT_X, PLANT_Y = CW / 2 - 1.5, 68.6   # card position of the pot's bottom cent
 PLANT_SHIFTS = (0.0, -1.0, -2.0, -3.0)  # allowed leftward pot shifts (mm) when a plant is blocked
 PLANT_CLEAR = 1.2         # min gap between plant ink and numbers / label (mm); plants also stay inside EDGE
 MARK_CLEAR = 2.0          # ... and the (smaller, busier) penalty marks get more air
+MARK_CLEAR_2ROW = 2.75    # ... more still round a two-row block (tier 5: 3 over 2), which reads crowded at 2.0
 NUM_AXIS = B + TW / 4 - 0.5   # number axis: 0.5 mm outside the 1/4 line (the most that keeps 88/99 off the EDGE),
                               # so the bottom-right block sits a little nearer its corner
 FIELD_SCALE = 0.6   # corner colour field size
@@ -496,7 +502,7 @@ def info_block(n, p, ncol, gcol):
         x0 = max(mid - w / 2, B + EDGE)                     # a wide row never crosses the EDGE line
         for i in range(k):
             out.append(wilt_at(x0 + gs / 2 + i * (gs + gap), y + gs / 2, gs, 0, gcol))
-        boxes.append((x0, y, x0 + w, y + gs, MARK_CLEAR))
+        boxes.append((x0, y, x0 + w, y + gs, MARK_CLEAR_2ROW if len(ROWS_Q[p]) > 1 else MARK_CLEAR))
         y += gs + lead
     return "".join(out), y - lead, boxes
 

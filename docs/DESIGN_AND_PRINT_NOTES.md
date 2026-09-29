@@ -27,7 +27,10 @@ for history; where it disagrees with this file, this file wins (card size and pr
 
 - Paper is left unprinted behind the art (no full-bleed tint): less ink, flatter card, no banding in a big
   tint. The card is white; the art is designed and checked on white.
-- No transparency tricks on the card face; tints are pre-blended solids.
+- No transparency on the card face: every tint, shade and shadow is an opaque, pre-blended solid (the card
+  fields, the marks, the name labels, the pot band and the pot ground shadow; the pot's remaining shading overlays
+  are being pre-blended in `plants/core.py` `pot()` the same way). `print_prep.py` still drops any translucent
+  hairline it finds in a plant master (below).
 - `print_prep.py` makes a print copy of each plant, measured at that plant's own scale on the card
   (`deck.plant_scales()`, the smallest it is drawn anywhere in the deck; plants run 0.050–0.065 mm per unit),
   through every transform and `<use>`. Minimums: dark lines ≥ 0.15 mm, light-on-dark lines ≥ 0.20 mm; dots
@@ -57,16 +60,19 @@ for history; where it disagrees with this file, this file wins (card size and pr
   asserts on every build that no tier colour, name label or `PAPER_BG` is a near-white or in the band (`PAPER_BG`
   is off; the old cream `C["cream"]` `#F5EDDD`, L* 94, would now be refused). The sheet background is `#fff` =
   no ink. The back's lightest colour is a midrib at L* 89; `back.check()` asserts no near-white and nothing in the
-  speckle band there. One thing the colour pass cannot see: the shared pot ground shadow (`plants/core.py` `pot()`)
-  is `deep` `#314B37` at 11 % opacity, which lands at ≈ `#E8EBE9` (L* 93) on white — inside the speckle band — so
-  judge it on the proof/real card and, if it speckles, pre-blend it to a solid at L* ≤ 90 or drop it.
+  speckle band there. The shared pot ground shadow (`plants/core.py` `pot()`) is an opaque solid, `#DEE2DF` (L* 89.5,
+  `deep` over white at ≈ 16 % pre-blended), under every pot: just below the speckle band, so it should print as an
+  even pale tint. It replaced an 11 %-opacity `deep` ellipse that landed at ≈ `#E8EBE9` (L* 93), inside the band.
+  Judge it on the proof's tint row (last patch, "pot shadow"); if it still speckles, darken it a step in `pot()`
+  and in `POT_SHADOW` in `deck/proof.py`.
 - The pot band (`pot(band=True)` in `plants/core.py`) is an opaque pre-blended line 4 units wide (a step
   darker again over the pot's shaded side), so masters and cards match.
 - The proof page tests line weights, the leaf-green steps (plus four burgundy pairs that meet on the cards:
   Tradescantia's leaf-band tiers and the oxalis / tradescantia wine–burgundy–plum steps, `BURG_PAIRS` in
   `deck/proof.py`, which warns if those colours leave the plant art), the corner tints and solid colours, a row of near-white cream tints (`TINTS` in `deck/proof.py`, C* ≈ 8 at L* 97, 94, 92, 90, 87:
   `#FEF5E7`, `#F5EDDE`, `#F0E7D9`, `#EAE1D3`, `#E1D9CB`, each as a patch on bare white paper inside grey corner ticks
-  and as a stripe down a leaf-green bar, all printed as drawn; `*` marks the one at L* ≥ 95 that the plant print copies
+  and as a stripe down a leaf-green bar, all printed as drawn, followed by the pot ground shadow `#DEE2DF`
+  (`POT_SHADOW`, L* 89.5, labelled "pot shadow", its stripe down a terracotta bar as it meets the pot); `*` marks the one at L* ≥ 95 that the plant print copies
   send as no ink, `!` the two in the L* 90–95 speckle band — check where the printer stops speckling and lays an
   even tint: `#EAE1D3` (L* 90) and `#E1D9CB` (L* 87) should be clean; if L* 90 still speckles, lower `SPECKLE_MIN_L`
   / the plant tints accordingly), the
@@ -80,7 +86,7 @@ for history; where it disagrees with this file, this file wins (card size and pr
   own fonts, drawn as paths (DM Serif Display for the title and headings, Fraunces for the rest — Medium for the
   bold labels, a Regular opsz-9 instance made once into `build/fonts`), so it needs no installed font and every line's
   width is exact: `proof.fits()` asserts that each label and note ends inside its column. Sections have ≥ 2.5 mm of
-  paper between a caption and the next heading, and around the near-white tint row. In that row each paper patch is 7 mm wide and its hex label
+  paper between a caption and the next heading, and around the near-white tint row. In that row each paper patch is 6 mm wide and its hex label
   (1.9 mm text) is asserted to end ≥ 1.5 mm before the next patch's corner ticks; the legend (2.0 mm text) ends
   ≥ 6 mm inside the 196 mm column edge. If a green
   pair merges on the real card (most likely night/deep or deep/forest), lift the darks in `plants/core.py`
@@ -128,9 +134,11 @@ for history; where it disagrees with this file, this file wins (card size and pr
   bowls (aloe, jade, echeveria, bunny ears) are allowed ≈ 8 % wider (≈ 11.3–11.4 mm). A plant whose fitted scale
   changes needs its pot `rx` re-checked (printed rim = 2 × rx × scale). Each plant is then checked against the ink boxes of the numbers, marks, underline,
   name label and corner fields of every card it appears on (≥ 1.2 mm from numbers, underline and label,
-  ≥ 2.0 mm from the penalty marks, and inside the 5 mm EDGE) and
+  ≥ 2.0 mm from the penalty marks — 2.75 mm (`MARK_CLEAR_2ROW`) from a two-row block (tier 5, 3 over 2), which
+  looked crowded at 2.0 on 33 and 66 — and inside the 5 mm EDGE) and
   takes the largest scale that fits all of them, so a species is the same size everywhere; a plant blocked
-  by the bottom-right block may slide up to 3 mm left instead of shrinking (now spider plant, wax plant and purple shamrock 1 mm).
+  by the bottom-right block may slide up to 3 mm left instead of shrinking (now spider plant 1 mm; Boston fern, peace lily and Mexican snowball 2 mm;
+  wax plant 3 mm; the wax plant is also 2 % smaller than its design size, for the tier-5 clearance on 33).
   Card 55 is the one exception to "same size everywhere" (`SHOWPIECE`): its bird of paradise is drawn as large as
   fits, up to 1.15× its species size, still checked against the same obstacles, with 2.0 mm (`SHOWPIECE_MARK_CLEAR`)
   round the top-left marks and 3.5 mm (`SHOWPIECE_BR_CLEAR`) round the whole bottom-right block (number and its
@@ -141,7 +149,11 @@ for history; where it disagrees with this file, this file wins (card size and pr
   green `#405D43`; botanical name in italic warm grey-brown `#625444` (darker than the first `#7A6A58`, which was
   too faint on uncoated card).
 - Showy plants go on the high-penalty cards (bird of paradise on 55; flowering/striking plants on the other
-  multiples of 11). Other plants cycle; no two consecutive numbers share a plant; each plant appears 4–5 times.
+  multiples of 11, `SHOWY_11`). Other plants cycle; no two consecutive numbers share a plant; each plant appears
+  4–5 times. A predominantly burgundy/pink plant (purple shamrock, inch plant: `NOT_ON_ROSE`) never goes on a
+  tier-5 (dusty rose field, burgundy marks) or tier-7 (orange) card — foliage, marks and field would be one hue
+  family and the wilted-leaf marks would sink into the leaves; `assign()` asserts it. The purple shamrock used
+  to be on 77; the Swiss cheese plant has that card now.
 
 ## Card back
 
