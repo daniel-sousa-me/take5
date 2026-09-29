@@ -346,7 +346,7 @@ def build():
               grow(3, 98, 70, 2, first=-1, f0=0.42, seed=9, ang0=50, ang1=34, up=0.4, shapes="acb")),
         Shoot([(301, Y), (304, 570), (314, 530), (330, 498)], 5.6, 3.6, 2,
               grow(3, 104, 66, 2, first=-1, f0=0.45, seed=10, ang0=56, ang1=30, up=0.1, shapes="bca",
-                   drop={0})),
+                   drop={0}, under={1}, utone=1)),   # its leaning leaf is turned: solid plum rests the eye
     ]
     # trailing strands leave the soil behind the crown: their first stretch (inside the
     # pot opening) is drawn here, under the crown; the part crossing the rim is drawn

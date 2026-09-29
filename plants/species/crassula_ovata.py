@@ -35,7 +35,7 @@ GLOSS = {P["deep"]: P["forest"], P["forest"]: P["mid"], P["mid"]: P["sage"],
 
 # ------------------------------------------------------------------ leaf shapes (defs)
 BASE = [(0.0, 0.0), (0.1, 0.07), (0.3, 0.15), (0.55, 0.235), (0.75, 0.27),
-        (0.88, 0.235), (0.96, 0.14)]
+        (0.88, 0.24), (0.95, 0.17), (0.985, 0.095)]     # blunt, rounded (obovate) tip
 VARIANTS = {"o": 1.0, "w": 1.18, "n": 0.84}
 
 
@@ -60,15 +60,19 @@ def shapes(k):
     face = cr_path(face_pts, closed=True, sharp=sharp)
     rims = []
     # rim only round the rounded distal end (the sun-exposed tip), fading in by t~0.7
-    ts = [0.6, 0.66, 0.72, 0.78, 0.84, 0.9, 0.95]
+    ts = [0.6, 0.68, 0.77, 0.87, 0.95, 0.985]
+    ramp = [0.0, 0.6, 1, 1, 1, 1]
+    outer = [full.pt(t, full.width(t, "r")) for t in ts] + [(0, -100)] + \
+            [full.pt(t, -full.width(t, "l")) for t in reversed(ts)]
+    rw = ramp + [1] + ramp[::-1]
     for sc in BUCKETS:
         th = RIM_W / sc          # local units
-        ramp = [0.0, 0.5, 0.9, 1, 1, 1, 1]
-        outer = [full.pt(t, full.width(t, "r")) for t in ts] + [(0, -100)] + \
-                [full.pt(t, -full.width(t, "l")) for t in reversed(ts)]
-        inner = [full.pt(t, full.width(t, "r") - th * ramp[i] / 100) for i, t in enumerate(ts)] + \
-                [(0, -100 + th)] + \
-                [full.pt(t, -(full.width(t, "l") - th * ramp[i] / 100)) for i, t in reversed(list(enumerate(ts)))]
+        # inner edge = the outer tip curve shrunk about a point on the axis (a convex curve scaled stays
+        # convex: an even crescent round the rounded tip, never a notch where the two sides meet),
+        # blended back onto the outline where the rim fades in
+        cy = -68.0
+        k = 1 - th / (100 + cy)
+        inner = [(x + (x * k - x) * r, y + ((cy + (y - cy) * k) - y) * r) for (x, y), r in zip(outer, rw)]
         ring = outer + inner[::-1]
         rims.append(cr_path(ring, closed=True, sharp={0, len(outer) - 1, len(outer), len(ring) - 1}))
     # gloss: small sliver on the lit (left) half of the face

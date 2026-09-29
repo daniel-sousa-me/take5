@@ -101,7 +101,7 @@ class Pad:
         r -= inset
         return self.local_to_world(cx + dx * r, cy + dy * r)
 
-    def svg(self, tufts=True):
+    def svg(self, tufts=True, blocked=None):
         d = self.path()
         cid = uid("pd")
         sh = PAD_SHADE.get(self.fill, "#27392C")
@@ -123,41 +123,86 @@ class Pad:
         sp = line_pts + far
         out.append(f'<path d="{cr_path(sp, closed=True, sharp={0, len(ts) - 1, len(ts), len(sp) - 1})}" fill="{sh}"/>')
         if tufts:
-            out.append(self.tufts())
+            out.append(self.tufts(blocked))
         out.append("</g></g>")
         return "".join(out)
 
-    def tufts(self):
-        """Areoles in a regular quincunx (diagonal) lattice, as on the real
-        plant. Spacing is measured in world units so edge-on pads keep the
-        same density; each areole is counter-scaled so it stays round.
-        Areoles are single opaque discs >= 4.5 units across at print scale."""
+    def world_poly(self, n=48, dx=0.0, dy=0.0):
+        """Outline as a world-space polygon (the thickness band is the same, offset by dx, dy)."""
+        R = [self.local_to_world(self.hw(i / n, 1), -self.L * i / n) for i in range(n + 1)]
+        Lf = [self.local_to_world(-self.hw(i / n, -1), -self.L * i / n) for i in range(n, -1, -1)]
+        return [(x + dx, y + dy) for x, y in R + Lf]
+
+    def occluders(self):
+        """What this pad covers when drawn in front: its face and its thickness band."""
+        thick = max(4.0, self.W * 0.045) if self.sx >= 0.6 else 6.5
+        return [self.world_poly(), self.world_poly(dx=thick * 0.8, dy=thick * 0.55)]
+
+    def tufts(self, blocked=None):
+        """Areoles in a quincunx (diagonal) lattice, as on the real plant, each
+        nudged a little off the grid so the lattice reads as grown, not printed.
+        Spacing is measured in world units so edge-on pads keep the same
+        density; each areole is counter-scaled so it stays round. Areoles are
+        single opaque discs >= 4.5 units across at print scale. A disc that
+        would be cut by this pad's own edge, a pad drawn in front of it or the
+        pot rim (`blocked(world point)`) is left out: no half-dots."""
         sx = self.sx
         gy = 19.0            # row spacing (world units, pre plant-scale)
         gx = 23.0            # spacing along a row
         rnd = random.Random(self.seed)
         ox = rnd.uniform(-gx / 2, gx / 2)
         v = "a" if self.fill in (P["pale"], P["light"]) else "b"
+        own = self.world_poly()
         uses = []
         inv = 1 / sx
         j = 0
-        y = -self.L * 0.06
-        while y > -self.L * 0.97:
-            t = -y / self.L
+        y0 = -self.L * 0.06
+        while y0 > -self.L * 0.97:
             shift = (gx / 2 if j % 2 else 0) + ox
             for i in range(-8, 9):
-                wx = i * gx + shift          # world-ish x before foreshortening
+                jx, jy = rnd.uniform(-2.5, 2.5), rnd.uniform(-2.0, 2.0)   # drawn for every slot: stable
+                wx = i * gx + shift + jx     # world-ish x before foreshortening
+                y = y0 + jy
+                t = -y / self.L
+                if not 0 < t < 1:
+                    continue
                 px = wx / sx if sx < 0.99 else wx
                 side = 1 if px >= 0 else -1
                 if abs(px) * min(sx, 1) > (self.hw(t, side)) * min(sx, 1) - 5.5:
+                    continue
+                w = self.local_to_world(px, y)
+                if _edge_dist(own, w) < EDGE_CLEAR or (blocked and blocked(w)):
                     continue
                 if abs(inv - 1) < 1e-3:
                     uses.append(f'<use href="#ar{v}" x="{f(px)}" y="{f(y)}"/>')
                 else:
                     uses.append(f'<use href="#ar{v}" transform="translate({f(px)} {f(y)}) scale({inv:.2f} 1)"/>')
-            y -= gy
+            y0 -= gy
             j += 1
         return "".join(uses)
+
+
+EDGE_CLEAR = 6.4     # areole centre to any edge that cuts it (radius 2.6 + ~4 units clear), pre plant-scale
+
+
+def _seg_dist(p, a, b):
+    ax, ay = b[0] - a[0], b[1] - a[1]
+    L2 = ax * ax + ay * ay or 1e-9
+    u = max(0.0, min(1.0, ((p[0] - a[0]) * ax + (p[1] - a[1]) * ay) / L2))
+    return math.hypot(p[0] - a[0] - u * ax, p[1] - a[1] - u * ay)
+
+
+def _edge_dist(poly, p):
+    return min(_seg_dist(p, poly[i - 1], poly[i]) for i in range(len(poly)))
+
+
+def _inside(poly, p):
+    x, y, c = p[0], p[1], False
+    for i in range(len(poly)):
+        (x1, y1), (x2, y2) = poly[i - 1], poly[i]
+        if (y1 > y) != (y2 > y) and x < x1 + (y - y1) * (x2 - x1) / (y2 - y1):
+            c = not c
+    return c
 
 
 def glochid_defs():
@@ -254,7 +299,23 @@ def build():
     body = [glochid_defs(), back]
     # whole plant scaled about the soil point (keeps joints exact)
     body.append(f'<g transform="translate({f(300 - SC * (300 - DX))} {f(640 - SC * 640)}) scale({SC})">')
-    body += [p.svg() for p in pads]
+    # plant-group -> canvas: the pot rim's front edge (drawn over the base pad) in plant-group coordinates
+    tx, ty = 300 - SC * (300 - DX), 640 - SC * 640
+    RIM_Y, RIM_RX = 600, 112
+    RIM_RY = RIM_RX * 0.15
+
+    def under_rim(w):
+        X, Y = tx + SC * w[0], ty + SC * w[1]
+        u = (X - 300) / RIM_RX
+        top = RIM_Y + RIM_RY * math.sqrt(max(0.0, 1 - u * u)) if abs(u) < 1 else RIM_Y
+        return Y > top - SC * EDGE_CLEAR
+
+    for k, p in enumerate(pads):
+        occ = [q for later in pads[k + 1:] for q in later.occluders()]
+
+        def blocked(w, occ=occ):
+            return under_rim(w) or any(_inside(q, w) or _edge_dist(q, w) < EDGE_CLEAR for q in occ)
+        body.append(p.svg(blocked=blocked))
     fa = e2.top(8, 3)
     body.append(flower(fa[0], fa[1], -6, 1.5))
     fb = e3.top(-26, 3)

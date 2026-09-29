@@ -46,8 +46,8 @@ def prof(t):
 
 
 class Sword:
-    def __init__(self, x, lean, H, W, tone, bend=0.0, twist=0.0, seed=1, asym=0.0):
-        self.x, self.lean, self.H, self.W = x, lean, H, W
+    def __init__(self, x, lean, H, W, tone, bend=0.0, twist=0.0, seed=1, asym=0.0, fade=None):
+        self.x, self.lean, self.H, self.W, self.fade = x, lean, H, W, fade
         self.tone, self.bend, self.twist, self.seed, self.asym = tone, bend, twist, seed, asym
 
     # local coords: base (0,0), tip (bend*H, -H); later rotated by lean about base
@@ -68,12 +68,25 @@ class Sword:
         a, n = self.axis(t), self.normal(t)
         return (a[0] + n[0] * off, a[1] + n[1] * off)
 
-    def outline(self, inset=0.0, extend=26):
+    def outline(self, inset=0.0, extend=26, fade=None):
+        """fade=(s0, s1): the inset (yellow margin) is 0 up to s0 units above the base and grows
+        smoothly to full width by s1, so the margin tapers out just above the rim."""
         ts = [0.0, 0.05, 0.12, 0.22, 0.34, 0.46, 0.58, 0.70, 0.80, 0.88, 0.94]
+        if fade:
+            ts = sorted(set(ts + [fade[0] / self.H, (fade[0] + fade[1]) / 2 / self.H, fade[1] / self.H]))
+
+        def ins(t):
+            if not fade:
+                return inset
+            u = min(1.0, max(0.0, (t * self.H - fade[0]) / (fade[1] - fade[0])))
+            return inset * u * u * (3 - 2 * u)
         R, L = [], []
         for t in ts:
-            wr = self.hw(t, 1) - inset
-            wl = self.hw(t, -1) - inset
+            if fade and ins(t) < 0.3:
+                wr, wl = self.hw(t, 1) + 0.6, self.hw(t, -1) + 0.6   # a hair proud: no margin fringe
+            else:
+                wr = self.hw(t, 1) - ins(t)
+                wl = self.hw(t, -1) - ins(t)
             if wr <= 0.6 or wl <= 0.6:
                 continue
             R.append(self.pt(t, wr))
@@ -148,7 +161,7 @@ class Sword:
         body, dark, light, margin = TONES[self.tone]
         m = 4.4
         outer = self.outline(0)
-        inner = self.outline(m)
+        inner = self.outline(m, fade=self.fade)
         cid = uid("dt")
         bd, bl = self.bands(m)
         # concave shade: one half of the body a step darker (leaf is slightly channelled)
@@ -175,18 +188,22 @@ class Sword:
         return "".join(s)
 
 
+# behind the two front-most leaves, the yellow margins taper out over the bottom of the fan (just above the
+# rim) so the crossing bases read as one green clump instead of a tangle of yellow lines
+FADE = (40, 64)
+
 # draw order = list order (back -> front)
 LEAVES = [
     # bases staggered so neighbouring yellow margins at the rim are either well
     # apart (>= ~10 units of green between them) or tucked decisively under the
     # leaf in front -- no parallel double lines with dark slivers
-    Sword(322, 16, 360, 25, "back", bend=0.04, seed=11, asym=0.05),
-    Sword(282, -9, 395, 27, "back", bend=-0.03, seed=12, asym=-0.05),
-    Sword(269, -18, 300, 24, "midd", bend=-0.07, seed=13),
-    Sword(333, 25, 238, 23, "midd", bend=0.05, seed=14),
-    Sword(304, -1, 470, 30, "midd", bend=-0.015, seed=15, asym=0.06),
-    Sword(315, 10, 412, 15, "front", bend=-0.02, seed=16),
-    Sword(256, -42, 168, 22, "front", bend=-0.06, seed=17),
+    Sword(322, 16, 360, 25, "back", bend=0.04, seed=11, asym=0.05, fade=FADE),
+    Sword(282, -9, 395, 27, "back", bend=-0.03, seed=12, asym=-0.05, fade=FADE),
+    Sword(269, -18, 300, 24, "midd", bend=-0.07, seed=13, fade=FADE),
+    Sword(333, 25, 238, 23, "midd", bend=0.05, seed=14, fade=FADE),
+    Sword(304, -1, 470, 30, "midd", bend=-0.015, seed=15, asym=0.06, fade=FADE),
+    Sword(315, 10, 412, 15, "front", bend=-0.02, seed=16, fade=FADE),
+    Sword(256, -42, 168, 22, "front", bend=-0.06, seed=17, fade=FADE),
     Sword(286, -5, 222, 25, "fore", bend=-0.03, seed=18),
     Sword(319, 13.5, 196, 23, "front", bend=0.05, seed=19),
 ]

@@ -286,6 +286,12 @@ def zof(pts_rf_phi):
     return sum(rf * math.sin(math.radians(ph)) for rf, ph in pts_rf_phi) / len(pts_rf_phi)
 
 
+THIN_U, THIN_P = 0.72, 0.3
+# (phi, start on the profile, drift round the mound in degrees, hang to y, seed)
+ARCS = [(44, 0.16, 24, 690, 501), (80, 0.06, 18, 726, 502), (116, 0.10, -16, 700, 503),
+        (150, 0.20, -26, 676, 504)]
+
+
 def tone_z(z):
     return "d" if z < -0.2 else ("m" if z < 0.5 else "f")
 
@@ -315,6 +321,7 @@ def layout():
     #    level (each drifting a little up or down), overlapping at their ends
     u = 0.03
     k = 0
+    thin = random.Random(31)     # separate stream: thinning leaves the rest of the layout as it was
     while u < ULOW - 0.05:
         rf = max(prof(u)[0], 0.12)
         near = u > 0.62                          # lower rows: only the near half shows
@@ -326,8 +333,17 @@ def layout():
             dr = rnd.uniform(-0.14, 0.14)
             z = zof([(prof(u)[0], a0 + (a1 - a0) * t / 4) for t in range(5)])
             k += 1
-            add(contour(a0, a1, u, wobble=0.05, seed=k, drift=dr), z, r0=rnd.uniform(9.0, 10.0),
-                taper_from=0.95, stem=tone_z(z) == "f", gmin=0.6, gvar=2.4)
+            tone = tone_z(z)
+            # upper, visible face of the dome: thinned out and held a step darker, so the few long strings
+            # arcing over it (section 5) read as strings rather than one even field of pearls
+            upper = u < THIN_U and z > -0.2
+            if upper and thin.random() < THIN_P:
+                c = a1 - rnd.uniform(-4, 16) / rf
+                continue
+            if tone == "f":
+                tone = "m"
+            add(contour(a0, a1, u, wobble=0.05, seed=k, drift=dr), z, tone, r0=rnd.uniform(9.0, 10.0),
+                taper_from=0.95, stem=tone == "f", gmin=0.6, gvar=2.4)
             c = a1 - rnd.uniform(-4, 16) / rf
         u += rnd.uniform(0.07, 0.085)
 
@@ -350,6 +366,10 @@ def layout():
         ph = phi + rnd.uniform(-3, 3)
         add(meridian(ph, u0, drop, seed=seed[0], bend=rnd.uniform(-8, 8), sway=rnd.uniform(3, 6)),
             1.2, "f", r0=9.8, taper_from=0.4)
+
+    # 5. a few long strings from the crown arcing down over the near face of the dome and on over the rim
+    for phi, u0, bend, drop, sd in ARCS:
+        add(meridian(phi, u0, drop, seed=sd, bend=bend, sway=4), 1.3, "f", r0=9.6, taper_from=0.55, gmin=1.2)
     return items
 
 

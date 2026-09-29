@@ -236,14 +236,14 @@ RINGS = [
     (10, 2, 20, 150, .26, 2, 8),
     (9, 10, 20, 114, .28, 4, 30),
     (8, 20, 16, 84, .30, 5, 4),
-    (7, 30, 12, 58, .32, 6, 26),
-    (5, 38, 8, 38, .38, 7, 50),
-    (3, 46, 4, 22, .48, 8, 10),
+    (6, 30, 12, 64, .38, 6, 26),     # fewer, larger inner leaves: a calm pale heart, not a mosaic
+    (4, 42, 8, 42, .50, 7, 62),
 ]
+BLUSH_RINGS = 2        # only the outer rings carry tip blush (inner tips read as pink speckle mid-leaf)
 
 
 def rosette(cx, cy, s=1.0, rings=RINGS, hook=None, hook_after=0, blush=True, jitter=True, k=None,
-            ps=MMU, bud=(5, 3.6)):
+            ps=MMU, bud=(5, 3.6), blush_rings=99):
     out = []
     for ri, (n, al, curl, L, wf, ci, ph) in enumerate(rings):
         leaves = []
@@ -256,7 +256,7 @@ def rosette(cx, cy, s=1.0, rings=RINGS, hook=None, hook_after=0, blush=True, jit
         face = RAMP[ci]
         shade = mix(RAMP[ci], RAMP[ci - 1], 0.75)
         for lf in leaves:
-            out.append(leaf_svg(lf, face, shade, blush, k, ps))
+            out.append(leaf_svg(lf, face, shade, blush and ri < blush_rings, k, ps))
         if hook and ri == hook_after:
             out.append(hook())
     # tiny closed bud at the very heart hides where the innermost leaves meet
@@ -396,7 +396,7 @@ def build():
         return (stalk_svg(stalk2, 8.0, 4.4, [0.40], fl2, rise_side=-1, bud_turn=16)
                 + stalk_svg(stalk1, 9.0, 4.6, [0.30, 0.44], fl1, bud_turn=-34))
 
-    main = rosette(*RC, hook=stalks, hook_after=1)
+    main = rosette(*RC, hook=stalks, hook_after=1, bud=(7, 5), blush_rings=BLUSH_RINGS)
     # the pups' outer ring is a step lighter (RAMP[4]) than the rosette's outer leaves behind them
     pup_rings = [(7, 10, 24, 150, .40, 4, 0), (6, 34, 20, 112, .42, 5, 30),
                  (5, 56, 14, 72, .46, 7, 10), (3, 76, 8, 40, .52, 8, 40)]
