@@ -189,8 +189,17 @@ def build():
              base=(292, 592), via=[(250, 470), (200, 342)], z=2),
         # low, right: smaller, more turned away and leaning further out
         dict(x=468, y=372, rot=58, L=98, sx=0.55, side="r", spadix_rot=-24, curl=-0.34,
-             base=(306, 594), via=[(326, 500), (358, 430), (414, 394)], z=3),
+             base=(306, 594), via=[(328, 500), (368, 436), (418, 396)], z=3),
     ]
+
+    # every petiole / flower stalk starts from one crown point hidden below the
+    # rim's front edge (y ~601 at the centre): the stems fan out of the soil as a
+    # tapered bundle instead of stopping on the visible soil as cut ends
+    def crown(b):
+        return (300 + (b[0] - 300) * 0.3, 614)
+
+    for s in leaves + flowers:
+        s["base"] = crown(s["base"])
 
     def leaf_item(s):
         g, lf = draw_leaf(s)

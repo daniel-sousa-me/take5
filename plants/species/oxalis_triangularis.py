@@ -217,6 +217,31 @@ def tail_ribbon(pts, w0, w1, tail, per=6):
     return cr_path(ring, closed=True, sharp={0, len(ring) - 1})
 
 
+def base_stub(p0, p1, w, color):
+    """Hidden-crown extension below a stalk's start p0 (heading towards p1): it
+    curves down to a shared crown point under the rim's front edge, same width and
+    colour, so the stalks fan out of the soil as one bundle and no cut end sits on
+    the visible soil. Plain polygon (a smoothed ribbon bulges at its square end)."""
+    d = (p1[0] - p0[0], p1[1] - p0[1])
+    m = math.hypot(*d) or 1
+    d = (d[0] / m, d[1] / m)
+    c = (300 + (p0[0] - 300) * 0.35, 618)
+    k = math.hypot(p0[0] - c[0], p0[1] - c[1]) * 0.5
+    q = (p0[0] - d[0] * k, p0[1] - d[1] * k)
+    e = (p0[0] + d[0] * 1.5, p0[1] + d[1] * 1.5)
+    pts = [tuple((1 - t) ** 2 * c[j] + 2 * (1 - t) * t * q[j] + t * t * e[j] for j in (0, 1))
+           for t in (i / 16 for i in range(17))]
+    L, R = [], []
+    for i, pt in enumerate(pts):
+        a, b = pts[max(i - 1, 0)], pts[min(i + 1, len(pts) - 1)]
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        mm = math.hypot(dx, dy) or 1
+        L.append((pt[0] - dy / mm * w / 2, pt[1] + dx / mm * w / 2))
+        R.append((pt[0] + dy / mm * w / 2, pt[1] - dx / mm * w / 2))
+    ring = L + R[::-1]
+    return '<path d="M' + "L".join(f"{f(x)} {f(y)}" for x, y in ring) + f'Z" fill="{color}"/>'
+
+
 def petiole(base, tip, bow=0.0, w0=5.2, w1=3.0, color=PET_FRONT, tail=0.0):
     """Wiry petiole: rises steeply out of the soil, then arches out to the tip.
     tail: narrow the last stretch to a point that runs into the leaflet junction."""
@@ -227,9 +252,11 @@ def petiole(base, tip, bow=0.0, w0=5.2, w1=3.0, color=PET_FRONT, tail=0.0):
     p1 = (bx + dx * 0.10 + bow * 0.4, by + dy * 0.34 - lift * 0.5)
     p2 = (bx + dx * 0.50 + bow, by + dy * 0.78 - lift)
     p3 = (tx - dx * 0.12 + bow * 0.2, ty - dy * 0.06 - lift * 0.12)
+    # match the ribbon's own start heading (first spline sample)
+    stub = base_stub(base, cr_sample([base, p1, p2, p3, tip], 6)[1], w0, color)
     if tail:
-        return f'<path d="{tail_ribbon([base, p1, p2, p3, tip], w0, w1, tail)}" fill="{color}"/>'
-    return f'<path d="{ribbon([base, p1, p2, p3, tip], w0, w1)}" fill="{color}"/>'
+        return stub + f'<path d="{tail_ribbon([base, p1, p2, p3, tip], w0, w1, tail)}" fill="{color}"/>'
+    return stub + f'<path d="{ribbon([base, p1, p2, p3, tip], w0, w1)}" fill="{color}"/>'
 
 
 # ------------------------------------------------------------------ flowers

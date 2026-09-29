@@ -206,13 +206,21 @@ def along(s, frac):
     return s[-1], unit((s[-1][0] - s[-2][0], s[-1][1] - s[-2][1]))
 
 
-def vine(pts, leaves, w0, w1, col, pcol=None):
-    """leaves: list of (frac, side, L, fill, seed, out_angle, droop, flip)."""
+def vine(pts, leaves, w0, w1, col, pcol=None, anchor=None, clip=None):
+    """leaves: list of (frac, side, L, fill, seed, out_angle, droop, flip).
+    anchor: the path the leaf fractions were laid out on (so re-routing the start
+    of a vine does not move its leaves); each leaf node snaps to the nearest point
+    of the drawn path. clip: optional clip-path id for the main stem."""
     s = cr_sample(pts, 10)
-    stems, blades = [f'<path d="{ribbon(pts, w0, w1)}" fill="{col}"/>'], []
+    sa = cr_sample(anchor, 10) if anchor else s
+    cp = f' clip-path="url(#{clip})"' if clip else ""
+    stems, blades = [f'<path d="{ribbon(pts, w0, w1)}" fill="{col}"{cp}/>'], []
     pcol = pcol or col
     for fr, side, L, fill, seed, out, droop, flip in leaves:
-        n, t = along(s, fr)
+        n, t = along(sa, fr)
+        if anchor:
+            i = min(range(1, len(s)), key=lambda k: math.hypot(s[k][0] - n[0], s[k][1] - n[1]))
+            n, t = s[i], unit((s[i][0] - s[i - 1][0], s[i][1] - s[i - 1][1]))
         # petiole direction: tangent rotated outward by `out` degrees
         a = math.radians(out * side)
         d = (t[0] * math.cos(a) - t[1] * math.sin(a), t[0] * math.sin(a) + t[1] * math.cos(a))
@@ -265,7 +273,9 @@ def build():
 
     # --- vines (drawn after the pot front: they spill over the rim)
     # long vine, left side; leaves alternate irregularly and shrink to the tip
-    Lv = [(236, 604), (212, 588), (184, 592), (160, 618), (144, 660), (134, 704), (122, 740), (104, 762)]
+    # it rises from the soil under the big low front leaf (stem drawn before that
+    # leaf, so its start is hidden), crosses the lip and drapes over the left shoulder
+    Lv = [(250, 594), (230, 590), (210, 588), (184, 592), (160, 618), (144, 660), (134, 704), (122, 740), (104, 762)]
     s1, b1 = vine(Lv, [
         (0.14, -1, 68, P["light"], 21, 50, 0.5, True),
         (0.33, 1, 60, P["forest"], 22, 60, 0.55, False),
@@ -273,16 +283,27 @@ def build():
         (0.65, 1, 46, P["sage"], 24, 58, 0.55, False),
         (0.83, -1, 38, P["forest"], 25, 50, 0.5, True),
         (0.98, 1, 28, P["mid"], 26, 40, 0.45, False),
-    ], 5.2, 2.2, P["mid"], P["sage"])
+    ], 5.2, 2.2, P["forest"], P["sage"], anchor=[(236, 604), (212, 588)] + Lv[3:])
     # short right vine: arches over the rim and hangs, ending on a small young leaf
     # (pothos has no tendrils, so no bare hooked tip)
-    Rv = [(372, 604), (394, 590), (424, 596), (452, 620), (466, 650), (470, 676), (468, 694)]
+    # it rises from the soil (its start is clipped by the rim front, see RIM_HOLE),
+    # lies across the lip over the pale low leaf and arches over the right shoulder
+    Rv = [(346, 608), (360, 594), (378, 590), (396, 589), (424, 596), (452, 620), (466, 650), (470, 676), (468, 694)]
+    # clip = everything but a patch of the rim front just below its top edge, so the
+    # start of the right vine dips behind the rim into the soil
+    rx, ry, rim_y = 90, 90 * 0.15, 588
+    arc = [(x, rim_y + ry * math.sqrt(max(0.0, 1 - ((x - 300) / rx) ** 2))) for x in range(334, 367, 4)]
+    hole = uid("vh")
+    # canvas clockwise + hole anticlockwise (nonzero winding leaves the hole out)
+    out.append(f'<clipPath id="{hole}"><path d="M0 0H600V800H0Z'
+               f'M{f(arc[0][0])} 640L{f(arc[-1][0])} 640'
+               + "".join(f"L{f(x)} {f(y)}" for x, y in arc[::-1]) + 'Z"/></clipPath>')
     s2, b2 = vine(Rv, [
         (0.18, 1, 68, P["mid"], 31, 58, 0.4, False),
         (0.50, -1, 54, P["forest"], 32, 62, 0.55, True),
         (0.76, 1, 36, P["sage"], 33, 60, 0.35, False),
         (0.99, -1, 26, P["mid"], 34, 34, 0.45, True),
-    ], 4.6, 2.2, P["mid"], P["sage"])
+    ], 4.6, 2.2, P["mid"], P["sage"], anchor=[(372, 604), (394, 590)] + Rv[4:], clip=hole)
     # short strand over the front of the rim
     Fv = [(322, 600), (330, 612), (336, 638), (334, 668), (326, 690)]
     s3, b3 = vine(Fv, [
@@ -291,8 +312,9 @@ def build():
         (0.98, 1, 32, P["deep"], 43, 30, 0.4, False),
     ], 4.4, 2.0, P["forest"], P["mid"])
     out.append(front)
+    out.append(s1)  # under the low leaves: the left vine's start is tucked under the big front leaf
     out += low
-    out += [s1, s2, s3, b3, b2, b1]
+    out += [s2, s3, b3, b2, b1]
     return "".join(out)
 
 

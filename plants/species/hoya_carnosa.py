@@ -108,8 +108,9 @@ class Stem:
     """Twines around the hoop from arclength d0 towards d1 (winding sine offset),
     then optionally continues free along `tail` points."""
 
-    def __init__(self, d0, d1, tail=None, amp=6.0, period=80, phase=0.0, w0=5.0, w1=2.2):
+    def __init__(self, d0, d1, tail=None, amp=6.0, period=80, phase=0.0, w0=5.0, w1=2.2, base=12):
         self.amp, self.period, self.phase = amp, period, phase
+        self.base = base  # below this the stem is in front (rises from the soil before the cane)
         sg = 1 if d1 > d0 else -1
         n = max(1, int(abs(d1 - d0) / 3))
         pts = []
@@ -134,7 +135,7 @@ class Stem:
         return ramp * math.sin(2 * math.pi * s / self.period + self.phase)
 
     def front(self, s):
-        if s > self.hoop_len or s < 12:
+        if s > self.hoop_len or s < self.base:
             return True
         return math.cos(2 * math.pi * s / self.period + self.phase) > 0
 
@@ -163,6 +164,68 @@ class Stem:
 
     def part(self, a, b):
         return f'<path d="{self.ribbon_ab(a, b)}" fill="{STEM}"/>'
+
+    def runs(self, front, step=0.5):
+        """[(a, b)] arclength runs where the stem is in front (or behind) of the hoop"""
+        n = int(self.L / step)
+        out, a = [], None
+        for i in range(n + 1):
+            s = i * self.L / n
+            if self.front(s) == front:
+                if a is None:
+                    a = s
+            elif a is not None:
+                out.append((a, s))
+                a = None
+        if a is not None:
+            out.append((a, self.L))
+        if front and self.hoop_len > 0:
+            # where the stem leaves the hoop it is still centred on the cane: it comes
+            # out from behind the cane, so its front copy starts only once clear of it
+            hw = 3.75
+            for i, (a, b) in enumerate(out):
+                if abs(a - self.hoop_len) < 1:
+                    s = a
+                    while s < b:
+                        p, _ = self.at(s)
+                        dq = min(math.hypot(h[0] - p[0], h[1] - p[1]) for h in HP.s)
+                        if dq > hw + self.width(s) / 2 + 0.5:
+                            break
+                        s += 0.5
+                    out[i] = (s, b)
+        return out
+
+    def run_mask(self, a, b, pad=4.0, bevel=5.0):
+        """polygon over the stem between a..b, padded sideways. At a switch the end
+        is bevelled: the side facing the cane stops `bevel` early, the outer side runs
+        `bevel` on, so the stem's inner edge slips behind the cane edge in a taper
+        instead of a square step."""
+        def inner_is_L(s_):
+            p, t = self.at(s_)
+            q = min(HP.s, key=lambda h: (h[0] - p[0]) ** 2 + (h[1] - p[1]) ** 2)
+            return (q[0] - p[0]) * -t[1] + (q[1] - p[1]) * t[0] > 0
+
+        ends = {}
+        for e, sg in ((a, 1), (b, -1)):
+            if 0 < e < self.L and abs(e - self.hoop_len) > 0.6:
+                il = inner_is_L(e)
+                ends[sg] = (e + sg * bevel, e - sg * bevel) if il else (e - sg * bevel, e + sg * bevel)
+            else:
+                ends[sg] = (e, e)
+        (la, ra), (lb, rb) = ends[1], ends[-1]
+
+        def side(s0, s1, sgn):
+            s0, s1 = max(0.0, s0), min(self.L, s1)
+            n = max(2, int((s1 - s0) / 3.0))
+            out = []
+            for i in range(n + 1):
+                s_ = s0 + (s1 - s0) * i / n
+                p, t = self.at(s_)
+                w = (self.width(s_) / 2 + pad) * sgn
+                out.append((p[0] - t[1] * w, p[1] + t[0] * w))
+            return out
+        ring = side(la, lb, 1) + side(ra, rb, -1)[::-1]
+        return "M" + "L".join(f"{f(x)} {f(y)}" for x, y in ring) + "Z"
 
     def pieces(self, front):
         step = 3.0
@@ -446,9 +509,9 @@ def build():
     rnd = random.Random(7)
     HL = HP.L
     # A leaves the hoop on the right and ends in a free, tapering growing tip
-    A = Stem(0, 840, tail=[(433, 352), (443, 367), (455, 377), (468, 380)], phase=0.4, w0=6, w1=0.9)
+    A = Stem(0, 840, tail=[(433, 352), (443, 367), (455, 377), (468, 380)], phase=0.4, w0=6, w1=0.9, base=56)
     B = Stem(HL, HL - 190, tail=[(424, 446), (462, 468), (488, 506), (498, 552), (494, 596), (484, 628)],
-             phase=2.3, w0=5.6, w1=2.2)
+             phase=2.3, w0=5.6, w1=2.2, base=32)
     C = Stem(0, 0, w0=4.2, w1=1.8)
     C.path = Path([(268, 594), (246, 603), (222, 617), (204, 638), (192, 666), (190, 694),
                    (198, 720)], per=20)
@@ -476,10 +539,17 @@ def build():
     body = []
     body.append(back)
     body.append(emit(ab + bb))
-    body.append(A.pieces(False) + B.pieces(False))
+    # A and B: each stem is ONE continuous ribbon drawn behind the hoop, plus an
+    # identical copy in front of it clipped to the runs where the stem passes in
+    # front. Outside the cane both copies coincide, so the wraps have no seams,
+    # nubs or square cuts: a stem simply disappears behind the cane.
+    fm = "hfm"
+    masks = "".join(st.run_mask(a, b) for st in (A, B) for a, b in st.runs(True))
+    body.append(f'<path id="hstm" d="{A.ribbon_ab(0, A.L)}{B.ribbon_ab(0, B.L)}" fill="{STEM}"/>')
+    full = '<use href="#hstm"/>'
     body.append(C.part(0, 14))
     body.append(hoop_svg())
-    body.append(A.pieces(True) + B.pieces(True))
+    body.append(f'<clipPath id="{fm}"><path d="{masks}"/></clipPath><g clip-path="url(#{fm})">{full}</g>')
     body.append(emit_stubs(ast + bst))
     body.append(D.part(0, D.L))
     body.append(emit(af + bf + df))

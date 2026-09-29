@@ -311,6 +311,37 @@ def fiddlehead(x0, pts_ctrl, coil_r, turns, fill, dark, w0=4.2, left=True):
     return f'<path d="{d}" fill="{fill}"/>'
 
 
+def base_stub(x0, y0, th, w, col):
+    """Hidden-crown extension of a stipe: from a common crown point below the
+    rim's front edge up to the stipe's start (x0, y0), arriving along its heading
+    th, same width and colour, so the stipes fan out of the soil as one tapered
+    bundle instead of showing cut ends on the soil."""
+    a = math.radians(th)
+    d = (math.sin(a), -math.cos(a))
+    c = (CX + (x0 - CX) * 0.35, CROWN_Y + 16)
+    k = math.hypot(x0 - c[0], y0 - c[1]) * 0.5
+    m = (x0 - d[0] * k, y0 - d[1] * k)
+    e = (x0 + d[0] * 1.5, y0 + d[1] * 1.5)
+    pts = [tuple((1 - t) ** 2 * c[j] + 2 * (1 - t) * t * m[j] + t * t * e[j] for j in (0, 1))
+           for t in (i / 16 for i in range(17))]
+    # plain polygon (no spline smoothing: a smoothed ribbon bulges at its square end)
+    L, R = [], []
+    for i, q in enumerate(pts):
+        a_, b_ = pts[max(i - 1, 0)], pts[min(i + 1, len(pts) - 1)]
+        dx, dy = b_[0] - a_[0], b_[1] - a_[1]
+        mm = math.hypot(dx, dy) or 1
+        L.append((q[0] - dy / mm * w / 2, q[1] + dx / mm * w / 2))
+        R.append((q[0] + dy / mm * w / 2, q[1] - dx / mm * w / 2))
+    ring = L + R[::-1]
+    return '<path d="M' + "L".join(f"{f(x)} {f(y)}" for x, y in ring) + f'Z" fill="{col}"/>'
+
+
+def frond_stub(fr, col):
+    pts, _ = spine(fr["ctrl"])
+    x, y, th = pts[0]
+    return base_stub(x, y, th, fr.get("w0", 4.2), col)
+
+
 # ------------------------------------------------------------------ build
 DEEP = (P["deep"], SHADE[P["deep"]])
 FOREST = (P["forest"], SHADE[P["forest"]])
@@ -358,7 +389,12 @@ def build():
                             (RING3, MID, P["forest"]), (DRAPE, LIGHTT, P["sage"]),
                             (TUFT, LIGHTT, P["sage"])):
         for fr in group:
-            body.append(frond(tone=tone, rachis_col=rc, **fr)[0])
+            body.append(frond_stub(fr, rc) + frond(tone=tone, rachis_col=rc, **fr)[0])
+    fh0 = math.degrees(math.atan2(304 - 302, -(560 - CROWN_Y)))
+    body.append(base_stub(302, CROWN_Y, fh0, 4.0, P["pale"]))
+    # the front frond's stub goes under the pot front (its visible bit on the soil
+    # joins the rachis drawn over the rim)
+    body += [frond_stub(fr, P["sage"]) for fr in FRONT]
     body.append(fiddlehead(302, [(304, 560), (311, 530), (324, 512)], 13, 1.15,
                            P["pale"], P["sage"], w0=4.0, left=False))
     body.append(front)

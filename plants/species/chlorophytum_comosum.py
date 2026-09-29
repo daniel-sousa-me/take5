@@ -183,12 +183,17 @@ def rim_hide_clip():
     they come out of the soil) while letting the drape over the rim show."""
     cid = uid("rh")
     ry = RX * 0.15
-    x0, x1 = CX - 62, CX + 62
+    # right end stops at x 350: just past the right runner's base, but short of
+    # where the right drape leaf's underside dips over the rim edge (x ~353), so
+    # the notch never cuts that leaf (a cut there showed as a hard vertical edge)
+    x0, x1 = CX - 62, CX + 50
     arc = []
-    for i in range(9):
-        x = x0 + (x1 - x0) * i / 8
+    # dense and only a hair below the true edge, so the drape bases end level
+    # with the leaves drawn behind the pot front (+1 left a 1-unit step there)
+    for i in range(33):
+        x = x0 + (x1 - x0) * i / 32
         u = (x - CX) / RX
-        arc.append(f"{f(x)} {f(RIM_Y + ry * math.sqrt(1 - u * u) + 1)}")
+        arc.append(f"{f(x)} {f(RIM_Y + ry * math.sqrt(1 - u * u) + 0.2)}")
     # one simple contour: the canvas with a notch cut up to the rim's front edge
     d = f"M0 0H600V800H{f(x1)}L" + "L".join(arc[::-1]) + f"L{f(x0)} 800H0Z"
     return cid, f'<clipPath id="{cid}"><path d="{d}"/></clipPath>'
