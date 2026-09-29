@@ -125,7 +125,8 @@ def zz_stalk(pts, tone, rachis, lmax, bare=0.36, base_w=19, spread=(56, 38), see
     z0, z1 = bare * tot, top * tot
     while pos < z1:
         u = (pos - z0) / (z1 - z0)
-        size = lmax * (0.9 + 0.35 * u - 0.72 * u * u) * r.uniform(0.95, 1.05)
+        # small near the base, fullest just below the middle, small again at the tip
+        size = lmax * (0.66 + 1.25 * u - 1.3 * u * u) * r.uniform(0.93, 1.07)
         dev = spread[0] + (spread[1] - spread[0]) * u
         step = gap * 0.56 * size / math.sin(math.radians(dev))
         off = step * r.uniform(0.2, 0.28) * (1 if seed % 2 else -1)
@@ -178,7 +179,7 @@ def zz_stalk(pts, tone, rachis, lmax, bare=0.36, base_w=19, spread=(56, 38), see
         fl.append(f"M{f(q0[0])} {f(q0[1])}L{f(q1[0])} {f(q1[1])}")
         u += r.uniform(0.035, 0.07)
     out.append(f'<g clip-path="url(#{sid})"><path d="{"".join(fl)}" stroke="{mot}" stroke-width="2.2" '
-               f'stroke-linecap="round" opacity=".32"/></g>')
+               f'stroke-linecap="round"/></g>')
     return "".join(out)
 
 
@@ -191,22 +192,26 @@ def build():
     _DEFS_SVG.clear()
     back, front = pot(kind="classic", rx=96, rim_y=RIM, base_w=66, band=True)
     B = RIM + 12
+    # mottle colours are pre-blended solids (deep/night over the rachis @32 %)
+    S_DK = (P["sage"], "#6B7E63")
+    S_FO = (P["forest"], "#384F3B")
     stalks = [
         # back: centre tallest (dark)
-        dict(pts=[(300, B), (297, 470), (293, 320), (300, 170), (312, 48)], tone=DARK,
-             rachis=(P["sage"], P["deep"]), lmax=68, base_w=20, seed=3, bare=0.40, skip={(0, -1)}),
-        # left upright (mid), taller of the two side stalks
-        dict(pts=[(290, B), (264, 482), (212, 352), (150, 244), (104, 176)], tone=MIDT,
-             rachis=(P["forest"], P["night"]), lmax=64, base_w=18, seed=11, bare=0.37),
-        # right upright (mid), a little shorter
-        dict(pts=[(310, B), (336, 492), (386, 382), (440, 290), (482, 240)], tone=MIDT,
-             rachis=(P["forest"], P["night"]), lmax=60, base_w=18, seed=7, bare=0.38),
-        # left arching (dark, front)
-        dict(pts=[(284, B), (242, 526), (170, 470), (104, 436), (60, 430)], tone=DARK,
-             rachis=(P["sage"], P["deep"]), lmax=58, base_w=17, seed=21, bare=0.42),
-        # right arching (dark, front), shorter and a touch higher
-        dict(pts=[(318, B), (366, 528), (438, 474), (496, 450), (538, 452)], tone=DARK,
-             rachis=(P["sage"], P["deep"]), lmax=54, base_w=17, seed=5, bare=0.44),
+        dict(pts=[(300, B), (296, 470), (286, 330), (290, 190), (308, 56)], tone=DARK,
+             rachis=S_DK, lmax=68, base_w=20, seed=3, bare=0.40, skip={(0, -1)},
+             spread=(58, 36)),
+        # left upright (mid): the longest, bowing out and arching over at the top
+        dict(pts=[(290, B), (262, 486), (220, 360), (160, 250), (96, 192), (62, 190)], tone=MIDT,
+             rachis=S_FO, lmax=62, base_w=18, seed=11, bare=0.36, spread=(62, 40)),
+        # right upright (mid): shorter, steeper and almost straight
+        dict(pts=[(310, B), (330, 486), (360, 380), (392, 290), (418, 222)], tone=MIDT,
+             rachis=S_FO, lmax=54, base_w=18, seed=7, bare=0.38, spread=(52, 42)),
+        # left arching (dark, front): long, low and drooping at the tip
+        dict(pts=[(284, B), (238, 530), (168, 482), (104, 462), (58, 478)], tone=DARK,
+             rachis=S_DK, lmax=56, base_w=17, seed=21, bare=0.40, spread=(58, 40)),
+        # right arching (dark, front): short, lifting rather than drooping
+        dict(pts=[(318, B), (372, 530), (432, 474), (478, 420), (506, 380)], tone=DARK,
+             rachis=S_DK, lmax=46, base_w=16, seed=5, bare=0.46, spread=(54, 34)),
     ]
     body = [back]
     for st in stalks:

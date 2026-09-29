@@ -53,8 +53,9 @@ def leaf_svg(lf, bx, by, deg, fill, side, sx=1.0):
     vcol = P["night"] if fill != P["night"] else "#1E2D22"
     return leaf_g(
         lf, fill, extra=lambda l: f'<path d="{half(l, side)}" fill="{sh}"/>',
-        # faint curved laterals running up toward the margin
-        veins=(vcol, 0.9, 0.2, [0.14, 0.27, 0.40, 0.53, 0.66], 0.9, 0.16),
+        # curved laterals running up toward the margin; opacity kept >= .34 and a
+        # 1.3 u width so print_prep widens them instead of dropping them
+        veins=(vcol, 1.2, 0.35, [0.15, 0.30, 0.45, 0.60], 0.9, 0.17),
         midrib=(rib, max(1.6, lf.L * 0.011), 0.45, 0.03, 0.9),
         transform=T(bx, by, deg, 1, sx))
 
@@ -103,13 +104,10 @@ def spathe_svg(bx, by, deg, H, bend=0.06, flip=False, open_=1.0):
     g.append(f'<path d="{throat}" fill="{P["pale"]}"/>')
     throat2 = cr_path([sp.axis(-0.05), sp.pt(0.05, 0.055), sp.axis(0.2), sp.pt(0.05, -0.055)],
                       closed=True, sharp={0, 2})
-    g.append(f'<path d="{throat2}" fill="{P["light"]}" opacity=".8"/>')
-    # pale green midvein fading up the spathe + two faint parallel veins
+    g.append(f'<path d="{throat2}" fill="#ACB89E"/>')  # light over pale, pre-blended
+    # pale green midvein up the spathe
     mv = [sp.axis(0.02 + 0.8 * i / 6) for i in range(7)]
-    g.append(line(mv, 1.6, P["sage"], 0.45))
-    for s in (1, -1):
-        vv = [sp.pt(t, s * sp.width(t, "r" if s > 0 else "l") * 0.5) for t in (0.08, 0.3, 0.55, 0.75)]
-        g.append(line(vv, 1.0, P["sage"], 0.28))
+    g.append(line(mv, 1.6, "#BCC3AC"))  # sage over ivory, pre-blended solid
     g.append("</g>")
     # spadix: upright capsule rising from the throat, slightly off-axis
     sl, sw = H * 0.36, H * 0.062
@@ -177,10 +175,12 @@ def build():
     fan("front", 60, 118, 150, S, 0.15, lean=1.38, pet=S)
     # --- drape: short leaves flopping over the rim, hiding the crown
     fan("front", 8, 76, 96, P["light"], 0.05, lean=2.7, pet=S)
-    add("drape", pl.leaf(274, 266, 590, -122, 118, S, bend=0.1, side="r", pet=S, pw=(7, 5),
-                         ctrl=(272, 602), pre_k=0.02))
-    add("drape", pl.leaf(330, 338, 588, 118, 104, M, bend=-0.09, side="l", pet=S, pw=(7, 5),
-                         ctrl=(334, 600), pre_k=0.02))
+    # deliberately unequal: a long leaf flopping low over the left rim, a short one
+    # pushing out almost level on the right (no mirrored "bow tie")
+    add("drape", pl.leaf(276, 262, 592, -128, 132, S, bend=0.12, side="r", pet=S, pw=(7, 5),
+                         ctrl=(272, 604), pre_k=0.02))
+    add("drape", pl.leaf(328, 350, 584, 106, 98, M, bend=-0.06, side="l", pet=S, pw=(6.5, 4.5),
+                         ctrl=(334, 596), pre_k=0.02))
 
     g = []
     for layer in ("back", "flow", "mid", "front"):

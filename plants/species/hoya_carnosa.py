@@ -19,17 +19,19 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 from core import PAL, Leaf, cr_path, cr_sample, ribbon, f, pot, svg_doc, reset_ids  # noqa: E402
 
 P = PAL
-TONES = {  # fill, turned-away half, sheen opacity
-    "deep": ("#314B37", "#27392C", 0.10),
-    "forest": ("#405D43", "#34503A", 0.11),
-    "mid": ("#5B7458", "#4B6349", 0.12),
-    "sage": ("#7F9273", "#6A7E60", 0.14),
-    "light": ("#A5B296", "#8E9E80", 0.16),
+# fill, turned-away half, sheen, midrib, speckle -- the last three are pre-blended
+# solids (cream @17 %, pale @42 %, spot @70 % over the fill): the card face allows no
+# transparency and faint overlays vanish in pigment print.
+TONES = {
+    "deep": ("#314B37", "#27392C", "#526753", "#71846F", "#B1B5A3"),
+    "forest": ("#405D43", "#34503A", "#5F755D", "#7A8E76", "#B6BAA6"),
+    "mid": ("#5B7458", "#4B6349", "#75896F", "#899B82", "#BEC1AD"),
+    "sage": ("#7F9273", "#6A7E60", "#93A185", "#9EAD92", "#C8CAB5"),
+    "light": ("#A5B296", "#8E9E80", "#B3BCA2", "#B4BFA6", "#D4D4BF"),
 }
 STEM = "#8E9E80"
 HOOP = P["terra_dark"]
-HOOP_WRAP = P["soil"]
-MIDRIB = P["pale"]
+HOOP_WRAP = "#774C37"  # soil over terra_dark @50 %, pre-blended
 PETAL = "#F3E2DA"
 PETAL_SH = "#E4C3BB"
 PETAL_BK = "#DDB0AA"
@@ -98,8 +100,8 @@ def outward(p, t):
 def hoop_svg():
     d = cr_path(HOOP_PTS, closed=False)
     return (f'<path d="{d}" fill="none" stroke="{HOOP}" stroke-width="7.5" stroke-linecap="round"/>'
-            f'<path d="{d}" fill="none" stroke="{HOOP_WRAP}" stroke-width="7.5" stroke-dasharray="1.8 4.4" opacity=".5"/>'
-            f'<path d="{d}" fill="none" stroke="{P["terra"]}" stroke-width="1.4" transform="translate(-1.2 -.8)" opacity=".6"/>')
+            f'<path d="{d}" fill="none" stroke="{HOOP_WRAP}" stroke-width="7.5" stroke-dasharray="1.8 4.4"/>'
+            f'<path d="{d}" fill="none" stroke="#A96445" stroke-width="1.4" transform="translate(-1.2 -.8)"/>')
 
 
 # ------------------------------------------------------------------ stems
@@ -201,7 +203,7 @@ def leaf_def(var, tone, shade_side, speck):
         return DEFS[key][0]
     lid = f"hl{len(DEFS)}"
     lf = hoya_leaf(var)
-    fill, sh, sheen = TONES[tone]
+    fill, sh, sheen, rib, spk = TONES[tone]
     d = lf.path()
     cid = f"hk{var}"
     o = []
@@ -214,7 +216,7 @@ def leaf_def(var, tone, shade_side, speck):
     sg = 1 if lit == "r" else -1
     a = [lf.pt(t, sg * lf.width(t, lit) * 0.68) for t in (0.2, 0.36, 0.54, 0.70)]
     b = [lf.pt(t, sg * lf.width(t, lit) * 0.42) for t in (0.62, 0.46, 0.30)]
-    o.append(f'<path d="{cr_path(a + b, closed=True, sharp={0, 3})}" fill="{P["cream"]}" opacity="{sheen}"/>')
+    o.append(f'<path d="{cr_path(a + b, closed=True, sharp={0, 3})}" fill="{sheen}"/>')
     if speck:
         rnd = random.Random(speck * 31 + var)
         dd = []
@@ -225,12 +227,12 @@ def leaf_def(var, tone, shade_side, speck):
             p = lf.pt(t, g * lf.width(t, side) * rnd.uniform(0.18, 0.82))
             r = rnd.uniform(0.6, 1.05)
             dd.append(f"M{f(p[0] - r)} {f(p[1])}a{f(r)} {f(r)} 0 1 0 {f(2 * r)} 0a{f(r)} {f(r)} 0 1 0 {f(-2 * r)} 0")
-        o.append(f'<path d="{"".join(dd)}" fill="{P["spot"]}" opacity=".7"/>')
+        o.append(f'<path d="{"".join(dd)}" fill="{spk}"/>')
     # midrib as a filled taper (not a hairline stroke) so the print pass keeps it
     # exactly as drawn instead of fattening it into a heavy pale bar
     a0, a1, a2 = lf.axis(0.0), lf.axis(0.45), lf.axis(0.88)
     o.append(f'<path d="M{f(a0[0] - .85)} {f(a0[1])}Q{f(a1[0] - .6)} {f(a1[1])} {f(a2[0])} {f(a2[1])}'
-             f'Q{f(a1[0] + .6)} {f(a1[1])} {f(a0[0] + .85)} {f(a0[1])}Z" fill="{MIDRIB}" opacity=".42"/>')
+             f'Q{f(a1[0] + .6)} {f(a1[1])} {f(a0[0] + .85)} {f(a0[1])}Z" fill="{rib}"/>')
     o.append("</g></g>")
     DEFS[key] = (lid, "".join(o))
     return lid
@@ -349,6 +351,11 @@ B_NODES = [
     (352, [(-60, 48, "light", 1, 2, 6), (68, 44, "forest", 1, 1, 0)]),
     (420, [(-40, 30, "sage", 1, 0, 0), (40, 26, "mid", 1, 0, 0)]),
 ]
+D_NODES = [  # short side shoot branching off A across the hoop interior
+    (46, [(-64, 50, "mid", 1, 1, 0), (70, 42, "deep", 1, 2, 0)]),
+    (104, [(-58, 44, "light", 1, 3, 8), (62, 38, "forest", 1, 1, 0)]),
+    (146, [(-44, 24, "sage", 1, 0, 0), (48, 20, "mid", 1, 0, 0)]),
+]
 C_NODES = [
     (70, [(-70, 40, "sage", 1, 1, 0), (64, 36, "forest", 1, 2, 7)]),
     (132, [(-62, 34, "mid", 1, 2, 0), (70, 32, "light", 1, 1, 0)]),
@@ -411,12 +418,19 @@ def build():
     B = Stem(HL, HL - 190, tail=[(424, 446), (462, 468), (488, 506), (498, 552), (494, 596), (484, 628)],
              phase=2.3, w0=5.6, w1=2.2)
     C = Stem(0, 0, w0=4.2, w1=1.8)
-    C.path = Path([(270, 586), (246, 589), (224, 589), (206, 594), (194, 616), (188, 650), (190, 686),
-                   (198, 712)], per=20)
+    C.path = Path([(268, 594), (246, 603), (222, 617), (204, 638), (192, 666), (190, 694),
+                   (198, 720)], per=20)
     C.L = C.path.L
     C.hoop_len = 0
 
+    d0, _ = A.at(240)
+    D = Stem(0, 0, w0=3.6, w1=1.6)
+    D.path = Path([d0, (224, 396), (262, 378), (296, 350), (318, 318), (326, 292)], per=20)
+    D.L = D.path.L
+    D.hoop_len = 0
+
     ab, af, ast = nodes_svg(A, A_NODES, rnd)
+    db, df, dst = nodes_svg(D, D_NODES, rnd)
     bb, bf, bst = nodes_svg(B, B_NODES, rnd)
     cb, cf, cst = nodes_svg(C, C_NODES, rnd)
 
@@ -431,17 +445,18 @@ def build():
     body.append(back)
     body.append(emit(ab + bb))
     body.append(A.pieces(False) + B.pieces(False))
-    body.append(C.part(0, 30))
+    body.append(C.part(0, 14))
     body.append(hoop_svg())
     body.append(A.pieces(True) + B.pieces(True))
     body.append(emit_stubs(ast + bst))
-    body.append(emit(af + bf))
+    body.append(D.part(0, D.L))
+    body.append(emit(af + bf + df))
     body.append(peduncle(n1, u1_top))
     body.append(umbel(u1_top, R=36, seed=2, tilt=0.12))
     body.append(peduncle(n2, u2_top))
     body.append(umbel(u2_top, R=33, seed=5, tilt=-0.1))
     body.append(front)
-    body.append(C.part(22, C.L))
+    body.append(C.part(10, C.L))
     body.append(emit(cb + cf) + emit_stubs(cst))
     defs = "<defs>" + flower_defs() + "".join(v[1] for v in DEFS.values()) + "</defs>"
     return defs + "".join(body)

@@ -18,11 +18,12 @@ BARK_DK = P["soil"]
 BARK_HI = "#8A7659"
 
 # half-width profile of the violin-shaped blade (t along midrib, w as fraction of L)
-PROFILE = [(0.00, 0.075), (0.06, 0.150), (0.16, 0.205), (0.28, 0.228), (0.40, 0.212),
-           (0.52, 0.255), (0.64, 0.325), (0.76, 0.365), (0.86, 0.345), (0.935, 0.255),
-           (0.985, 0.095)]
+# Few, evenly spread nodes -> smooth margin: narrow base, one gentle waist (~0.42),
+# broadest at ~0.8, broad rounded apex with only a tiny point.
+PROFILE = [(0.00, 0.045), (0.11, 0.125), (0.26, 0.180), (0.41, 0.176), (0.58, 0.262),
+           (0.77, 0.345), (0.905, 0.312), (0.972, 0.165)]
 SINUS_T = 0.035
-TIP_T = 0.972
+TIP_T = 0.995
 
 
 class Fig:
@@ -31,15 +32,15 @@ class Fig:
         self.rot = math.radians(rot)
         self.L, self.sx, self.sy, self.bend = L, sx, sy, bend
         rnd = random.Random(seed)
-        waist = rnd.uniform(0.86, 1.04)   # how pinched the "fiddle" waist is
-        crown = rnd.uniform(0.94, 1.08)   # breadth of the rounded upper blade
+        waist = rnd.uniform(0.94, 1.0)    # how pinched the "fiddle" waist is
+        crown = rnd.uniform(0.96, 1.04)   # breadth of the rounded upper blade
         self.prof = {}
         for side in ("r", "l"):
-            asym = rnd.uniform(-0.025, 0.025)
+            asym = rnd.uniform(-0.014, 0.014)
             pr = []
             for i, (t, w) in enumerate(PROFILE):
-                wig = rnd.uniform(-0.016, 0.016) if 2 <= i <= 9 else 0
-                k = waist if 0.3 <= t <= 0.5 else (crown if t >= 0.6 else 1.0)
+                wig = 0  # (random margin wiggle removed: it made the blades lumpy)
+                k = waist if 0.35 <= t <= 0.45 else (crown if t >= 0.6 else 1.0)
                 pr.append((t, (w * k + wig + (asym if t > 0.45 else 0)) * fat))
             self.prof[side] = pr
 

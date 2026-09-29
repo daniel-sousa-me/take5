@@ -14,12 +14,14 @@ sys.path.insert(0, ROOT)
 from core import PAL, Leaf, cr_path, cr_sample, ribbon, f, uid, pot, svg_doc, reset_ids  # noqa: E402
 
 P = PAL
-# leaf tone sets: (fill, turned-away half, sheen opacity)
+# leaf tone sets: (fill, turned-away half, sheen, midrib). Sheen = cream over the
+# fill at ~17 %, midrib = MIDRIB over the fill at ~62 %, both pre-blended to solids
+# (card face has no transparency; faint overlays vanish in pigment print).
 TONES = {
-    "back":  ("#27392C", "#1F3025", 0.10),   # night
-    "deep":  ("#314B37", "#27392C", 0.12),
-    "front": ("#405D43", "#34503A", 0.13),   # forest
-    "young": ("#5B7458", "#4B6349", 0.14),   # new leaf, a touch lighter
+    "back":  ("#27392C", "#1F3025", "#4A584A", "#98887D"),   # night
+    "deep":  ("#314B37", "#27392C", "#526753", "#9C8F81"),
+    "front": ("#405D43", "#34503A", "#5F755D", "#A19685"),   # forest
+    "young": ("#5B7458", "#4B6349", "#75896F", "#AC9F8D"),   # new leaf, a touch lighter
 }
 STEM = "#7F9273"        # sage: reads against every leaf tone
 STEM_SH = "#6A7E60"
@@ -59,7 +61,7 @@ def rubber_leaf(L, bend=0.0, asym=0.0):
 
 
 def leaf_svg(lf, tone, x, y, rot, shade_side="r"):
-    fill, sh, sheen_op = TONES[tone]
+    fill, sh, sheen, rib = TONES[tone]
     d = lf.path()
     cid = uid("lc")
     L = lf.L
@@ -72,22 +74,10 @@ def leaf_svg(lf, tone, x, y, rot, shade_side="r"):
     sg = 1 if lit == "r" else -1
     a = [lf.pt(t, sg * lf.width(t, lit) * 0.62) for t in (0.22, 0.36, 0.52, 0.66)]
     b = [lf.pt(t, sg * lf.width(t, lit) * 0.40) for t in (0.60, 0.46, 0.32)]
-    o.append(f'<path d="{cr_path(a + b, closed=True, sharp={0, 3})}" fill="#F5EDDD" opacity="{sheen_op}"/>')
-    # faint, fine lateral veins (rubber-plant veins are almost parallel, steep)
-    vv = []
-    for s in ("r", "l"):
-        g = 1 if s == "r" else -1
-        for i in range(9):
-            t = 0.1 + i * 0.075
-            p0 = lf.axis(t)
-            pm = lf.pt(t + 0.03, g * lf.width(t + 0.03, s) * 0.5)
-            p1 = lf.pt(t + 0.07, g * lf.width(t + 0.07, s) * 0.86)
-            vv.append(f"M{f(p0[0])} {f(p0[1])}Q{f(pm[0])} {f(pm[1])} {f(p1[0])} {f(p1[1])}")
-    o.append(f'<path d="{"".join(vv)}" fill="none" stroke="#C9D2BC" stroke-width="{f(max(0.8, L * 0.005))}" '
-             f'stroke-linecap="round" opacity=".09"/>')
+    o.append(f'<path d="{cr_path(a + b, closed=True, sharp={0, 3})}" fill="{sheen}"/>')
     # midrib: tapered, pale-pink
     mid = [lf.axis(t) for t in (-0.02, 0.2, 0.45, 0.7, 0.93)]
-    o.append(f'<path d="{ribbon(mid, L * 0.022, L * 0.004)}" fill="{MIDRIB}" opacity=".62"/>')
+    o.append(f'<path d="{ribbon(mid, L * 0.022, L * 0.004)}" fill="{rib}"/>')
     o.append("</g></g>")
     return "".join(o)
 
@@ -127,14 +117,13 @@ S2 = [(312, 612), (320, 530), (336, 460), (350, 400), (360, 346)]              #
 #   z < 0.5 = behind the stems
 LEAVES = [
     (S1, 502, -1, -112, 20, -99, 172, "front", 3, 0.05),
-    (S1, 486, +1, 105, 18, 92, 150, "back", 0, -0.04),
     (S1, 416, -1, -76, 20, -63, 158, "back", 0.2, -0.04),
     (S1, 356, +1, 62, 18, 50, 138, "back", 0.1, 0.04),
     (S1, 298, -1, -52, 18, -42, 128, "front", 2, -0.03),
     (S1, 250, +1, 50, 16, 40, 104, "deep", 1, 0.03),
     (S1, 206, -1, -50, 14, -40, 80, "young", 2.5, -0.02),
     (S2, 494, +1, 120, 18, 109, 150, "front", 2, -0.05),
-    (S2, 440, +1, 88, 16, 78, 132, "deep", 1.5, 0.04),
+    (S2, 440, +1, 74, 16, 61, 128, "deep", 1.5, 0.04),
     (S2, 392, +1, 48, 12, 36, 88, "young", 1.8, 0.02),
 ]
 
@@ -164,7 +153,7 @@ def build():
         out.append(f'<path d="{ribbon(sh, w0 * 0.35, w1 * 0.3)}" fill="{STEM_SH}"/>')
     for (p0, pa) in nodes:
         out.append(f'<path d="M{f(p0[0] - 6)} {f(p0[1] + 5)}Q{f(p0[0])} {f(p0[1] + 8)} {f(p0[0] + 6)} {f(p0[1] + 5)}" '
-                   f'fill="none" stroke="{P["wine"]}" stroke-width="1.4" opacity=".35"/>')
+                   f'fill="none" stroke="#737361" stroke-width="1.4"/>')  # wine over stem @35 %, solid
     # sheaths at the two growing tips (drawn before the front leaves so the youngest
     # leaf can sit over the sheath base)
     tip1, a1 = S1[-1], at_y(S1, S1[-1][1] + 2)[1]
