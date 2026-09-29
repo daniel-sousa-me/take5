@@ -3,7 +3,8 @@
 A woven natural-fibre hoop rises from the pot. Stem A twines clockwise up the
 left leg and over the top of the hoop; stem B twines up the right leg, then leaves
 the hoop and trails down on the right; stem C drapes over the front of the rim.
-Thick waxy opposite leaves in pairs at the nodes (some with fine pale speckles);
+Thick waxy opposite leaves in pairs at the nodes (some with fine pale speckles,
+spread over both sides of the hoop);
 two hemispherical umbels of blush star flowers with red coronas hang on short
 peduncles.
 
@@ -433,7 +434,7 @@ A_NODES = [
     (372, [(-52, 58, "light", 1, 2, 2), (100, 40, "forest", 0, 1, 0)]),
     (478, [(-38, 60, "mid", 1, 1, 3), (58, 44, "deep", 0, 0, 0)]),
     (590, [(-40, 66, "sage", 1, 2, 0), (58, 50, "forest", 0, 1, 4)]),
-    (700, [(-62, 58, "forest", 1, 3, 0), (46, 46, "mid", 0, 2, 0)]),
+    (700, [(-62, 58, "forest", 1, 3, 9), (46, 46, "mid", 0, 2, 0)]),
     (782, [(-50, 44, "light", 1, 1, 0), (40, 36, "deep", 0, 2, 0)]),
     (846, [(-64, 40, "mid", 1, 2, 0), (54, 32, "forest", 0, 1, 0)]),
     (922, [(-58, 17, "sage", 1, 0, 0), (62, 15, "mid", 1, 0, 0)]),  # growing tip
@@ -441,7 +442,7 @@ A_NODES = [
 B_NODES = [
     (70, [(62, 48, "forest", 1, 2, 0), (-58, 40, "deep", 0, 1, 0)]),
     (165, [(58, 60, "sage", 1, 1, 5), (-66, 46, "forest", 0, 2, 0)]),
-    (262, [(-70, 54, "mid", 1, 3, 0), (76, 44, "forest", 1, 0, 0)]),  # dark leaf behind umbel 2 (pale stem reads on it)
+    (262, [(-70, 54, "mid", 1, 3, 10), (76, 44, "forest", 1, 0, 0)]),  # dark leaf behind umbel 2 (pale stem reads on it)
     (352, [(-60, 48, "light", 1, 2, 6), (68, 44, "forest", 1, 1, 0)]),
     (420, [(-40, 30, "sage", 1, 0, 0), (40, 26, "mid", 1, 0, 0)]),
 ]

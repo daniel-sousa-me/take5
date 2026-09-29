@@ -43,10 +43,10 @@ for history; where it disagrees with this file, this file wins (card size and pr
 - **Paper-white.** The stock is ivory (`STOCK` = `#F3EBDA` in `print_prep.py`, L* ≈ 93). Ink only darkens paper, so a
   colour at or lighter than the stock can't print as drawn: the driver leaves it blank or dithers a sparse speckle
   into it. `print_prep.py` sets every fill / stroke / stop colour with L* ≥ the stock's and chroma C* ≤ 15 (a near-
-  neutral cream or white) to `#FFFFFF`, i.e. no ink, bare stock. Today that is `#FBF6EA` (`PAL["ivory"]`): chlorophytum's
-  cream stripes (12 shapes), pilea (4), spathiphyllum's light spathe half (3), tradescantia (3), senecio's pearl
-  highlight (1). It's informational, not a rule break: the masters keep their colour (right on screen), the plant still
-  reports `ok (unchanged)` for the line rules, and the count is shown beside it as `[paper-white: N]` (`-v` lists the
+  neutral cream or white) to `#FFFFFF`, i.e. no ink, bare stock. Today that is `#FBF6EA` (`PAL["ivory"]`) in three
+  plants: chlorophytum's cream leaf stripes (3 shapes), pilea's leaf-attachment dots on its light and pale leaves (4)
+  and tradescantia's flower centres (3); no other plant has any. It's informational, not a rule break: the masters
+  keep their colour (right on screen), the plant still reports `ok (unchanged)` for the line rules, and the count is shown beside it as `[paper-white: N]` (`-v` lists the
   colours). Darker creams such as `#E8E2D1` (L* 90) print as a real tint and are left alone. The card face itself
   has nothing lighter than the stock (tier fields are L* ≤ 87; `PAPER_BG` is off, so `C["cream"]` `#F5EDDD` is unused;
   the sheet background is `#fff` = no ink); the shared pot ground shadow is `deep` at 11 % opacity, ≈ `#E8EBE9` over
@@ -114,13 +114,13 @@ for history; where it disagrees with this file, this file wins (card size and pr
   ≈ 35.5 mm of actual ink for a typical plant), with the pot rim capped at 13.5 mm so squat plants in wide
   bowls don't balloon. Because the pot scales with its plant, each generator's `pot(rx=…, base_w=…)` is sized
   against that plant's fitted scale so the printed pots match side by side: every classic pot rim prints at
-  10.3–10.9 mm (median ≈ 10.55 mm, all within ±3.5 %), and the four succulent bowls (aloe, jade, echeveria,
-  bunny ears) are allowed ≈ 7–8 % wider (≈ 11.3–11.4 mm). A plant whose fitted scale changes needs its pot `rx`
-  re-checked (printed rim = 2 × rx × scale). Each plant is then checked against the ink boxes of the numbers, marks, underline,
+  10.3–10.9 mm (median ≈ 10.5 mm; the extremes are within ±3 % of the 10.6 mm middle), and the four succulent
+  bowls (aloe, jade, echeveria, bunny ears) are allowed ≈ 8 % wider (≈ 11.3–11.4 mm). A plant whose fitted scale
+  changes needs its pot `rx` re-checked (printed rim = 2 × rx × scale). Each plant is then checked against the ink boxes of the numbers, marks, underline,
   name label and corner fields of every card it appears on (≥ 1.2 mm from numbers, underline and label,
   ≥ 2.0 mm from the penalty marks, and inside the 5 mm EDGE) and
   takes the largest scale that fits all of them, so a species is the same size everywhere; a plant blocked
-  by the bottom-right block may slide up to 3 mm left instead of shrinking (string of pearls, spider plant, wax plant).
+  by the bottom-right block may slide up to 3 mm left instead of shrinking (now spider plant and Boston fern 2 mm, wax plant and purple shamrock 1 mm).
   Card 55 is the one exception to "same size everywhere" (`SHOWPIECE`): its bird of paradise is drawn as large as
   fits, up to 1.15× its species size, still checked against the same obstacles, with 2.0 mm (`SHOWPIECE_MARK_CLEAR`)
   round the top-left marks and 3.5 mm (`SHOWPIECE_BR_CLEAR`) round the whole bottom-right block (number and its
@@ -161,7 +161,9 @@ for history; where it disagrees with this file, this file wins (card size and pr
   (`LILY_STEM`) now ends low inside the receptacle, arriving nearly level from the left, instead of meeting the cap's side.
 - Lily stamens (`STAMENS` in `deck/back.py`): five, deliberately irregular — different lengths, spread and curvature,
   one leaning left, the tallest left of centre (away from the "5") — with small tilted oval anthers, instead of four
-  fanned to one side at equal angle steps with round anthers on a neat arc.
+  fanned to one side at equal angle steps with round anthers on a neat arc. Filaments are `STAMEN_W` = 3.2 units
+  (× 0.72 × 0.1 mm = 0.23 mm printed): mustard is light on ivory, so they get more than the 0.15 mm line minimum
+  (the first 2.6 units, 0.19 mm, looked faint).
 - Leaf outline (`leaf_shape()`): the last node before the sharp tip sits at ~0.22–0.24 of the leaf width, so the
   outline runs straight into the point; the old narrower node (0.10–0.12) pinched the tip into a small hook that
   read as a notch at zoom.

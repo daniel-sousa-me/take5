@@ -114,6 +114,9 @@ STAMENS = [((-3, -30), (-30, -120), (-58, -172), 20),
            ((3, -30), (40, -118), (74, -176), 10),
            ((5, -28), (46, -96), (118, -150), -25),
            ((6, -26), (58, -78), (106, -116), 5)]
+# filament width in flower units: 3.2 x the lily's 0.72 scale x 0.1 mm = 0.23 mm printed (mustard is light on the ivory
+# stock, so it gets more than the 0.15 mm dark-line minimum; the old 2.6 printed 0.19 mm and looked faint)
+STAMEN_W = 3.2
 
 
 # lily calyx in flower-local units (petal bases at 0,0, flower opening toward -y). The stem (LILY_STEM) arrives
@@ -135,7 +138,7 @@ def lily(x, y, rot, s, col, shade, hi, stamen_col):
         g.append(leaf_g(petal(L, w, b), shade, transform=T(0, 0, r)))
     # stamens: STAMENS below -- uneven lengths and spread, one leaning left, anthers as small tilted ovals
     for (bx, by), (mx, my), (tx, ty), _ in STAMENS:
-        g.append(line([(bx, by), (mx, my), (tx, ty)], 2.6, stamen_col))
+        g.append(line([(bx, by), (mx, my), (tx, ty)], STAMEN_W, stamen_col))
     for (bx, by), (mx, my), (tx, ty), a in STAMENS:
         ang = math.degrees(math.atan2(ty - my, tx - mx)) + 90 + a
         g.append(f'<ellipse cx="{f(tx)}" cy="{f(ty)}" rx="10.5" ry="6" fill="{MUSTARD}" transform="rotate({f(ang)} {f(tx)} {f(ty)})"/>')
