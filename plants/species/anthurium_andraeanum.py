@@ -186,10 +186,10 @@ def build():
              base=(298, 592), via=[(292, 420), (298, 290)], z=1),
         # tilted, left: higher and larger, only half turned
         dict(x=168, y=262, rot=-30, L=132, sx=0.8, side="l", spadix_rot=30, curl=0.28,
-             base=(292, 592), via=[(262, 430), (188, 300)], z=2),
+             base=(292, 592), via=[(250, 470), (200, 342)], z=2),
         # low, right: smaller, more turned away and leaning further out
         dict(x=468, y=372, rot=58, L=98, sx=0.55, side="r", spadix_rot=-24, curl=-0.34,
-             base=(306, 594), via=[(330, 500), (390, 426), (446, 394)], z=3),
+             base=(306, 594), via=[(326, 500), (358, 430), (414, 394)], z=3),
     ]
 
     def leaf_item(s):

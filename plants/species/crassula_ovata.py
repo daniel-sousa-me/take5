@@ -3,7 +3,7 @@
 A miniature tree: thick grey-brown gnarled trunk splitting into fleshy branches
 (faint leaf-scar rings), each ending in a rosette of plump obovate leaves in
 opposite (decussate) pairs. Leaves read as thick pads: darker side band + lighter
-face, a tiny gloss sliver, and a thin blush-red rim on some.
+face, a tiny gloss sliver, and a thin blush-red rim round the sun-exposed tip.
 
 Run:  python3 species/crassula_ovata.py   -> out/crassula_ovata.svg
 """
@@ -40,7 +40,7 @@ VARIANTS = {"o": 1.0, "w": 1.18, "n": 0.84}
 
 
 RIM_W = 3.2                 # visible red margin, world units (print-safe dark line)
-BUCKETS = [0.22, 0.32, 0.46, 0.64]   # leaf scales (L/100) we pre-build rims for
+BUCKETS = [0.2, 0.25, 0.31, 0.39, 0.49, 0.62]   # leaf scales (L/100) we pre-build rims for
 
 
 def shapes(k):
@@ -50,14 +50,17 @@ def shapes(k):
     nodes = [(t, w * s) for t, w in BASE]
     full = Leaf(100, nodes, tip_sharp=False)
     # face: inset on the right (band) side, a hair inside on the left and tip
-    fr = [(t, w * 0.66) for t, w in nodes]
-    fl = [(t, max(w - 0.028, 0) if t > 0 else 0) for t, w in nodes]
-    face_leaf = Leaf(100, fr, fl, tip_sharp=False, tip_t=0.925)
+    # (the face stops short of the leaf tip; drop nodes beyond its tip so the
+    # outline never doubles back into a notch)
+    fr = [(t, w * 0.66) for t, w in nodes if t < 0.92]
+    fl = [(t, max(w - 0.028, 0) if t > 0 else 0) for t, w in nodes if t < 0.92]
+    face_leaf = Leaf(100, fr, fl, tip_sharp=False, tip_t=0.955)
     face_pts, sharp = face_leaf.outline()
     face_pts[0] = (0, -5)
     face = cr_path(face_pts, closed=True, sharp=sharp)
     rims = []
-    ts = [0.36, 0.46, 0.58, 0.68, 0.79, 0.88, 0.95]
+    # rim only round the rounded distal end (the sun-exposed tip), fading in by t~0.7
+    ts = [0.6, 0.66, 0.72, 0.78, 0.84, 0.9, 0.95]
     for sc in BUCKETS:
         th = RIM_W / sc          # local units
         ramp = [0.0, 0.5, 0.9, 1, 1, 1, 1]
@@ -102,9 +105,11 @@ def leaf(x, y, rot, L, tone, k="o", sy=1.0, mirror=None, gloss=True):
         g.append(f'<use href="#jg{k}" fill="{GLOSS[face]}"/>')
     # largest pre-built bucket not bigger than this leaf's (foreshortened) scale,
     # so the printed rim is never thinner than RIM_W
-    se = s * min(1.0, max(sy, 0.8))
+    se = s * min(1.0, sy)
     bk = max([i for i, b in enumerate(BUCKETS) if b <= se] or [0])
-    g.append(f'<use href="#jr{k}{bk}" fill="{RIM}"/>')
+    rim_ok = se >= BUCKETS[0]
+    if rim_ok:
+        g.append(f'<use href="#jr{k}{bk}" fill="{RIM}"/>')
     g.append("</g>")
     return "".join(g)
 
@@ -193,58 +198,62 @@ def wood(pts, widths, bumps=(), every=7, start=3, hi=True):
 
 
 # ------------------------------------------------------------------ rosettes
-def rosette(tip, a, size, tone, nodes=4, seed=0, lean=0, gap=1.0, tilt=0):
-    """Leaf pairs at a branch tip, seen from the side. a = branch direction
-    (deg, cw from up). Decussate pairs sit at uneven intervals down the last
-    stretch of the branch: pairs alternate between the picture plane (a
-    left/right pair, opening wider and growing larger with age) and the depth
-    axis (one leaf leaning back behind the stem, one tipped toward the viewer
-    and foreshortened). The tip carries a small closed bud pair.
+def back_along(samples, dist):
+    """Point and direction (deg cw from up, pointing toward the tip) at arc length
+    `dist` back from the end of a sampled branch."""
+    d = 0.0
+    for i in range(len(samples) - 1, 0, -1):
+        b, a = samples[i], samples[i - 1]
+        seg = math.hypot(b[0] - a[0], b[1] - a[1])
+        if d + seg >= dist or i == 1:
+            u = min(1.0, (dist - d) / (seg or 1))
+            p = (b[0] + (a[0] - b[0]) * u, b[1] + (a[1] - b[1]) * u)
+            return p, math.degrees(math.atan2(b[0] - a[0], -(b[1] - a[1])))
+        d += seg
+
+
+def rosette(samples, size, tone, pairs=3, seed=0, gap=1.0, spread=0, tilt=0, first="spread"):
+    """Decussate leaf pairs spaced along the last stretch of a branch (samples =
+    the branch centre line, base -> tip). A small closed bud pair sits at the tip;
+    below it, opposite pairs at lengthening internodes (bare stem shows between
+    them), alternating between a spread pair in the picture plane (both leaves
+    ascending left/right) and a depth pair (one leaf tipped toward us and
+    foreshortened, its partner leaning back behind the stem).
     Returns (back_svg, mid_svg, front_svg)."""
-    tx, ty = tip
-    ar = math.radians(a)
-    ux, uy = math.sin(ar), -math.cos(ar)
-    sc = size / 55.0
     rng = random.Random(seed)
-
-    def at(back):
-        return (tx - ux * back * sc, ty - uy * back * sc)
-
-    def T_(t):
-        return max(0, min(5, t))
-
-    def lf(x, y, rot, L, tone_, *args, jit=10, **kw):
-        return leaf(x, y, rot + rng.uniform(-jit, jit), L * rng.uniform(0.9, 1.08), tone_, *args, **kw)
-
     B, M, F = [], [], []
-    # positions (distance back from the tip) grow unevenly with age
-    pos, d = [], 0.0
-    for i in range(nodes):
+
+    def lf(x, y, rot, L, tone_, *args, jit=6, **kw):
+        r = (rot + 180) % 360 - 180
+        rot = max(-112, min(112, r))                # leaves ascend or spread, never hang
+        return leaf(x, y, rot + rng.uniform(-jit, jit), L * rng.uniform(0.94, 1.05), tone_, *args, **kw)
+
+    T_ = lambda t: max(0, min(5, t))
+    pos, d = [0.0], size * 0.13
+    for i in range(1, pairs + 1):
         pos.append(d)
-        d += (3 + 3.2 * i) * gap * rng.uniform(0.75, 1.3)
-    # oldest first so younger pairs overlap them
-    for i in reversed(range(nodes)):
-        x, y = at(pos[i])
-        age = i / max(nodes - 1, 1)                 # 0 tip .. 1 oldest
-        L = size * (0.62 + 0.5 * age) * rng.uniform(0.92, 1.05)
-        tn = T_(tone - (1 if age > 0.7 else 0))
-        if i == 0:                                   # closed bud pair at the tip
-            M.append(lf(x, y, a - 13 + lean, size * 0.46, tn, "n", gloss=False, jit=3))
-            M.append(lf(x, y, a + 12 + lean, size * 0.42, tn, "n", gloss=False, jit=3))
-        elif i % 2 == 1:                             # spread pair in the picture plane
-            op = 34 + 70 * age
-            skew = rng.uniform(-14, 14)
-            # one leaf of the pair is often turned a little toward us
-            ty1, ty2 = (1.0, 0.78) if rng.random() < 0.5 else (0.8, 1.0)
-            M.append(lf(x, y, a - op + skew + lean + tilt, L, tn, "o" if age < 0.9 else "w", sy=ty1))
-            M.append(lf(x, y, a + op * rng.uniform(0.8, 1.05) + skew + lean + tilt, L * rng.uniform(0.86, 1.0),
-                        tn, "o" if age < 0.9 else "w", sy=ty2))
-        else:                                        # depth pair: back leaf + foreshortened front leaf
+        d += size * (0.36 + 0.1 * i) * gap * rng.uniform(0.92, 1.1)
+    kinds = ["spread", "depth"] if first == "spread" else ["depth", "spread"]
+    items = []
+    for i in reversed(range(pairs + 1)):
+        (x, y), a = back_along(samples, pos[i])
+        a += tilt
+        age = i / pairs
+        L = size * (0.52 + 0.36 * age)
+        tn = T_(tone - (1 if age > 0.9 else 0))
+        if i == 0:                                  # closed bud pair at the tip
+            M.append(lf(x, y, a - 7, size * 0.32, T_(tone + 1), "n", gloss=False, jit=2))
+            M.append(lf(x, y, a + 6, size * 0.29, T_(tone + 1), "n", gloss=False, jit=2))
+        elif kinds[(i - 1) % 2] == "spread":        # pair in the picture plane
+            op = 44 + 22 * age + spread
+            sk = rng.uniform(-6, 6)
+            M.append(lf(x, y, a - op + sk, L, tn, "o", sy=1.0 if i % 2 else 0.86))
+            M.append(lf(x, y, a + op + sk, L * rng.uniform(0.88, 0.98), tn, "o", sy=0.86 if i % 2 else 1.0))
+        else:                                       # depth pair
             side = 1 if rng.random() < 0.5 else -1
-            B.append(lf(x, y, a + side * rng.uniform(8, 22) + lean, L * 0.9, T_(tn - 1), "w", sy=0.82))
-            ft = tn + 1 if tn < 4 else tn - 1       # front leaf never pale: no light centre motif
-            F.append(lf(x, y, a - side * rng.uniform(120, 160) + lean, L * 0.85, ft, "w",
-                        sy=rng.uniform(0.5, 0.66)))
+            B.append(lf(x, y, a + side * rng.uniform(16, 24), L * 0.9, T_(tn - 1), "o", sy=0.84))
+            ft = tn + 1 if tn < 4 else tn - 1
+            F.append(lf(x, y, a - side * rng.uniform(34, 44), L * 0.9, ft, "w", sy=0.66))
     return "".join(B), "".join(M), "".join(F)
 
 
@@ -277,18 +286,21 @@ def build():
     ]
     W = [wood(*l) for l in side + top]
     W.append(wood(TRUNK, TRUNK_W, ((1.6, 5), (3.4, 4), (5.0, 3), (7.6, 1.5)), every=8, start=4))
+    br = {"A2": side[0][0], "A1": side[1][0], "C2": side[2][0], "C1": side[3][0], "D": side[4][0],
+          "B1": top[0][0], "B2": TRUNK}
+    smp = {k: cr_sample(v, 8) for k, v in br.items()}
 
-    # (tip, dir, size, tone, nodes, seed, lean, gap, tilt) -- each cluster differs
+    # (branch, size, tone, pairs, seed, gap, spread, tilt, first) -- each cluster differs
     ros = [
-        ((112, 368), -60, 66, 2, 6, 11, 0, 1.0, 6),       # A1 far left
-        ((192, 312), -6, 58, 3, 5, 23, 0, 0.8, -8),      # A2
-        ((232, 222), -16, 64, 2, 6, 37, 0, 1.15, 0),     # B1
-        ((328, 160), 5, 70, 4, 5, 41, 0, 0.9, 10),       # B2 top
-        ((402, 292), 4, 60, 2, 4, 53, 0, 1.0, -6),       # C2
-        ((484, 368), 60, 66, 4, 6, 67, 0, 0.95, -4),     # C1 far right
-        ((424, 512), 72, 50, 3, 4, 79, -6, 1.1, 0),      # D low right
+        ("A1", 82, 2, 3, 11, 1.0, 0, 0, "spread"),     # far left
+        ("A2", 72, 3, 3, 23, 0.9, -4, 0, "depth"),
+        ("B1", 80, 2, 3, 37, 1.0, 2, 0, "spread"),
+        ("B2", 86, 4, 4, 41, 0.95, 0, 0, "depth"),    # top
+        ("C2", 74, 2, 3, 53, 1.0, 0, 0, "spread"),
+        ("C1", 82, 4, 3, 67, 1.15, -2, 0, "depth"),     # far right
+        ("D", 66, 3, 2, 79, 1.3, 0, 0, "spread"),      # low right
     ]
-    rs = [rosette(*r) for r in ros]
+    rs = [rosette(smp[r[0]], *r[1:]) for r in ros]
     out += [r[0] for r in rs]      # away-pointing leaves behind all wood
     out += W
     order = [2, 4, 0, 3, 1, 5, 6]  # darker/far clusters first
