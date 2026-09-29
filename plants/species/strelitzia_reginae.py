@@ -23,6 +23,16 @@ def qpt(p0, p1, p2, s):
     return tuple((1 - s) ** 2 * p0[j] + 2 * (1 - s) * s * p1[j] + s * s * p2[j] for j in (0, 1))
 
 
+def mix(a, b, t):
+    """Opaque pre-blend of hex colour b over a at strength t (print policy: no translucent detail)."""
+    return "#" + "".join(f"{round(int(a[i:i + 2], 16) * (1 - t) + int(b[i:i + 2], 16) * t):02X}" for i in (1, 3, 5))
+
+
+def lum(c):
+    r, g, b = (int(c[i:i + 2], 16) / 255 for i in (1, 3, 5))
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
 def world(x, y, rot, p):
     a = math.radians(rot)
     c, s = math.cos(a), math.sin(a)
@@ -82,29 +92,28 @@ def blade(x, y, rot, L, fill, bend=0.0, tears=(), vein_col=None, sx=1.0, flip=Fa
     d = blade_outline(lf, tears)
     cid = uid("lc")
     shade = SHADE.get(fill, fill)
-    vc = vein_col or P["pale"]
-    vv = []
-    t = 0.06
-    while t < 0.84:
-        for side, sg in (("r", 1), ("l", -1)):
-            p0, p1, p2 = vein_ctrl(lf, t, sg, side)
-            vv.append(f"M{f(p0[0])} {f(p0[1])}Q{f(p1[0])} {f(p1[1])} {f(p2[0])} {f(p2[1])}")
-        t += 0.034
-    # a few stronger "fold" lines, irregularly spaced, like the real leaf's pleats
-    folds = []
+    # Print policy: the dense hairline lateral veins cannot print, so they are gone; the few irregular
+    # pleat folds carry the leaf's texture instead, opaque (pre-blended per half) at print-safe weight.
+    folds = {}
     for side, sg, ts in (("r", 1, (0.21, 0.43, 0.58)), ("l", -1, (0.30, 0.52, 0.71))):
         for t0 in ts:
             p0, p1, p2 = vein_ctrl(lf, t0, sg, side)
-            folds.append(f"M{f(p0[0])} {f(p0[1])}Q{f(p1[0])} {f(p1[1])} {f(p2[0])} {f(p2[1])}")
+            folds.setdefault(side, []).append(f"M{f(p0[0])} {f(p0[1])}Q{f(p1[0])} {f(p1[1])} {f(p2[0])} {f(p2[1])}")
+    fold_svg = ""
+    for sd, base in (("r", shade), ("l", fill)):
+        col = mix(base, P["night"], 0.13)
+        # print_prep grades any line lighter than lum 0.55 as a knockout (needs 4 units)
+        fw = 4 if lum(col) > 0.55 else 3
+        fold_svg += (f'<path d="{"".join(folds[sd])}" fill="none" stroke="{col}" '
+                     f'stroke-width="{fw}" stroke-linecap="round"/>')
     mid = [lf.axis(i / 8 * 0.97) for i in range(9)]
     out = [f'<g transform="{T(x, y, rot, 1.0, sx)}">',
            f'<clipPath id="{cid}"><path d="{d}"/></clipPath>',
            f'<path d="{d}" fill="{fill}"/>',
            f'<g clip-path="url(#{cid})">',
            f'<path d="{lf.half_region("r")}" fill="{shade}"/>',
-           f'<path d="{"".join(vv)}" fill="none" stroke="{vc}" stroke-width="0.8" opacity=".15"/>',
-           f'<path d="{"".join(folds)}" fill="none" stroke="{P["night"]}" stroke-width="1.1" opacity=".16"/>',
-           f'<path d="{ribbon(mid, 5.2, 1.0)}" fill="{P["pale"]}" opacity=".78"/>',
+           fold_svg,
+           f'<path d="{ribbon(mid, 5.2, 1.0)}" fill="{mix(fill, P["pale"], 0.78)}"/>',
            "</g></g>"]
     return "".join(out), lf
 
@@ -156,8 +165,9 @@ def sepal(bx, by, ang, Ls, hw, col, lean=0.0):
     keel = cr_path([(0, 6), (lean * 0.3, -Ls * 0.5), (lean, -Ls * 0.99)], closed=False)
     return (f'<g transform="{T(bx, by, ang)}"><clipPath id="{cl}"><path d="{d}"/></clipPath>'
             f'<path d="{d}" fill="{col}"/><g clip-path="url(#{cl})">'
-            f'<path d="{keel}L{f(hw * 2)} {f(-Ls)}L{f(hw * 2)} 10Z" fill="{SEPAL_SH}" opacity=".2"/>'
-            f'<path d="{keel}" fill="none" stroke="{SEPAL_SH}" stroke-width="1.3" opacity=".4"/>'
+            f'<path d="{keel}L{f(hw * 2)} {f(-Ls)}L{f(hw * 2)} 10Z" fill="{mix(col, SEPAL_SH, 0.2)}"/>'
+            # keel line: opaque, 2.0 local = 3.0 units at the flower's 1.5 scale (print minimum)
+            f'<path d="{keel}" fill="none" stroke="{mix(col, SEPAL_SH, 0.32)}" stroke-width="2"/>'
             f"</g></g>")
 
 
@@ -188,14 +198,13 @@ def flower(x, y, rot, s=1.0):
     half = "M0 6L0 -70L10 -70L10 6Z"
     aid = uid("ac")
     parts.append(f'<g transform="{T(50, -16, 50)}"><clipPath id="{aid}"><path d="{ad}"/></clipPath>'
-                 f'<path d="{ad}" fill="{TONGUE}"/><path clip-path="url(#{aid})" d="{half}" fill="{TONGUE_SH}"/>'
-                 f'<path d="M0.2 -6L0.2 -62" stroke="{P["ivory"]}" stroke-width="1.1" opacity=".35"/></g>')
+                 f'<path d="{ad}" fill="{TONGUE}"/><path clip-path="url(#{aid})" d="{half}" fill="{TONGUE_SH}"/></g>')
     out = [f'<g transform="{T(x, y, rot, s)}">']
     out += parts
     out += [f'<clipPath id="{sid}"><path d="{sp}"/></clipPath>',
             f'<path d="{sp}" fill="{P["sage"]}"/>',
-            f'<g clip-path="url(#{sid})"><path d="{keel}" fill="{P["plum"]}" opacity=".85"/>'
-            f'<path d="{lip}" fill="none" stroke="{P["pale"]}" stroke-width="3" opacity=".7"/></g>',
+            f'<g clip-path="url(#{sid})"><path d="{keel}" fill="{mix(P["sage"], P["plum"], 0.85)}"/>'
+            f'<path d="{lip}" fill="none" stroke="{mix(P["sage"], P["pale"], 0.7)}" stroke-width="3"/></g>',
             "</g>"]
     return "".join(out)
 

@@ -170,11 +170,7 @@ class Sword:
              f'<path d="{bd}" fill="{dark}"/>',
              f'<path d="{hp}" fill="{P["night"]}" opacity=".16"/>',
              '</g>']
-        # tiny dry tip point
-        tip = self.axis(1.0)
-        a = self.axis(0.982)
-        s.append(f'<path d="M{f(a[0] - 1.2)} {f(a[1])}L{f(tip[0])} {f(tip[1])}L{f(a[0] + 1.2)} {f(a[1])}Z" '
-                 f'fill="{P["terra_dark"]}" opacity=".7"/>')
+        # (the tiny dry tip point was removed: at ~0.1 mm printed it is below the dark-sliver minimum)
         s.append("</g>")
         return "".join(s)
 

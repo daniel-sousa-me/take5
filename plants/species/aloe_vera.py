@@ -49,6 +49,39 @@ def prof(t):
     return 0.0
 
 
+def mix(a, b, t):
+    """Opaque pre-blend of hex colour b over a at strength t (print policy: no translucent detail)."""
+    return "#" + "".join(f"{round(int(a[i:i + 2], 16) * (1 - t) + int(b[i:i + 2], 16) * t):02X}" for i in (1, 3, 5))
+
+
+def lum(c):
+    r, g, b = (int(c[i:i + 2], 16) / 255 for i in (1, 3, 5))
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def fat(poly):
+    """4 * area / perimeter (= incircle diameter of a triangle): print_prep's sliver measure."""
+    A = abs(sum(poly[i][0] * poly[i - 1][1] - poly[i - 1][0] * poly[i][1] for i in range(len(poly)))) / 2
+    return 4 * A / sum(math.dist(poly[i], poly[i - 1]) for i in range(len(poly)))
+
+
+def tooth_pts(E, tg, nn, sg, s):
+    """Hooked marginal tooth on edge point E (tangent tg, normal nn, side sg), size s."""
+    a = (E[0] - tg[0] * s * 0.9 - nn[0] * sg * 1.2, E[1] - tg[1] * s * 0.9 - nn[1] * sg * 1.2)
+    b = (E[0] + tg[0] * s * 0.9 - nn[0] * sg * 1.2, E[1] + tg[1] * s * 0.9 - nn[1] * sg * 1.2)
+    c = (E[0] + nn[0] * sg * s * 0.9 + tg[0] * s * 0.9, E[1] + nn[1] * sg * s * 0.9 + tg[1] * s * 0.9)
+    return a, c, b
+
+
+def tooth_min(col, stroke=0.8):
+    """Smallest tooth size s whose printed width passes (light >= 4.5 units, dark >= 3.5; policy dots)."""
+    need = (4.5 if lum(col) > 0.55 else 3.5) * 1.03 - stroke
+    s = 1.0
+    while fat(tooth_pts((0, 0), (0, -1), (1, 0), 1, s)) < need:
+        s += 0.05
+    return s
+
+
 def aloe_leaf(spine, wmax, face, side=1, k=0.35, teeth=True, speck=0, seed=0, n=14, band=None):
     """spine: control points base->tip. side: which margin (+1 = right of travel
     direction) shows the darker thick underside band. k: where the upper face
@@ -91,12 +124,12 @@ def aloe_leaf(spine, wmax, face, side=1, k=0.35, teeth=True, speck=0, seed=0, n=
     inner_g = []
     # shallow channel: a soft darker line down the face, offset toward the band
     ch = [edge(t, side * (k - 0.55) * (1 - 0.3 * t)) for t in [0.02 + i * 0.14 for i in range(7)]]
-    inner_g.append(f'<path d="{ribbon(ch, wmax * 0.11, 0.6)}" fill="{band}" opacity=".45"/>')
+    inner_g.append(f'<path d="{ribbon(ch, wmax * 0.13, 1.4)}" fill="{mix(face, band, 0.45)}"/>')
     if speck:
         dots = []
         t = 0.12 + rnd.uniform(0, 0.05)
         while t < 0.78:
-            for _ in range(rnd.choice([1, 2, 2, 3])):
+            for _ in range(rnd.choice([1, 1, 2])):
                 if rnd.random() > speck:
                     continue
                 r = side * rnd.uniform(-0.78, k - 0.15)
@@ -105,25 +138,26 @@ def aloe_leaf(spine, wmax, face, side=1, k=0.35, teeth=True, speck=0, seed=0, n=
                 w = wmax * prof(tt)
                 x, y = p[0] + nn[0] * w * r, p[1] + nn[1] * w * r
                 a = math.degrees(math.atan2(nn[1], nn[0]))
-                rx = w * rnd.uniform(0.13, 0.2)
-                dots.append(f'<ellipse cx="{f(x)}" cy="{f(y)}" rx="{f(rx)}" ry="{f(max(1.1, rx * 0.42))}" '
+                # fewer, bolder flecks: every one >= 4.8 units across its short axis (light-dot minimum)
+                rx = max(3.8, w * rnd.uniform(0.15, 0.21))
+                dots.append(f'<ellipse cx="{f(x)}" cy="{f(y)}" rx="{f(rx)}" ry="2.4" '
                             f'transform="rotate({f(a)} {f(x)} {f(y)})"/>')
-            t += rnd.uniform(0.06, 0.09)
-        inner_g.append(f'<g fill="{P["spot"]}" opacity=".6">' + "".join(dots) + "</g>")
+            t += rnd.uniform(0.085, 0.12)
+        inner_g.append(f'<g fill="{mix(face, P["spot"], 0.6)}">' + "".join(dots) + "</g>")
     out.append(f'<g clip-path="url(#{cid})">' + "".join(inner_g) + "</g>")
     if teeth:
         tf, tb = [], []
-        gap = 17.0 / length
+        # fewer, larger teeth: the smallest (near the tip) is still print-safe for its colour
+        gap = 24.0 / length
         for sg in (1, -1):
+            s_min = tooth_min(band if sg == side else face)
             t = 0.2 + rnd.uniform(0, gap) + (gap * 0.5 if sg < 0 else 0)
-            while t < 0.88:
+            while t < 0.84:
                 p, tg, nn = at(t)
                 w = wmax * prof(t)
-                s = 1.5 + 1.3 * prof(t)  # tooth size shrinks toward the tip
+                s = s_min * (1 + 0.3 * prof(t))  # tooth size shrinks toward the tip
                 E = (p[0] + nn[0] * sg * w, p[1] + nn[1] * sg * w)
-                a = (E[0] - tg[0] * s * 0.9 - nn[0] * sg * 1.2, E[1] - tg[1] * s * 0.9 - nn[1] * sg * 1.2)
-                b = (E[0] + tg[0] * s * 0.9 - nn[0] * sg * 1.2, E[1] + tg[1] * s * 0.9 - nn[1] * sg * 1.2)
-                c = (E[0] + nn[0] * sg * s * 0.9 + tg[0] * s * 0.9, E[1] + nn[1] * sg * s * 0.9 + tg[1] * s * 0.9)
+                a, c, b = tooth_pts(E, tg, nn, sg, s)
                 d = f"M{f(a[0])} {f(a[1])}L{f(c[0])} {f(c[1])}L{f(b[0])} {f(b[1])}Z"
                 (tb if sg == side else tf).append(d)
                 t += gap * rnd.uniform(0.9, 1.1)

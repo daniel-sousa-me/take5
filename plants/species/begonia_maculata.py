@@ -59,6 +59,15 @@ def dist_to_poly(pt, poly):
     return best
 
 
+def mix(a, b, t):
+    """Opaque pre-blend of hex colour b over a at strength t (print policy: no translucent detail)."""
+    return "#" + "".join(f"{round(int(a[i:i + 2], 16) * (1 - t) + int(b[i:i + 2], 16) * t):02X}" for i in (1, 3, 5))
+
+
+DOT_MIN = 4.6    # light dot diameter floor (print policy: >= 4.5 units)
+LINE_W = 3.0     # midrib / node-ring width (print policy: dark line >= 3.0 units)
+
+
 def to_world(p, x, y, rot, sx=1):
     a = math.radians(rot)
     px, py = p[0] * sx, p[1]
@@ -172,12 +181,14 @@ class AngelLeaf:
             v.append(f"M{round(p0[0])} {round(p0[1])}Q{round(p1[0])} {round(p1[1])} {round(p2[0])} {round(p2[1])}")
         return "".join(v)
 
-    def dots(self, density=1.0, rmin=1.5, rmax=5.2, seed=1, small_margin=0.0):
+    def dots(self, density=1.0, rmax=5.2, seed=1, small_margin=0.0):
         rnd = random.Random(seed)
         L = self.L
         pts = []
         tries = 0
-        target = int(34 * density * (L / 180) ** 2)
+        # fewer, print-safe dots: every dot >= DOT_MIN across (widen, don't multiply)
+        target = int(24 * density * (L / 180) ** 2)
+        rmin = DOT_MIN / 2
         xs = [p[0] for p in self.poly_local]
         ys = [p[1] for p in self.poly_local]
         while len(pts) < target and tries < 4000:
@@ -190,8 +201,9 @@ class AngelLeaf:
             if t > 0.86 or t < -0.05:
                 continue
             # size: skewed to small, fewer big; smaller towards tip
-            u = rnd.random() ** 1.7
-            r = (rmin + (rmax - rmin) * u) * (1 - 0.45 * max(0, t - 0.4)) * (L / 180) ** 0.5
+            u = rnd.random() ** 1.35
+            top = max(rmin * 1.25, rmax * (1 - 0.45 * max(0, t - 0.4)) * (L / 180) ** 0.5)
+            r = rmin + (top - rmin) * u
             e = dist_to_poly((x, y), self.poly_local)
             if e < r + 2.2 or (x < 0 and e < r + 2.2 + small_margin):
                 continue
@@ -199,7 +211,7 @@ class AngelLeaf:
                 continue
             ok = True
             for (qx, qy, qr) in pts:
-                if math.hypot(qx - x, qy - y) < r + qr + rnd.uniform(3.5, 9):
+                if math.hypot(qx - x, qy - y) < r + qr + rnd.uniform(4.5, 10):
                     ok = False
                     break
             if ok:
@@ -208,7 +220,7 @@ class AngelLeaf:
         buckets = {}
         for x, y, r in pts:
             bx, by = self.B((x, y))
-            q = round(r * 2 * 2) / 2  # diameter to 0.5 px
+            q = max(DOT_MIN, round(r * 2 * 2) / 2)  # diameter to 0.5 px, never under the floor
             buckets.setdefault(q, []).append(f"M{round(bx)} {round(by)}h0")
         return buckets
 
@@ -226,10 +238,8 @@ def leaf_svg(lf, x, y, rot, mirror=False, fill=None, face="top", dot_seed=1,
         o.append(f'<use href="#{pid}" fill="{P["burgundy"]}"/>')
         o.append(f'<g clip-path="url(#{cid})">')
         o.append(f'<path d="{lf.half("r")}" fill="{P["wine"]}"/>')
-        o.append(f'<path d="{lf.veins_d()}" fill="none" stroke="{P["rose"]}" stroke-width="1.3" '
-                 f'stroke-linecap="round" opacity=".55"/>')
-        o.append(f'<path d="{lf.midrib_d(0, 0.9)}" fill="none" stroke="{P["rose"]}" stroke-width="2.4" '
-                 f'stroke-linecap="round" opacity=".8"/>')
+        o.append(f'<path d="{lf.midrib_d(0, 0.9)}" fill="none" stroke="{mix(P["burgundy"], P["rose"], 0.7)}" '
+                 f'stroke-width="{LINE_W}" stroke-linecap="round"/>')
         o.append("</g></g>")
         return "".join(o)
     fill = P.get(fill, fill)
@@ -240,18 +250,17 @@ def leaf_svg(lf, x, y, rot, mirror=False, fill=None, face="top", dot_seed=1,
         o.append(f'<path d="{lf.half("l")}" fill="{P["burgundy"]}"/>')
     else:
         o.append(f'<path d="{lf.half(shade_side)}" fill="{shade}"/>')
-    o.append(f'<path d="{lf.veins_d()}" fill="none" stroke="{P["night"]}" stroke-width="1.2" '
-             f'stroke-linecap="round" opacity=".3"/>')
-    o.append(f'<path d="{lf.midrib_d(0, 0.88)}" fill="none" stroke="{P["sage"]}" stroke-width="1.6" '
-             f'stroke-linecap="round" opacity=".6"/>')
+    # lateral veins dropped (they cannot be print-safe without crowding the dots); midrib opaque
+    o.append(f'<path d="{lf.midrib_d(0, 0.88)}" fill="none" stroke="{mix(fill, P["sage"], 0.42)}" '
+             f'stroke-width="{LINE_W}" stroke-linecap="round"/>')
     sm = 0.05 * lf.L + 1.5 if face == "edge" else 0.0     # keep dots off the turned-over band
     for dia, ds in sorted(lf.dots(density=density, seed=dot_seed, small_margin=sm).items()):
         o.append(f'<path d="{"".join(ds)}" stroke="{P["spot"]}" stroke-width="{f(dia)}" stroke-linecap="round"/>')
     if face == "fold":
         # underside half gets a faint rose midrib edge only; hide the dots there
         o.append(f'<path d="{lf.half("l")}" fill="{P["burgundy"]}"/>')
-        o.append(f'<path d="{lf.midrib_d(0, 0.9)}" fill="none" stroke="{P["rose"]}" stroke-width="2" '
-                 f'stroke-linecap="round" opacity=".7"/>')
+        o.append(f'<path d="{lf.midrib_d(0, 0.9)}" fill="none" stroke="{mix(P["burgundy"], P["rose"], 0.6)}" '
+                 f'stroke-width="{LINE_W}" stroke-linecap="round"/>')
     if face == "edge":
         # small-side margin turned over: a narrow burgundy band of underside
         o.append(f'<path d="{lf.turned_edge_d()}" fill="{P["burgundy"]}"/>')
@@ -268,7 +277,7 @@ def cane_svg(pts, w0, w1, color, node_fr, node_col):
     for (p, a), fr in zip(along(pts, node_fr), node_fr):
         w = w0 + (w1 - w0) * fr
         rings.append(f'<path d="M{f(-w)} -0.4Q0 2.2 {f(w)} -0.4" transform="{T(p[0], p[1], a)}"/>')
-    o.append(f'<g clip-path="url(#{cid})" fill="none" stroke="{node_col}" stroke-width="2.2">{"".join(rings)}</g>')
+    o.append(f'<g clip-path="url(#{cid})" fill="none" stroke="{node_col}" stroke-width="{LINE_W}">{"".join(rings)}</g>')
     return "".join(o)
 
 
@@ -294,7 +303,7 @@ def flower_cluster(anchor, rot=0):
         cx, cy = hub[0] + dx, hub[1] + dy
         top = (cx, cy - sz * (0.95 if kind == "open" else 0.9))
         mid = ((hub[0] + top[0]) / 2 + dx * 0.12, (hub[1] + top[1]) / 2 - 5)
-        o.append(f'<path d="{ribbon([hub, mid, top], 1.9, 1.4, per=5)}" fill="{P["plum"]}"/>')
+        o.append(f'<path d="{ribbon([hub, mid, top], 2.5, 1.8, per=5)}" fill="{P["plum"]}"/>')
     for dx, dy, sz, tilt, kind in blooms:
         cx, cy = hub[0] + dx, hub[1] + dy
         g = [f'<g transform="{T(cx, cy, tilt)}">']

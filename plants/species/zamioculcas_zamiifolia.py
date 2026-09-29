@@ -63,18 +63,58 @@ def leaflet_shape(L, k, curl):
 
 
 LIGHT = (-0.55, -0.83)  # light from upper left
-_DEFS = {}
+_DEFS = {}      # key -> gid
+_MIN_L = {}     # key -> smallest leaflet length drawn with that def
 _DEFS_SVG = []
 U = 100.0  # unit leaflet length for the shared defs
+SMALL = 42  # leaflets shorter than this get their own defs (with a relatively wider sheen)
 
 
-def leaflet_def(tone, k, curl, lit_right):
-    key = (tone, k, curl, lit_right)
-    if key in _DEFS:
-        return _DEFS[key]
+def lum(c):
+    r, g, b = (int(c[i:i + 2], 16) / 255 for i in (1, 3, 5))
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def fat(poly):
+    """4 * area / perimeter: the measure print_prep uses for a filled sliver's width."""
+    A = abs(sum(poly[i][0] * poly[i - 1][1] - poly[i - 1][0] * poly[i][1] for i in range(len(poly)))) / 2
+    P_ = sum(math.dist(poly[i], poly[i - 1]) for i in range(len(poly)))
+    return 4 * A / P_
+
+
+def sheen_pts(lf, sg, m):
+    """Glossy lens on the lit half: outer / inner edge around a centre line, half-width scaled by m."""
+    ts = (0.40, 0.60)
+    outer = [(0.40, 0.125), (0.60, 0.12)]
+    inner = [(0.60, 0.075), (0.40, 0.08)]
+    o = [lf.pt(0.20, sg * 0.06)]
+    for (t, wo), (_, wi) in zip(outer, inner[::-1]):
+        c, h = (wo + wi) / 2, (wo - wi) / 2 * m
+        o.append(lf.pt(t, sg * (c + h)))
+    o.append(lf.pt(0.76, sg * 0.07))
+    for (t, wi), (_, wo) in zip(inner, outer[::-1]):
+        c, h = (wo + wi) / 2, (wo - wi) / 2 * m
+        o.append(lf.pt(t, sg * (c - h)))
+    return o
+
+
+def leaflet_def(tone, k, curl, lit_right, small, L):
+    key = (tone, k, curl, lit_right, small)
+    _MIN_L[key] = min(L, _MIN_L.get(key, 1e9))
+    if key not in _DEFS:
+        _DEFS[key] = uid("zd")
+    return _DEFS[key]
+
+
+def emit_defs():
+    for key, gid in _DEFS.items():
+        _DEFS_SVG.append(leaflet_svg(gid, *key[:4], _MIN_L[key]))
+
+
+def leaflet_svg(gid, tone, k, curl, lit_right, min_len):
     lf = leaflet_shape(U, k, curl)
     d = lf.path()
-    gid, cid = uid("zd"), uid("zc")
+    cid = uid("zc")
     fill, shade, sheen, rib = tone
     sg = 1 if lit_right else -1
     # flat turned-away half: a simple polygon hugging the (slightly curved) midrib
@@ -82,18 +122,19 @@ def leaflet_def(tone, k, curl, lit_right):
     far = [lf.pt(t, -sg * 0.6) for t in (1.1, 0.6, 0.3, -0.1)]
     half = "M" + "L".join(f"{f(p[0])} {f(p[1])}" for p in ax + far) + "Z"
     # glossy sheen: slim lens on the lit half, following the leaf curve
-    sp = [lf.pt(0.20, sg * 0.06), lf.pt(0.40, sg * 0.125), lf.pt(0.60, sg * 0.12),
-          lf.pt(0.76, sg * 0.07), lf.pt(0.58, sg * 0.075), lf.pt(0.40, sg * 0.08)]
+    # Print policy: the sheen must print on the smallest leaflet using this def (light >= 4.5 units,
+    # dark >= 3.5 units wide), so small leaflets get a relatively fuller lens; the hairline midrib is gone
+    # (the shade/lit split already draws the midrib line).
+    need = (4.5 if lum(sheen) > 0.55 else 3.5) * 1.04
+    m = 1.0
+    while fat(cr_sample(sheen_pts(lf, sg, m) + [sheen_pts(lf, sg, m)[0]], 8)) * min_len / U < need and m < 3.2:
+        m += 0.05
+    sp = sheen_pts(lf, sg, m)
     sheen_d = cr_path(sp, closed=True, sharp={0, 3})
-    mid_d = cr_path([lf.axis(t) for t in (0.03, 0.3, 0.6, 0.88)], closed=False)
-    _DEFS_SVG.append(
-        f'<clipPath id="{cid}"><path d="{d}"/></clipPath>'
-        f'<g id="{gid}"><path d="{d}" fill="{fill}"/><g clip-path="url(#{cid})">'
-        f'<path d="{half}" fill="{shade}"/><path d="{sheen_d}" fill="{sheen}"/>'
-        f'<path d="{mid_d}" fill="none" stroke="{rib}" stroke-width="2.2" stroke-linecap="round" opacity=".5"/>'
-        f'</g></g>')
-    _DEFS[key] = gid
-    return gid
+    return (f'<clipPath id="{cid}"><path d="{d}"/></clipPath>'
+            f'<g id="{gid}"><path d="{d}" fill="{fill}"/><g clip-path="url(#{cid})">'
+            f'<path d="{half}" fill="{shade}"/><path d="{sheen_d}" fill="{sheen}"/>'
+            f'</g></g>')
 
 
 def leaflet(x, y, rot, L, tone, seed, curl):
@@ -101,7 +142,7 @@ def leaflet(x, y, rot, L, tone, seed, curl):
     a = math.radians(rot)
     rn = (math.cos(a), math.sin(a))  # world direction of local +x (right side)
     lit_right = rn[0] * LIGHT[0] + rn[1] * LIGHT[1] > 0
-    gid = leaflet_def(tone, seed % 2, curl, lit_right)
+    gid = leaflet_def(tone, seed % 2, curl, lit_right, L < SMALL, L)
     return (f'<use href="#{gid}" transform="translate({f(x)} {f(y)}) rotate({f(rot)}) '
             f'scale({L / U:.3f})"/>')
 
@@ -177,8 +218,8 @@ def zz_stalk(pts, tone, rachis, lmax, bare=0.36, base_w=19, spread=(56, 38), see
         q0 = (p[0] + n[0] * (c - ln), p[1] + n[1] * (c - ln))
         q1 = (p[0] + n[0] * (c + ln), p[1] + n[1] * (c + ln))
         fl.append(f"M{f(q0[0])} {f(q0[1])}L{f(q1[0])} {f(q1[1])}")
-        u += r.uniform(0.035, 0.07)
-    out.append(f'<g clip-path="url(#{sid})"><path d="{"".join(fl)}" stroke="{mot}" stroke-width="2.2" '
+        u += r.uniform(0.05, 0.085)   # fewer, print-weight flecks (3 units)
+    out.append(f'<g clip-path="url(#{sid})"><path d="{"".join(fl)}" stroke="{mot}" stroke-width="3" '
                f'stroke-linecap="round"/></g>')
     return "".join(out)
 
@@ -217,6 +258,7 @@ def build():
     for st in stalks:
         body.append(zz_stalk(**st))
     body.append(front)
+    emit_defs()
     return "<defs>" + "".join(_DEFS_SVG) + "</defs>" + "".join(body)
 
 

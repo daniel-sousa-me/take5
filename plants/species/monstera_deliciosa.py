@@ -42,6 +42,16 @@ def poly_d(geom, tol=0.22):
     return "".join(out)
 
 
+def mix(a, b, t):
+    """Opaque pre-blend of hex colour b over a at strength t."""
+    return "#" + "".join(f"{round(int(a[i:i + 2], 16) * (1 - t) + int(b[i:i + 2], 16) * t):02X}" for i in (1, 3, 5))
+
+
+def lum(c):
+    r, g, b = (int(c[i:i + 2], 16) / 255 for i in (1, 3, 5))
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
 def line_d(pts):
     return "M" + "L".join(f"{f(x)} {f(y)}" for x, y in pts)
 
@@ -179,14 +189,13 @@ def draw_leaf(spec):
     sh = halves[-1]
     if not sh.is_empty and SHADE.get(fill):
         inner.append(f'<path d="{poly_d(sh)}" fill="{SHADE[fill]}" fill-rule="evenodd"/>')
-    # lateral veins (along each finger) + midrib
-    vw = max(0.9, L * 0.0065)
-    vd = "".join(line_d([lf.place_pt(p, x, y, rot, flip) for p in v[::2] + [v[-1]]]) for v in lf.fingers)
-    inner.append(f'<path d="{vd}" fill="none" stroke="{vein_col}" stroke-width="{f(vw)}" '
-                 f'stroke-linecap="round" stroke-linejoin="round" opacity=".2"/>')
+    # Print policy: the faint lateral veins could not be print-safe without striping the fingers (the slits
+    # already carry the vein rhythm), so they are gone; the midrib stays, opaque (pre-blended), >= print min.
+    col = mix(fill, vein_col, 0.5)
+    mw = max(L * 0.012, 4.0 if lum(col) > 0.55 else 3.0)
     mr = [lf.place_pt(lf.axis(t), x, y, rot, flip) for t in [0.0, 0.2, 0.4, 0.6, 0.8, 0.95]]
-    inner.append(f'<path d="{line_d(mr)}" fill="none" stroke="{vein_col}" stroke-width="{f(L * 0.012)}" '
-                 f'stroke-linecap="round" opacity=".5"/>')
+    inner.append(f'<path d="{line_d(mr)}" fill="none" stroke="{col}" stroke-width="{f(mw)}" '
+                 f'stroke-linecap="round"/>')
     out.append(f'<g clip-path="url(#{cid})">' + "".join(inner) + "</g>")
     sinus = lf.place_pt((0, 0), x, y, rot, flip)
     tuck = lf.place_pt(lf.axis(0.09), x, y, rot, flip)
