@@ -39,7 +39,9 @@ for history; where it disagrees with this file, this file wins (card size and pr
   through unchanged (`ok (unchanged)` in the build output); `python deck/print_prep.py -v` lists the rest.
 - The pot band (`pot(band=True)` in `plants/core.py`) is an opaque pre-blended line 4 units wide (a step
   darker again over the pot's shaded side), so masters and cards match.
-- The proof page tests line weights, the leaf-green steps, the corner tints and solid colours, and shows the
+- The proof page tests line weights, the leaf-green steps (plus four burgundy pairs that meet on the cards:
+  Tradescantia's leaf-band tiers and the oxalis / tradescantia wine–burgundy–plum steps, `BURG_PAIRS` in
+  `deck/proof.py`, which warns if those colours leave the plant art), the corner tints and solid colours, and shows the
   neighbouring tiers side by side: the top 30.5 mm of real cards 25, 30, 22 and 55 (tiers 2, 3, 5, 7), drawn with
   the deck's own `info_block` / `field_blob` / `sprig` exactly as on the card (number top-left, marks 3 over 2 and
   4 over 3, field top-right; plant and label left out), at 68 % so four fit inside the recommended area. If a green
@@ -80,7 +82,9 @@ for history; where it disagrees with this file, this file wins (card size and pr
   takes the largest scale that fits all of them, so a species is the same size everywhere; a plant blocked
   by the bottom-right block may slide up to 3 mm left instead of shrinking (string of pearls, spider plant, wax plant).
   Card 55 is the one exception to "same size everywhere" (`SHOWPIECE`): its bird of paradise is drawn as large as
-  fits, up to 1.15× its species size (currently ≈ 1.13×, pot 1 mm right), still checked against the same obstacles.
+  fits, up to 1.15× its species size, still checked against the same obstacles but with 2.4 mm (`SHOWPIECE_MARK_CLEAR`)
+  instead of 2.0 mm round its penalty marks, since 55 carries the most marks (currently ≈ 1.08×, pot 1 mm right;
+  ≈ 3.5–3.9 mm of paper between plant ink and the nearest mark on each side).
 - Plant name (common + botanical, Fraunces) runs up the right edge, 5 mm from the cut. Common name in forest
   green `#405D43`; botanical name in italic warm grey-brown `#625444` (darker than the first `#7A6A58`, which was
   too faint on ivory stock).

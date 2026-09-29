@@ -252,6 +252,7 @@ POT_GAP = 4.0       # min gap (mm) between the pot and a bottom-right number tha
                     # the plant is lifted on those cards to keep it
 SHOWPIECE = {55: 1.15}   # cards whose plant may be drawn up to this much larger than its species size, as large
 SHOWPIECE_SHIFTS = (0.0, 0.5, 1.0, 1.5, -0.5, -1.0)   # as fits (collision-checked), pot sliding up to these mm
+SHOWPIECE_MARK_CLEAR = 2.4   # the showpiece card is the busiest (7 marks a side): its marks get this much air (mm)
 GLYPH = 4.0
 # Plant size. Each plant is measured (ink box of its master SVG) and scaled so the deck reads as one
 # consistent size: a blend of height-fit and area-fit, damped and clamped so pots never jump wildly.
@@ -458,13 +459,13 @@ def plant_collides(name, s, boxes, dx=0.0, py=PLANT_Y):
     return False
 
 
-def obstacles(n, species):
+def obstacles(n, species, showpiece=False):
     """Boxes (card-local mm) the plant ink must stay out of."""
     p = penalty(n)
     _, _, boxes = info_block(n, p, "#000", "#000")
     obs = []
     for x0, y0, x1, y1, *k in boxes:
-        c = k[0] if k else PLANT_CLEAR
+        c = (SHOWPIECE_MARK_CLEAR if showpiece else k[0]) if k else PLANT_CLEAR
         obs.append((x0 - c, y0 - c, x1 + c, y1 + c))
         obs.append((CW - x1 - c, CH - y1 - c, CW - x0 + c, CH - y0 + c))      # 180-degree twin
     c = PLANT_CLEAR
@@ -477,10 +478,10 @@ def obstacles(n, species):
     return obs
 
 
-def plant_scale(n, species, dx=0.0, s0=None):
+def plant_scale(n, species, dx=0.0, s0=None, showpiece=False):
     """Design scale (or s0), reduced until the plant clears everything on card n."""
     s0 = s = s0 or plant_design_scale(species)
-    obs = obstacles(n, species)
+    obs = obstacles(n, species, showpiece)
     py = plant_y(n)
     while plant_collides(species, s, obs, dx, py):
         s *= 0.99
@@ -509,6 +510,18 @@ def species_fit(species):
     return _species_fit.get(species) or (plant_scale(1, species), 0.0)
 
 
+def showpiece_fit(n, species, s):
+    """(scale, x shift) on a SHOWPIECE card: as large as fits, up to SHOWPIECE[n] x the species scale s, with
+    SHOWPIECE_MARK_CLEAR around the marks; shifts where the pot itself cannot clear them are skipped."""
+    fits = []
+    for d in SHOWPIECE_SHIFTS:
+        try:
+            fits.append((plant_scale(n, species, d, s * SHOWPIECE[n], showpiece=True), d))
+        except AssertionError:
+            pass
+    return max(fits, key=lambda t: (round(t[0], 5), -abs(t[1])))
+
+
 def plant_scales():
     """mm per plant-canvas unit for every species (used by print_prep.py)."""
     return {sp: species_fit(sp)[0] for sp in SPECIES}
@@ -530,8 +543,7 @@ def card(n, species):
     s, dx = species_fit(species)
     py = plant_y(n)
     if n in SHOWPIECE:                                           # showpiece card: as large as it fits, up to the cap
-        s, dx = max(((plant_scale(n, species, d, s * SHOWPIECE[n]), d) for d in SHOWPIECE_SHIFTS),
-                    key=lambda t: (round(t[0], 5), -abs(t[1])))
+        s, dx = showpiece_fit(n, species, s)
     elif plant_collides(species, s, obstacles(n, species), dx, py):   # species forced onto another card (preview)
         s = min(s, plant_scale(n, species, dx))
     plant = (f'<g transform="translate({PLANT_X + dx:.3f} {py:.3f}) scale({s:.5f}) translate(-300 -752)">'

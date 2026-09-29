@@ -10,6 +10,11 @@ PAL = dict(night="#27392C", deep="#314B37", forest="#405D43", mid="#5B7458", sag
            burgundy="#74464D", blush="#D79C9A", mustard="#C49A41", amber="#D48A4C")
 F = 'font-family="DejaVu Sans" fill="#333"'
 X0 = 14
+# burgundy tone pairs that sit side by side on the cards: (colour a, colour b, label). Tradescantia zebrina's
+# leaf centre bands, back tier -> middle -> front; oxalis_triangularis' leaf ramp steps (also the tradescantia
+# undersides). Hex values as they appear in plants/out/*.svg -- update if those plants change.
+BURG_PAIRS = [("#4A3441", "#5E3A40", "zebrina 0 / 1"), ("#5E3A40", "#6C4150", "zebrina 1 / 2"),
+              ("#5E3A40", "#74464D", "wine / burgundy"), ("#74464D", "#8A5560", "burgundy / plum")]
 TIER_CARDS = ((2, 25), (3, 30), (5, 22), (7, 55))   # section 5: one real card per tier, neighbours side by side
 CARD_S = 0.68     # section 5 card scale (four trim-wide cards across x 14..196 mm)
 CROP = 30.5       # section 5: card shown from the top cut down to this depth (mm), just below two rows of marks
@@ -34,7 +39,16 @@ def card_top(n):
     return field + block
 
 
+def check_burg_pairs():
+    """Warn if a BURG_PAIRS colour no longer occurs in the plants it was read from."""
+    src = "".join((paths.PLANTS_SRC / f"{n}.svg").read_text() for n in ("tradescantia_zebrina", "oxalis_triangularis"))
+    miss = sorted({c for a, b, _ in BURG_PAIRS for c in (a, b) if c.upper() not in src.upper()})
+    if miss:
+        print("proof: burgundy test colours no longer in the plant art:", ", ".join(miss))
+
+
 def build():
+    check_burg_pairs()
     g = ['<svg xmlns="http://www.w3.org/2000/svg" width="210mm" height="297mm" viewBox="0 0 210 297">',
          '<rect width="210" height="297" fill="#fff"/>']
     y = deck.REC_TOP + 5
@@ -59,18 +73,22 @@ def build():
             g.append("".join(f'<path d="M{x + 2.5 + k * 4.3} {yy + 0.8}v4.9" stroke="{fg}" stroke-width="{w}"/>' for k in range(4)))
     g.append(t(52, y + 42, "The artwork uses ≥ 0.15 mm for dark lines and ≥ 0.20 mm for light-on-dark lines.", 2.1))
 
-    # 2 — tone steps
+    # 2 — tone steps: the palette's adjacent leaf greens, then the burgundy pairs that meet on the cards
+    # (read from plants/out/tradescantia_zebrina.svg and oxalis_triangularis.svg, see BURG_PAIRS)
     y += 47
-    g.append(h(y, "2  Leaf tone steps — each pair must still read as two different greens"))
+    g.append(h(y, "2  Leaf tone steps — each pair must still read as two different tones"))
     order = ["night", "deep", "forest", "mid", "sage", "light", "pale"]
-    for i in range(len(order) - 1):
-        a, b = order[i], order[i + 1]
-        x = X0 + i * 30.5
-        yy = y + 2
-        g.append(f'<path d="M{x} {yy + 15} C{x} {yy + 5} {x + 9} {yy + 2} {x + 14} {yy + 2} C{x + 14} {yy + 11} {x + 7} {yy + 16.5} {x} {yy + 15}Z" fill="{PAL[a]}"/>')
-        g.append(f'<path d="M{x + 7} {yy + 17} C{x + 7} {yy + 8} {x + 16} {yy + 5} {x + 22} {yy + 5} C{x + 22} {yy + 14} {x + 14} {yy + 18.5} {x + 7} {yy + 17}Z" fill="{PAL[b]}"/>')
-        g.append(t(x, yy + 22, f"{a} / {b}", 2.0))
-    g.append(t(X0, y + 28, "If a pair merges (most likely night/deep or deep/forest), note which — the darks can be lifted.", 2.1))
+    pairs = [(PAL[a], PAL[b], f"{a} / {b}") for a, b in zip(order, order[1:])]
+    pitch, k, sep = 17.9, 0.75, 3.0          # 6 green + 4 burgundy pairs across x 14..196 mm
+    for i, (ca, cb, lab) in enumerate(pairs + BURG_PAIRS):
+        x = X0 + i * pitch + (sep if i >= len(pairs) else 0)
+        yy = y + 3
+        g.append(f'<g transform="translate({x:.2f} {yy}) scale({k})">'
+                 f'<path d="M0 15 C0 5 9 2 14 2 C14 11 7 16.5 0 15Z" fill="{ca}"/>'
+                 f'<path d="M7 17 C7 8 16 5 22 5 C22 14 14 18.5 7 17Z" fill="{cb}"/></g>')
+        g.append(t(f"{x:.2f}", yy + 16.5, lab, 1.8))
+    g.append(t(X0, y + 25, "If a pair merges (most likely night/deep, deep/forest or the two darkest burgundies), note which — the darks can be lifted.", 2.1))
+    g.append(t(X0, y + 28.3, "Burgundies: Tradescantia leaf bands (tiers 0|1, 1|2) and the oxalis / tradescantia leaf ramp (wine|burgundy, burgundy|plum).", 1.8))
 
     # 3 — flat fields + solids
     y += 33

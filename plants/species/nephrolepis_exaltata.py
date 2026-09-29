@@ -79,7 +79,26 @@ def _shapes():
     return "".join(out)
 
 
+# Print floor (policy: 0.055 mm/unit planning scale; filled slivers count by their widest
+# point, 4*area/perimeter as deck/print_prep.py measures it).  A pinna whose shaded half-blade
+# would print thinner than the minimum is drawn flat (one tone), and no pinna is drawn so
+# small that its whole blade falls under the minimum.
+MM_U = 0.055
+W_PINNA, W_HALF = 0.428, 0.22     # measured widths per unit pinna length (U = 10): blade, half-blade
+
+
+def _lumi(h):
+    r, g_, b = (int(h[i:i + 2], 16) / 255 for i in (1, 3, 5))
+    return 0.2126 * r + 0.7152 * g_ + 0.0722 * b
+
+
+def _need(col):
+    """printed minimum (mm) for a filled shape of this colour (light knockout vs dark)."""
+    return 0.225 if _lumi(col) > 0.55 else 0.175
+
+
 def pinna_def(tone, shade_right):
+    """shade_right None = flat pinna (no shaded half)."""
     key = (tone, shade_right)
     if key in _DEFS:
         return _DEFS[key]
@@ -87,8 +106,8 @@ def pinna_def(tone, shade_right):
         _DEFS_SVG.append(_shapes())
     fill, shade = tone
     gid = uid("p")
-    _DEFS_SVG.append(f'<g id="{gid}"><use href="#po" fill="{fill}"/>'
-                     f'<use href="#h{"r" if shade_right else "l"}" fill="{shade}"/></g>')
+    half = "" if shade_right is None else f'<use href="#h{"r" if shade_right else "l"}" fill="{shade}"/>'
+    _DEFS_SVG.append(f'<g id="{gid}"><use href="#po" fill="{fill}"/>{half}</g>')
     _DEFS[key] = gid
     return gid
 
@@ -96,13 +115,18 @@ def pinna_def(tone, shade_right):
 def pinna_use(x, y, rot, L, tone, mirror, wf=1.0):
     """base at (x,y), pointing along rot (deg, 0 = up, clockwise +).
     mirror=-1 flips the falcate curve (so it always bends toward the frond tip)."""
+    fill, shade = tone
+    wk = min(1.0, wf)                                   # breadth factor (conservative)
+    L = max(L, _need(fill) / (W_PINNA * wk * MM_U) * 1.02)   # never below a printable blade
     a = math.radians(rot)
     c, s = math.cos(a), math.sin(a)
     k = L / U
     # world direction of local +x after mirroring
     rx, ry = mirror * c, mirror * s
-    # shade the half that faces away from the light
+    # shade the half that faces away from the light -- if that half is printable
     shade_right = (rx * LIGHT[0] + ry * LIGHT[1]) < 0
+    if L * W_HALF * wk * MM_U < _need(shade):
+        shade_right = None
     gid = pinna_def(tone, shade_right)
     m = (c * k * mirror * wf, s * k * mirror * wf, -s * k, c * k, x, y)
     return (f'<use href="#{gid}" transform="matrix({g2(m[0])} {g2(m[1])} {g2(m[2])} {g2(m[3])} '
@@ -304,19 +328,18 @@ CENTRE = [  # young upright frond standing in the gap of the V: sage, narrow
     dict(ctrl=[(300, 600), (299, 510), (300, 420), (305, 330), (314, 256), (322, 222)], pmax=20, seed=15, bare=0.24, wf=0.88, prof0=0.4, peak=0.5, dev0=58, dev1=42, gap=1.7),
 ]
 RING2 = [  # leaning out, forest
-    dict(ctrl=[(288, 600), (262, 550), (222, 478), (176, 398), (128, 334), (86, 298), (58, 294)], pmax=30, seed=5, bare=0.1, peak=0.36, wf=1.05, dev0=68),
-    dict(ctrl=[(312, 600), (342, 548), (386, 480), (438, 420), (492, 384), (532, 384), (552, 400)], pmax=27, seed=12, bare=0.1, peak=0.48, wf=0.92, dev1=40, gap=1.45),
+    dict(ctrl=[(288, 600), (262, 550), (222, 478), (176, 398), (128, 334), (86, 298), (58, 294)], pmax=30, seed=5, bare=0.2, peak=0.36, wf=1.05, dev0=68),
+    dict(ctrl=[(312, 600), (342, 548), (386, 480), (438, 420), (492, 384), (532, 384), (552, 400)], pmax=27, seed=12, bare=0.24, peak=0.48, wf=0.92, dev1=40, gap=1.45),
 ]
 RING3 = [  # arching over, mid
-    dict(ctrl=[(286, 600), (254, 556), (200, 516), (142, 500), (94, 516), (66, 556), (56, 606)], pmax=29, seed=7, peak=0.40, wf=0.95, gap=1.55),
-    dict(ctrl=[(316, 600), (354, 568), (410, 546), (464, 548), (506, 574), (528, 616), (534, 656)], pmax=25, seed=10, peak=0.34, wf=1.08, dev0=60),
+    dict(ctrl=[(286, 600), (254, 556), (200, 516), (142, 500), (94, 516), (66, 556), (56, 606)], pmax=29, seed=7, bare=0.22, peak=0.40, wf=0.95, gap=1.55),
+    dict(ctrl=[(316, 600), (354, 568), (410, 546), (464, 548), (506, 574), (528, 616), (534, 656)], pmax=25, seed=10, bare=0.16, peak=0.34, wf=1.08, dev0=60),
 ]
 DRAPE = [  # right side, behind the pot, draping past the rim: sage
     dict(ctrl=[(318, 603), (342, 580), (386, 570), (428, 592), (454, 634), (464, 684), (466, 718)], pmax=24, seed=2, bare=0.18, peak=0.45),
 ]
 TUFT = [  # short young fronds screening the crown: sage, in front of the rings
-    dict(ctrl=[(296, 602), (286, 560), (267, 526), (242, 504), (220, 496)], pmax=20, seed=31, bare=0.1, prof0=0.5, peak=0.5),
-    dict(ctrl=[(304, 602), (318, 570), (344, 544), (372, 530), (392, 530)], pmax=18, seed=34, bare=0.1, prof0=0.5, peak=0.45),
+    dict(ctrl=[(296, 602), (283, 562), (262, 530), (237, 510), (214, 502)], pmax=20, seed=31, bare=0.22, prof0=0.5, peak=0.5),
 ]
 FRONT = [  # left side, over the rim in front of the pot: lightest, freshest
     dict(ctrl=[(282, 598), (248, 580), (200, 572), (152, 590), (116, 632), (98, 682), (94, 728)], pmax=26, seed=9, bare=0.16, peak=0.4, gap=1.5),
@@ -332,7 +355,7 @@ def build():
     body = [back]
     for group, tone, rc in ((BACK, DEEP, P["mid"]), (CENTRE, SAGE, P["light"]),
                             (RING2, FOREST, P["sage"]),
-                            (RING3, MID, P["forest"]), (DRAPE, SAGE, P["mid"]),
+                            (RING3, MID, P["forest"]), (DRAPE, LIGHTT, P["sage"]),
                             (TUFT, LIGHTT, P["sage"])):
         for fr in group:
             body.append(frond(tone=tone, rachis_col=rc, **fr)[0])

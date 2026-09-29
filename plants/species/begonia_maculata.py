@@ -66,6 +66,7 @@ def mix(a, b, t):
 
 DOT_MIN = 4.6    # light dot diameter floor (print policy: >= 4.5 units)
 LINE_W = 3.0     # midrib / node-ring width (print policy: dark line >= 3.0 units)
+EDGE_DEPTH = 0.068  # turned-over margin band, fraction of L at its widest (~14.5 units on the front leaf)
 
 
 def to_world(p, x, y, rot, sx=1):
@@ -151,7 +152,7 @@ class AngelLeaf:
         pts = [(round(x), round(y)) for x, y in pts]
         return cr_path(pts, closed=True, sharp={0, len(mid) - 1, len(mid), len(pts) - 1})
 
-    def turned_edge_d(self, depth=0.05, t0=0.08, t1=0.97):
+    def turned_edge_d(self, depth=EDGE_DEPTH, t0=0.08, t1=0.97):
         """Narrow crescent along the small-side margin: the edge curling over to show a
         sliver of the burgundy underside (widest mid-leaf, tapering to nothing)."""
         L = self.L
@@ -253,7 +254,7 @@ def leaf_svg(lf, x, y, rot, mirror=False, fill=None, face="top", dot_seed=1,
     # lateral veins dropped (they cannot be print-safe without crowding the dots); midrib opaque
     o.append(f'<path d="{lf.midrib_d(0, 0.88)}" fill="none" stroke="{mix(fill, P["sage"], 0.42)}" '
              f'stroke-width="{LINE_W}" stroke-linecap="round"/>')
-    sm = 0.05 * lf.L + 1.5 if face == "edge" else 0.0     # keep dots off the turned-over band
+    sm = EDGE_DEPTH * lf.L + 1.5 if face == "edge" else 0.0     # keep dots off the turned-over band
     for dia, ds in sorted(lf.dots(density=density, seed=dot_seed, small_margin=sm).items()):
         o.append(f'<path d="{"".join(ds)}" stroke="{P["spot"]}" stroke-width="{f(dia)}" stroke-linecap="round"/>')
     if face == "fold":
