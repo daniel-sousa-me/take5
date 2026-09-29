@@ -9,7 +9,7 @@ from print_prep import paper_white, STOCK
 PAL = dict(night="#27392C", deep="#314B37", forest="#405D43", mid="#5B7458", sage="#7F9273",
            light="#A5B296", pale="#C9D2BC", terra="#B96E4A", soil="#5C4331", red="#B95850",
            burgundy="#74464D", blush="#D79C9A", mustard="#C49A41", amber="#D48A4C")
-F = 'font-family="DejaVu Sans" fill="#333"'
+INK = "#333"
 X0 = 14
 # burgundy tone pairs that sit side by side on the cards: (colour a, colour b, label). Tradescantia zebrina's
 # leaf centre bands, back tier -> middle -> front; oxalis_triangularis' leaf ramp steps (also the tradescantia
@@ -24,12 +24,36 @@ TINTS = ("#FFFFFF", "#FBF6EA", "#F6EFDF", "#F0E6D2", "#EADFC8")   # section 3: n
 CROP = 30.5       # section 5: card shown from the top cut down to this depth (mm), just below two rows of marks
 
 
-def t(x, y, s, size=2.4, extra=""):
-    return f'<text x="{x}" y="{y}" font-size="{size}" {F} {extra}>{s}</text>'
+# Text is set in the deck's own fonts, drawn as paths (like the card labels, deck.PathFont): DM Serif Display for
+# the title and headings, Fraunces for the rest -- a regular-weight instance at the 9 pt optical size, made once
+# into build/fonts beside the deck's Medium one. Paths need no installed font and measure exactly (fits() below).
+FRAUNCES_TEXT = paths.STATIC_FONTS / "Fraunces-Regular-opsz9-static.ttf"
+
+
+def _text_font():
+    if not FRAUNCES_TEXT.exists():
+        from fontTools.ttLib import TTFont
+        from fontTools.varLib import instancer
+        paths.STATIC_FONTS.mkdir(parents=True, exist_ok=True)
+        inst = instancer.instantiateVariableFont(TTFont(str(paths.FRAUNCES_VAR)),
+                                                 {"wght": 400, "opsz": 9, "SOFT": 0, "WONK": 0})
+        inst.save(str(FRAUNCES_TEXT))
+    return deck.PathFont(str(FRAUNCES_TEXT))
+
+
+BODY, BOLD, HEAD = _text_font(), deck.LABEL_FONT, deck.PathFont(str(paths.DM_SERIF))
+
+
+def t(x, y, s, size=2.4, font=None):
+    return f'<g fill="{INK}">' + (font or BODY).path(s, size, float(x), y, anchor="start") + "</g>"
+
+
+def tw(s, size=2.4, font=None):
+    return (font or BODY).width(s, size)
 
 
 def h(y, s):
-    return t(X0, y, s, 3.0, 'font-weight="bold"')
+    return t(X0, y, s, 3.4, HEAD)
 
 
 def card_top(n):
@@ -51,35 +75,43 @@ def check_burg_pairs():
         print("proof: burgundy test colours no longer in the plant art:", ", ".join(miss))
 
 
+def fits(s, x0, x1, size, font=None):
+    """Assert a line of text set at x0 ends by x1 (text is paths, so its width is exact)."""
+    assert x0 + tw(s, size, font) <= x1, f"proof text overruns {x1} mm: {s!r}"
+
+
 def build():
     check_burg_pairs()
     g = ['<svg xmlns="http://www.w3.org/2000/svg" width="210mm" height="297mm" viewBox="0 0 210 297">',
          '<rect width="210" height="297" fill="#fff"/>']
-    y = deck.REC_TOP + 5
-    g.append(t(X0, y, "Take 5 · Botanical — print proof (GX5050, 250 gsm uncoated)", 4.0, 'font-weight="bold"'))
-    g.append(t(X0, y + 5.5, "Rear tray, one sheet at a time · 100% / Actual size · borderless OFF · Prevent paper abrasion ON. Print once per", 2.3))
-    g.append(t(X0, y + 9, "paper-type setting, tick it below, dry 10 min, judge. Then print deck sheet 1 on the same setting: cut one card, try it in a 66 × 91 mm sleeve.", 2.3))
+    y = deck.REC_TOP + 4.6
+    g.append(t(X0, y, "Take 5 · Botanical — print proof (GX5050, 250 gsm uncoated)", 5.0, HEAD))
+    intro = ("Rear tray, one sheet at a time · 100% / Actual size · borderless OFF · Prevent paper abrasion ON. Print once per",
+             "paper-type setting, tick it below, dry 10 min, judge. Then print deck sheet 1 on the same setting: cut one card, try it in a 66 × 91 mm sleeve.")
+    for i, s in enumerate(intro):
+        g.append(t(X0, y + 5.5 + i * 3.5, s, 2.4))
+        fits(s, X0, 196, 2.4)
 
-    # 1 — line weights
-    y += 16
+    # 1 — line weights  (row pitch 8.0: 6.5 mm swatches, 1.5 mm between rows)
+    y += 15.5
     g.append(h(y, "1  Line weights (mm) — thinnest line that stays clean and unbroken"))
     ws = [0.08, 0.10, 0.12, 0.15, 0.20, 0.25, 0.30]
     rows = [("dark on paper", "#fff", PAL["deep"]), ("paper on dark", PAL["deep"], "#fff"),
             ("blush on night", PAL["night"], PAL["blush"]), ("pale on forest", PAL["forest"], PAL["pale"])]
     for i, w in enumerate(ws):
-        g.append(t(52 + i * 21 + 4, y + 4.5, f"{w:.2f}", 2.1))
+        g.append(t(52 + i * 21 + 4, y + 4.5, f"{w:.2f}", 2.2))
     for r, (lab, bg, fg) in enumerate(rows):
-        yy = y + 6 + r * 8.5
-        g.append(t(X0, yy + 4.5, lab, 2.2))
+        yy = y + 6 + r * 8.0
+        g.append(t(X0, yy + 4.4, lab, 2.4))
         for i, w in enumerate(ws):
             x = 52 + i * 21
             g.append(f'<rect x="{x}" y="{yy}" width="18" height="6.5" fill="{bg}"/>')
             g.append("".join(f'<path d="M{x + 2.5 + k * 4.3} {yy + 0.8}v4.9" stroke="{fg}" stroke-width="{w}"/>' for k in range(4)))
-    g.append(t(52, y + 41, "The artwork uses ≥ 0.15 mm for dark lines and ≥ 0.20 mm for light-on-dark lines.", 2.1))
+    g.append(t(52, y + 39.6, "The artwork uses ≥ 0.15 mm for dark lines and ≥ 0.20 mm for light-on-dark lines.", 2.3))
 
     # 2 — tone steps: the palette's adjacent leaf greens, then the burgundy pairs that meet on the cards
     # (read from plants/out/tradescantia_zebrina.svg and oxalis_triangularis.svg, see BURG_PAIRS)
-    y += 45
+    y += 47          # ~3.5 mm of paper between the caption above and this heading
     g.append(h(y, "2  Leaf tone steps — each pair must still read as two different tones"))
     order = ["night", "deep", "forest", "mid", "sage", "light", "pale"]
     pairs = [(PAL[a], PAL[b], f"{a} / {b}") for a, b in zip(order, order[1:])]
@@ -90,30 +122,35 @@ def build():
         g.append(f'<g transform="translate({x:.2f} {yy}) scale({k})">'
                  f'<path d="M0 15 C0 5 9 2 14 2 C14 11 7 16.5 0 15Z" fill="{ca}"/>'
                  f'<path d="M7 17 C7 8 16 5 22 5 C22 14 14 18.5 7 17Z" fill="{cb}"/></g>')
-        g.append(t(f"{x:.2f}", yy + 16.5, lab, 1.8))
-    g.append(t(X0, y + 25, "If a pair merges (most likely night/deep, deep/forest or the two darkest burgundies), note which — the darks can be lifted.", 2.1))
-    g.append(t(X0, y + 28.3, "Burgundies: Tradescantia leaf bands (tiers 0|1, 1|2) and the oxalis / tradescantia leaf ramp (wine|burgundy, burgundy|plum).", 1.8))
+        g.append(t(f"{x:.2f}", yy + 16.5, lab, 2.0))
+        fits(lab, x, x + pitch - 0.6, 2.0)
+    note2 = ("If a pair merges (most likely night/deep, deep/forest or the two darkest burgundies), note which — the darks can be lifted.",
+             "Burgundies: Tradescantia leaf bands (tiers 0|1, 1|2) and the oxalis / tradescantia leaf ramp (wine|burgundy, burgundy|plum).")
+    for i, s in enumerate(note2):
+        g.append(t(X0, y + 23.8 + i * 3.2, s, 2.3 - 0.2 * i))
+        fits(s, X0, 196, 2.3 - 0.2 * i)
 
     # 3 — flat fields + solids
-    y += 33
+    y += 31.8
     g.append(h(y, "3  Flat colour — look for banding or grain; dry-rub the solids; near-paper tints (bottom row)"))
     for i, p in enumerate([1, 2, 3, 5, 7]):
         tint, acc, sprig, ncol, gcol = deck.TIER[p]
         x = X0 + i * 37
-        g.append(f'<rect x="{x}" y="{y + 3}" width="34" height="14" fill="{tint}"/>'
-                 f'<path d="M{x} {y + 17} C{x + 10} {y + 15} {x + 18} {y + 7} {x + 34} {y + 6} V{y + 17}Z" fill="{acc}"/>'
-                 f'<rect x="{x + 23}" y="{y + 5}" width="9" height="4.5" fill="{gcol}"/>'
-                 f'<path d="M{x + 3} {y + 14} C{x + 7} {y + 9} {x + 12} {y + 7} {x + 18} {y + 6}" fill="none" '
+        g.append(f'<rect x="{x}" y="{y + 3}" width="34" height="13" fill="{tint}"/>'
+                 f'<path d="M{x} {y + 16} C{x + 10} {y + 14} {x + 18} {y + 7} {x + 34} {y + 6} V{y + 16}Z" fill="{acc}"/>'
+                 f'<rect x="{x + 23}" y="{y + 4.8}" width="9" height="4.3" fill="{gcol}"/>'
+                 f'<path d="M{x + 3} {y + 13.2} C{x + 7} {y + 9} {x + 12} {y + 7} {x + 18} {y + 6}" fill="none" '
                  f'stroke="{sprig}" stroke-width="0.45" stroke-linecap="round"/>'
-                 f'<rect x="{x + 23}" y="{y + 10.5}" width="9" height="4.5" fill="{ncol}"/>')
-        g.append(t(x, y + 20.5, f"penalty {p} field", 2.0))
+                 f'<rect x="{x + 23}" y="{y + 10.1}" width="9" height="4.3" fill="{ncol}"/>')
+        g.append(t(x, y + 19.3, f"penalty {p} field", 2.2))
     for i, k in enumerate(["terra", "soil", "red", "burgundy", "blush", "mustard", "amber", "deep"]):
-        g.append(f'<rect x="{X0 + i * 23}" y="{y + 23}" width="20" height="6" fill="{PAL[k]}"/>')
-        g.append(t(X0 + i * 23, y + 32, k, 2.0))
+        g.append(f'<rect x="{X0 + i * 23}" y="{y + 21.3}" width="20" height="6" fill="{PAL[k]}"/>')
+        g.append(t(X0 + i * 23, y + 30, k, 2.2))
     # near-paper tints, printed as drawn: each as a patch on bare paper (grey corner ticks 0.6 mm outside it) and
     # as a stripe down a leaf-green bar (chlorophytum's cream stripe, the spathe's light half). Tints marked * are
     # at or lighter than the stock: print_prep.py sends those as no ink (#FFFFFF) in the plant print copies.
-    ty, th, tp = y + 34.3, 4.5, 28
+    # (2.5+ mm of paper between the solid labels and the tick marks above the tints)
+    ty, th, tp = y + 35, 4.5, 28.3
     for i, c in enumerate(TINTS):
         x = X0 + i * tp
         k6, e = 0.6, 1.2
@@ -123,26 +160,30 @@ def build():
                  f'<rect x="{x}" y="{ty}" width="9" height="{th}" fill="{c}"/>'
                  f'<rect x="{x + 10.2}" y="{ty}" width="7" height="{th}" fill="{PAL["mid"]}"/>'
                  f'<rect x="{x + 12.9}" y="{ty}" width="1.6" height="{th}" fill="{c}"/>')
-        g.append(t(x + 18.4, ty + 3.1, c + ("*" if paper_white(c) else ""), 1.7))
-    g.append(t(X0 + 5 * tp + 1, ty + 1.7, "Near-paper tints: on paper · on green", 1.6))
-    g.append(t(X0 + 5 * tp + 1, ty + 4.1, f"* ≥ {STOCK} stock → no ink on the cards", 1.6))
+        lab = c + ("*" if paper_white(c) else "")
+        g.append(t(x + 18.0, ty + 3.1, lab, 1.9))
+        fits(lab, x + 18.0, x + tp - 0.6, 1.9)
+    for i, s in enumerate(("Near-paper tints: on paper · on green", f"* ≥ {STOCK} stock: no ink on cards")):
+        g.append(t(X0 + 5 * tp + 1, ty + 1.7 + i * 2.9, s, 2.2))
+        fits(s, X0 + 5 * tp + 1, 196, 2.2)
 
-    # 4 — scale + setting log
-    y += 44
+    # 4 — scale + setting log  (heading ~3 mm below the tints' lower tick marks)
+    y += 46
     g.append(h(y, "4  Scale"))
     g.append(f'<path d="M{X0} {y + 6}h100M{X0} {y + 4.5}v3M{X0 + 100} {y + 4.5}v3" stroke="#333" stroke-width="0.25"/>')
-    g.append(t(X0 + 71, y + 3.6, "must measure 100 mm", 2.3))
-    g.append(f'<rect x="{X0}" y="{y + 10}" width="30" height="30" fill="none" stroke="#333" stroke-width="0.25"/>')
-    g.append(t(X0 + 5, y + 26, "30 × 30 mm", 2.3))
+    g.append(t(X0 + 100 - tw("must measure 100 mm", 2.4), y + 3.6, "must measure 100 mm", 2.4))
+    g.append(f'<rect x="{X0}" y="{y + 8.5}" width="30" height="30" fill="none" stroke="#333" stroke-width="0.25"/>')
+    g.append(t(X0 + 15 - tw("30 × 30 mm", 2.4) / 2, y + 24.3, "30 × 30 mm", 2.4))
     x5 = 70
-    g.append(t(x5, y + 14, "Setting used (tick one):", 2.6, 'font-weight="bold"'))
+    g.append(t(x5, y + 13, "Setting used (tick one):", 2.8, BOLD))
     for i, o in enumerate(["Plain Paper · High", "Plain Paper · Standard", "Matte Photo Paper", "Other: ______________"]):
-        yy = y + 20 + i * 5.2
+        yy = y + 19 + i * 5.2
         g.append(f'<rect x="{x5}" y="{yy - 2.8}" width="3.2" height="3.2" fill="none" stroke="#333" stroke-width="0.25"/>')
-        g.append(t(x5 + 5, yy, o, 2.3))
+        g.append(t(x5 + 5, yy, o, 2.4))
     # 3-digit numbers at 100 %: the top-left corner of real cards 100 and 104 (deck.info_block, as on the card),
     # the tightest digit pairs in the deck (0|0 and 0|4, opened to deck.DIGIT_GAP)
-    g.append(t(X3, y, "3-digit numbers, 100 % — no digit may touch", 2.2, 'font-weight="bold"'))
+    g.append(t(X3, y, "3-digit numbers, 100 % — no digit may touch", 2.5, BOLD))
+    fits("3-digit numbers, 100 % — no digit may touch", X3, 196, 2.5, BOLD)
     for j, n in enumerate(NUM3_CARDS):
         x, yy = X3 + j * (NUM3_W + 2), y + 3
         cid = f"n3{n}"
@@ -150,12 +191,12 @@ def build():
                  f'<g transform="translate({x:.3f} {yy:.3f}) translate({-deck.B} {-deck.B})">'
                  f'<g clip-path="url(#{cid})">{card_top(n)}</g></g>'
                  f'<rect x="{x:.3f}" y="{yy:.3f}" width="{NUM3_W}" height="{NUM3_H}" fill="none" stroke="#bbb" stroke-width="0.15"/>')
-        g.append(t(x, yy + NUM3_H + 2.8, f"card {n} · {NUM3_W:g} × {NUM3_H:g} mm", 2.0))
+        g.append(t(x, yy + NUM3_H + 2.8, f"card {n} · {NUM3_W:g} × {NUM3_H:g} mm", 2.2))
     assert X3 + 2 * NUM3_W + 2 <= 196
     # 5 — neighbouring tiers as they really print: the top of real cards, drawn with the deck's own functions
     # (card_top below = the top half of deck.card: field + sprig top-right, number + marks top-left), without
     # the plant and name label, cropped below the marks and shown at CARD_S scale
-    y += 44
+    y += 42.3
     g.append(h(y, "5  Neighbouring tiers — each neighbour (2|3, 3|5, 5|55) must read as a different penalty"))
     pw, ph = deck.TW * CARD_S, CROP * CARD_S
     gap = (196 - X0 - 4 * pw) / 3
@@ -166,7 +207,8 @@ def build():
                  f'<g transform="translate({x:.3f} {yy:.3f}) scale({CARD_S}) translate({-deck.B} {-deck.B})">'
                  f'<g clip-path="url(#{cid})">{card_top(n)}</g></g>'
                  f'<rect x="{x:.3f}" y="{yy:.3f}" width="{pw:.3f}" height="{ph:.3f}" fill="none" stroke="#bbb" stroke-width="0.15"/>')
-        g.append(t(x, yy + ph + 2.8, f"tier {p} · card {n} (top {CROP:g} mm, at {CARD_S * 100:g} %)", 2.0))
+        g.append(t(x, yy + ph + 2.8, f"tier {p} · card {n} (top {CROP:g} mm, at {CARD_S * 100:g} %)", 2.2))
+        fits(f"tier {p} · card {n} (top {CROP:g} mm, at {CARD_S * 100:g} %)", x, x + pw + gap - 0.8, 2.2)
     assert yy + ph + 3.3 <= deck.REC_BOT, yy + ph + 3.3
     g.append("</svg>")
     return "".join(g)

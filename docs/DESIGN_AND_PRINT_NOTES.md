@@ -61,7 +61,12 @@ for history; where it disagrees with this file, this file wins (card size and pr
   so digit spacing can be judged on the real stock; the print-setting reminders that stood beside the scale test
   moved into the intro lines), and shows the neighbouring tiers side by side: the top 30.5 mm of real cards 25, 30, 22 and 55 (tiers 2, 3, 5, 7), drawn with
   the deck's own `info_block` / `field_blob` / `sprig` exactly as on the card (number top-left, marks 3 over 2 and
-  4 over 3, field top-right; plant and label left out), at 68 % so four fit inside the recommended area. If a green
+  4 over 3, field top-right; plant and label left out), at 68 % so four fit inside the recommended area. The proof's text is set in the deck's
+  own fonts, drawn as paths (DM Serif Display for the title and headings, Fraunces for the rest — Medium for the
+  bold labels, a Regular opsz-9 instance made once into `build/fonts`), so it needs no installed font and every line's
+  width is exact: `proof.fits()` asserts that each label and note ends inside its column. Sections have ≥ 2.5 mm of
+  paper between a caption and the next heading, and around the near-paper tint row (whose note is 2.2 mm text, the
+  same as the other labels). If a green
   pair merges on the real card (most likely night/deep or deep/forest), lift the darks in `plants/core.py`
   `PAL`/`SHADE` and rebuild.
 
@@ -134,7 +139,14 @@ for history; where it disagrees with this file, this file wins (card size and pr
   first place, so its lower right petal no longer runs along the low sweep with ~1 mm of paper between them (a
   near-tangent): now ≥ 2 mm of paper everywhere between the lily (flower + stem) and the sweep (2.2 mm at the closest;
   `LILY_GAP`, asserted by `back.check()` via `paper_gap()`, which ignores the paper right beside a decisive overlap), its
-  left petal clearly overlaps the upright's big leaf, and its top is still ≈ 11.4 mm from the "5".
+  left petal clearly overlaps the upright's big leaf, and it stays ≥ 11 mm from the "5" (11.5 mm now; `TITLE_GAP`,
+  also asserted by `back.check()`).
+- Lily stamens (`STAMENS` in `deck/back.py`): five, deliberately irregular — different lengths, spread and curvature,
+  one leaning left, the tallest left of centre (away from the "5") — with small tilted oval anthers, instead of four
+  fanned to one side at equal angle steps with round anthers on a neat arc.
+- Leaf outline (`leaf_shape()`): the last node before the sharp tip sits at ~0.22–0.24 of the leaf width, so the
+  outline runs straight into the point; the old narrower node (0.10–0.12) pinched the tip into a small hook that
+  read as a notch at zoom.
 - The three burgundy berries sit fully inside the trim (≥ 1.2 mm; currently 1.8 mm at the closest), fanned out on
   stalks from one point on the upright stem, drawn in front of the upright stem's leaves.
 - Art only crosses the cut at those two corners (within 22 mm of them), and only as leaves and stems (no berry is

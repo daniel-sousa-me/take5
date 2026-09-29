@@ -34,8 +34,10 @@ W, H = 635, 880
 
 
 def leaf_shape(L, width=0.26, bend=0.08, tip=0.92):
-    right = [(0, 0), (0.12, width * 0.62), (0.35, width), (0.62, width * 0.82), (0.84, width * 0.42), (tip, width * 0.12)]
-    left = [(0, 0), (0.12, width * 0.58), (0.36, width * 0.96), (0.63, width * 0.78), (0.85, width * 0.38), (tip, width * 0.1)]
+    # the last node sits wide enough (0.22-0.24 of the width) that the Catmull-Rom outline runs straight into the
+    # sharp tip; a narrower last node (0.1-0.12) pinched the tip into a little hook that read as a notch at zoom
+    right = [(0, 0), (0.12, width * 0.62), (0.35, width), (0.62, width * 0.82), (0.80, width * 0.52), (tip, width * 0.24)]
+    left = [(0, 0), (0.12, width * 0.58), (0.36, width * 0.96), (0.63, width * 0.78), (0.81, width * 0.48), (tip, width * 0.22)]
     return Leaf(L, right, left, bend=bend)
 
 
@@ -92,18 +94,29 @@ def petal(L, width, bend, tip=0.97):
     return Leaf(L, right, left, bend=bend, tip_t=tip)
 
 
+# lily stamens in flower-local units (base at 0,0, opening toward -y): (filament base, bend point, anther, anther
+# tilt deg). Deliberately irregular -- lengths, spread and curvature all differ, and one leans to the left -- so they
+# don't fan out at equal angle steps with the anthers on a neat arc. The tallest stays left of centre, keeping the
+# flower >= 11 mm from the "5" (check() asserts TITLE_GAP).
+STAMENS = [((-3, -30), (-30, -120), (-58, -172), 20),
+           ((0, -32), (-8, -128), (24, -210), -15),
+           ((3, -30), (40, -118), (74, -176), 10),
+           ((5, -28), (46, -96), (118, -150), -25),
+           ((6, -26), (58, -78), (106, -116), 5)]
+
+
 def lily(x, y, rot, s, col, shade, hi, stamen_col):
     """Side-view lily opening upward; base at (x, y). Petals are long, pointed and curl outward."""
     g = [f'<g transform="{T(x, y, rot, s)}">']
     # back petals (in shade)
     for r, L, w, b in ((-14, 170, 0.20, 0.06), (22, 165, 0.20, -0.04)):
         g.append(leaf_g(petal(L, w, b), shade, transform=T(0, 0, r)))
-    # stamens: long, arching up-right, anthers as small dots
-    tips = [(40, -205), (78, -192), (108, -168), (128, -136)]
-    for tx, ty in tips:
-        g.append(line([(2, -30), (tx * 0.35, ty * 0.6), (tx, ty)], 2.6, stamen_col))
-    for tx, ty in tips:
-        g.append(dot(tx, ty, 8.5, MUSTARD))
+    # stamens: STAMENS below -- uneven lengths and spread, one leaning left, anthers as small tilted ovals
+    for (bx, by), (mx, my), (tx, ty), _ in STAMENS:
+        g.append(line([(bx, by), (mx, my), (tx, ty)], 2.6, stamen_col))
+    for (bx, by), (mx, my), (tx, ty), a in STAMENS:
+        ang = math.degrees(math.atan2(ty - my, tx - mx)) + 90 + a
+        g.append(f'<ellipse cx="{f(tx)}" cy="{f(ty)}" rx="10.5" ry="6" fill="{MUSTARD}" transform="rotate({f(ang)} {f(tx)} {f(ty)})"/>')
     # front petals: two sweeping outward with curled tips, one centre petal in the light tone
     for r, L, w, b, c, sd in ((-36, 175, 0.21, -0.36, col, "l"), (46, 185, 0.21, 0.40, col, "r"),
                               (6, 140, 0.19, 0.10, hi, None)):
@@ -215,6 +228,7 @@ def berry_circles():
 
 
 LILY_GAP = 20        # >= 2 mm of paper between the lily (flower + stem) and the low sweep wherever they don't overlap
+TITLE_GAP = 110      # >= 11 mm of paper between the lily and the "5" (the lily stays second to the wordmark)
 
 
 def paper_gap(a_names, b_names, box=(60, 650, 560, 880), k=2, excl=20):
@@ -273,6 +287,8 @@ def check(px_per_mm=10):
     # the lily and the low sweep must not run side by side with a sliver of paper between them
     g, where, _ = paper_gap(["lily", "lily_stem"], ["sweep"])
     assert g >= LILY_GAP - 1, f"lily only {g / 10:.2f} mm from the low sweep near {where}"
+    g5, where5, ov5 = paper_gap(["lily"], ["title"], box=(60, 300, 635, 880))
+    assert g5 >= TITLE_GAP and not ov5, f"lily only {g5 / 10:.2f} mm from the \"5\" near {where5}"
     # nothing on the back may be lighter than the stock (ink cannot print lighter than the paper)
     import re
     pale = sorted({c for c in re.findall(r"#[0-9A-Fa-f]{6}\b", build_body()) if paper_white(c)})
@@ -298,7 +314,8 @@ def standalone(path, scale_px=8):
 if __name__ == "__main__":
     import cairosvg
     print("back edge check ok; berry clearance to the trim (mm):", check(),
-          f"; lily-to-sweep paper {paper_gap(['lily', 'lily_stem'], ['sweep'])[0] / 10:.2f} mm")
+          f"; lily-to-sweep paper {paper_gap(['lily', 'lily_stem'], ['sweep'])[0] / 10:.2f} mm"
+          f"; lily-to-5 paper {paper_gap(['lily'], ['title'], box=(60, 300, 635, 880))[0] / 10:.2f} mm")
     paths.BUILD.mkdir(exist_ok=True)
     svg = standalone(str(paths.BUILD / "card_back.svg"))
     guide = svg.replace("</svg>", f'<rect x="{deck.B}" y="{deck.B}" width="{deck.TW}" height="{deck.TH}" fill="none" stroke="#f0f" stroke-width="0.12"/></svg>')
