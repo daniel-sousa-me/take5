@@ -155,7 +155,7 @@ def offset(p, rot, dist):
 # ------------------------------------------------------------------ scene
 TRUNK = [(297, 600), (295, 540), (298, 475), (304, 410), (306, 340), (301, 270), (296, 205),
          (297, 160)]
-BRANCH = [(304, 425), (292, 400), (276, 374), (259, 352), (246, 338)]
+BRANCH = [(303, 440), (290, 414), (270, 391), (246, 374), (226, 364)]
 
 
 def on(pts, fr):
@@ -174,25 +174,26 @@ def on(pts, fr):
 
 
 # leaf spec: (layer, stem, frac, rot, petiole_len, L, sx, sy, bend, fill, seed)
-# layer 0 = behind the trunk, 1 = in front of trunk
+# layer 0 = behind the trunk, 1 = in front of trunk.
+# Depth logic: a dark back ring (deep) gives the silhouette; a few mid-tone
+# leaves sit between; the three pale front leaves only ever overlap deep
+# leaves (never each other or the mid tones), so every overlap is >= 2 tone
+# steps and the crown reads as layers even at thumbnail size.
 LEAVES = [
-    # ---- back crown (darkest), behind the trunk
-    (0, "T", 0.80, -58, 7, 155, 0.95, 1.0, -0.05, "deep", 3),
-    (0, "T", 0.78, 66, 7, 160, 0.92, 1.0, 0.06, "deep", 4),
-    (0, "T", 0.95, -18, 6, 135, 0.92, 0.95, -0.03, "forest", 5),
-    (0, "T", 0.93, 36, 6, 130, 0.88, 1.0, 0.03, "forest", 6),
-    (0, "B", 1.00, -80, 6, 140, 0.95, 1.0, -0.08, "forest", 7),
-    (0, "T", 0.62, 112, 7, 135, 0.9, 1.0, 0.10, "deep", 15),
-    (0, "B", 0.70, -122, 6, 125, 0.9, 1.0, 0.08, "deep", 17),
-    # ---- middle
-    (1, "T", 0.99, 10, 5, 115, 0.95, 0.95, 0.03, "light", 8),    # newest top leaf
-    (1, "T", 0.78, 38, 7, 150, 0.8, 1.0, -0.05, "mid", 12),
-    (1, "T", 0.82, -30, 7, 150, 1.0, 0.9, 0.03, "sage", 11),
-    (1, "T", 0.68, 78, 8, 140, 0.56, 1.0, 0.16, "mid", 9),       # right, turned
-    (1, "B", 0.85, -106, 7, 132, 0.7, 1.0, 0.12, "sage", 10),    # left, from branch
-    # ---- front
-    (1, "T", 0.57, -4, 7, 158, 1.0, 0.74, 0.02, "light", 13),   # facing viewer, foreshortened
-    (1, "T", 0.60, 138, 7, 112, 0.8, 0.9, -0.06, "sage", 14),   # drooping toward viewer
+    # ---- back ring (darkest), behind the trunk
+    (0, "T", 0.68, -80, 8, 150, 0.92, 1.0, -0.06, "deep", 3),     # left
+    (0, "T", 0.74, 86, 8, 150, 0.90, 1.0, 0.08, "deep", 4),       # right
+    (0, "T", 0.95, -22, 7, 136, 0.90, 1.0, -0.04, "deep", 5),     # upper left
+    (0, "T", 0.92, 30, 7, 140, 0.88, 1.0, 0.04, "deep", 6),       # upper right
+    (0, "T", 0.56, 118, 8, 128, 0.86, 1.0, 0.10, "deep", 15),     # low right, drooping
+    (0, "B", 0.72, -136, 6, 118, 0.88, 1.0, 0.08, "deep", 17),    # branch, drooping
+    # ---- middle tones
+    (1, "T", 1.00, 12, 5, 118, 0.92, 0.95, 0.03, "mid", 8),        # newest top leaf
+    (1, "B", 1.00, -62, 6, 132, 0.86, 1.0, -0.05, "mid", 10),     # branch terminal leaf
+    # ---- front (lightest)
+    (1, "T", 0.82, -58, 7, 134, 0.95, 0.95, 0.03, "sage", 11),    # upper left, facing
+    (1, "T", 0.88, 60, 7, 136, 0.62, 1.0, 0.14, "sage", 9),       # right, turned edge-on
+    (1, "T", 0.52, 8, 7, 150, 1.0, 0.76, 0.02, "light", 13),     # facing viewer, foreshortened
 ]
 
 
@@ -210,7 +211,7 @@ def build():
         vein = P["light"] if dark else P["ivory"]
         pw = 5.5 if L > 150 else 4.6
         s = petiole(sp, fig, w0=pw, w1=pw * 0.7)
-        s += fig.svg(P[tone], vein_col=vein, vein_op=0.3 if dark else 0.38,
+        s += fig.svg(P[tone], vein_col=vein, vein_op=0.3 if dark else 0.32,
                      rib_op=0.6 if dark else 0.72)
         if os.environ.get("DBG"):
             c = fig.M(0, -0.5)

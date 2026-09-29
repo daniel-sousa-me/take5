@@ -523,31 +523,33 @@ def build():
     back, front = pot(kind="bowl", cx=CX, rim_y=RIM_Y, bottom=752, rx=138, rim_h=24, base_w=96)
     pt = Painter()
 
-    stalk1 = [(290, 552), (283, 480), (276, 390), (281, 290), (304, 196), (342, 136),
-              (388, 108), (432, 114), (460, 146), (466, 170)]
-    stalk2 = [(262, 556), (248, 496), (228, 438), (200, 392), (168, 366), (138, 366), (124, 378)]
+    # short, tight arching stalks: they add the charm of the nodding coral
+    # bells without setting the plant's height, so the rosette stays dominant
+    stalk1 = [(296, 548), (296, 470), (300, 400), (318, 336), (350, 292), (390, 274),
+              (424, 282), (446, 306), (452, 326)]
+    stalk2 = [(262, 552), (250, 492), (232, 446), (206, 414), (178, 404), (156, 414), (148, 428)]
     # one-sided nodding raceme: flowers hang from the underside of the arch,
     # crowding towards the tip where they are still buds
-    fl1 = [(0.60, (0.22, 1), 1.12), (0.655, (0.2, 1), 1.12), (0.71, (0.16, 1), 1.1),
-           (0.765, (0.1, 1), 1.08), (0.815, (0.02, 1), 1.02), (0.862, (-0.1, 1), 0.96),
-           (0.905, (-0.25, 1), 0.88), (0.945, (-0.45, 1), 0.78), (0.985, (-0.7, 1), 0.66)]
-    fl2 = [(0.63, (-0.08, 1), 1.0), (0.73, (-0.1, 1), 0.98), (0.825, (-0.05, 1), 0.92),
-           (0.915, (0.12, 1), 0.82), (1.0, (0.45, 1), 0.68)]
+    fl1 = [(0.60, (0.18, 1), 1.08), (0.68, (0.12, 1), 1.06), (0.76, (0.04, 1), 1.02),
+           (0.83, (-0.08, 1), 0.96), (0.89, (-0.25, 1), 0.88), (0.945, (-0.45, 1), 0.78),
+           (0.99, (-0.7, 1), 0.66)]
+    fl2 = [(0.66, (-0.08, 1), 0.98), (0.79, (-0.06, 1), 0.92), (0.905, (0.12, 1), 0.82),
+           (1.0, (0.45, 1), 0.68)]
 
     def hook(p):
-        p.extra(stalk_svg(stalk2, 8.0, 3.8, [0.37, 0.47], fl2, rise_side=-1))
-        p.extra(stalk_svg(stalk1, 9.0, 4.0, [0.25, 0.36, 0.47], fl1))
+        p.extra(stalk_svg(stalk2, 8.0, 4.0, [0.42], fl2, rise_side=-1))
+        p.extra(stalk_svg(stalk1, 9.0, 4.2, [0.34, 0.46], fl1))
 
     paint_rosette(pt, MAIN, 290, RIM_Y - 20, after_tier=1, hook=hook, phase=0.2, twist=0.09,
-                  scale=1.24)
+                  scale=1.56)
 
     # the offsets: one pup drawn once (at the origin) and placed twice
     pup = Painter()
     paint_rosette(pup, PUP, 0, 0, phase=1.1, twist=-0.1, scale=0.64)
     defs = (f'<defs><g id="bell">{bell((0, 0), (0, 1), 1.0)}</g>'
             f'<g id="pup">{pup.emit()}</g></defs>')
-    offsets = ('<use href="#pup" transform="translate(856 1220)"/>'      # front-right
-               '<use href="#pup" transform="translate(378 1232) scale(.66)"/>')  # tiny, front-left
+    offsets = ('<use href="#pup" transform="translate(900 1236) scale(1.08)"/>'      # front-right
+               '<use href="#pup" transform="translate(318 1250) scale(.74)"/>')  # small, front-left
     plant = f'<g transform="scale(.5)">{defs}{pt.emit()}{offsets}</g>'
     return back + front + plant
 

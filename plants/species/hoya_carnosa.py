@@ -226,27 +226,37 @@ def leaf_def(var, tone, shade_side, speck):
             r = rnd.uniform(0.6, 1.05)
             dd.append(f"M{f(p[0] - r)} {f(p[1])}a{f(r)} {f(r)} 0 1 0 {f(2 * r)} 0a{f(r)} {f(r)} 0 1 0 {f(-2 * r)} 0")
         o.append(f'<path d="{"".join(dd)}" fill="{P["spot"]}" opacity=".7"/>')
-    mid = [lf.axis(t) for t in (0.0, 0.3, 0.6, 0.88)]
-    o.append(f'<path d="M{f(mid[0][0])} {f(mid[0][1])}' + "".join(f"L{f(x)} {f(y)}" for x, y in mid[1:])
-             + f'" fill="none" stroke="{MIDRIB}" stroke-width="1.1" stroke-linecap="round" opacity=".4"/>')
+    # midrib as a filled taper (not a hairline stroke) so the print pass keeps it
+    # exactly as drawn instead of fattening it into a heavy pale bar
+    a0, a1, a2 = lf.axis(0.0), lf.axis(0.45), lf.axis(0.88)
+    o.append(f'<path d="M{f(a0[0] - .85)} {f(a0[1])}Q{f(a1[0] - .6)} {f(a1[1])} {f(a2[0])} {f(a2[1])}'
+             f'Q{f(a1[0] + .6)} {f(a1[1])} {f(a0[0] + .85)} {f(a0[1])}Z" fill="{MIDRIB}" opacity=".42"/>')
     o.append("</g></g>")
     DEFS[key] = (lid, "".join(o))
     return lid
 
 
-def place_leaf(node, ang, L, tone, var=0, speck=0, pl=6):
-    """petiole from `node` along angle `ang` (0 = up, clockwise); returns (petiole, leaf)."""
+def place_leaf(node, ang, L, tone, var=0, speck=0, pl=None):
+    """petiole from `node` along angle `ang` (0 = up, clockwise); returns
+    (petiole, leaf, petiole_stub).  The petiole is ~0.17 L long (hoya petioles
+    are short but distinct) so it always shows between vine and blade; the
+    stub is the same petiole stopped at the blade base, drawn in front of the
+    hoop for leaves that sit behind it (so their join is never hidden)."""
+    if pl is None:
+        pl = 5 + L * 0.12
     dv = dir_of(ang)
     q = (node[0] + dv[0] * pl, node[1] + dv[1] * pl)
     tuck = (q[0] + dv[0] * L * 0.1, q[1] + dv[1] * L * 0.1)
+    edge = (q[0] + dv[0] * 1.2, q[1] + dv[1] * 1.2)
     back = (node[0] - dv[0] * 1.5, node[1] - dv[1] * 1.5)
-    w = max(2.2, L * 0.048)
+    w = max(2.6, L * 0.05)
     pet = (f'<path d="M{f(back[0])} {f(back[1])}L{f(tuck[0])} {f(tuck[1])}" stroke-width="{f(w)}"/>')
+    stub = (f'<path d="M{f(back[0])} {f(back[1])}L{f(edge[0])} {f(edge[1])}" stroke-width="{f(w)}"/>')
     shade_side = "r" if math.cos(rad(ang)) > 0 else "l"
     lid = leaf_def(var, tone, shade_side, speck)
     s = L / UL
     use = f'<use href="#{lid}" transform="translate({f(q[0])} {f(q[1])}) rotate({f(ang)}) scale({s:.3f})"/>'
-    return pet, use
+    return pet, use, stub
 
 
 # ------------------------------------------------------------------ flowers
@@ -346,19 +356,36 @@ C_NODES = [
 ]
 
 
+def snap_front(st, s):
+    """Move a node to the nearest place where the vine passes in front of the
+    hoop, so the leaf's join is visible (not tucked behind the hoop)."""
+    if st.hoop_len <= 0 or st.front(s):
+        return s
+    for k in range(1, 60):
+        for c in (s + k, s - k):
+            if 0 < c < st.L - 2 and st.front(c) and st.front(c + 4 if c > s else c - 4):
+                return c + (4 if c > s else -4)
+    return s
+
+
 def nodes_svg(st, nodes, rnd):
-    back, front = [], []
+    back, front, stubs = [], [], []
     for s, leaves in nodes:
         if s > st.L - 2:
             continue
+        s = snap_front(st, s)
         node, t = st.at(s)
         tang = ang_of(t)
         for a, L, tone, layer, var, speck in leaves:
             L *= SCALE
             ang = tang + a + rnd.uniform(-5, 5)
-            pet, use = place_leaf(node, ang, L, tone, var, speck)
-            (front if layer else back).append((pet, use))
-    return back, front
+            pet, use, stub = place_leaf(node, ang, L, tone, var, speck)
+            if layer:
+                front.append((pet, use))
+            else:
+                back.append((pet, use))
+                stubs.append(stub)
+    return back, front, stubs
 
 
 def emit(pairs):
@@ -367,6 +394,12 @@ def emit(pairs):
     pets = "".join(p for p, _ in pairs)
     return (f'<g stroke="{STEM}" stroke-linecap="round" fill="none">{pets}</g>'
             + "".join(u for _, u in pairs))
+
+
+def emit_stubs(stubs):
+    if not stubs:
+        return ""
+    return f'<g stroke="{STEM}" stroke-linecap="round" fill="none">{"".join(stubs)}</g>'
 
 
 def build():
@@ -383,9 +416,9 @@ def build():
     C.L = C.path.L
     C.hoop_len = 0
 
-    ab, af = nodes_svg(A, A_NODES, rnd)
-    bb, bf = nodes_svg(B, B_NODES, rnd)
-    cb, cf = nodes_svg(C, C_NODES, rnd)
+    ab, af, ast = nodes_svg(A, A_NODES, rnd)
+    bb, bf, bst = nodes_svg(B, B_NODES, rnd)
+    cb, cf, cst = nodes_svg(C, C_NODES, rnd)
 
     # umbel 1: from a node near the top-left, hangs inside the hoop
     n1, _ = A.at(478)
@@ -401,6 +434,7 @@ def build():
     body.append(C.part(0, 30))
     body.append(hoop_svg())
     body.append(A.pieces(True) + B.pieces(True))
+    body.append(emit_stubs(ast + bst))
     body.append(emit(af + bf))
     body.append(peduncle(n1, u1_top))
     body.append(umbel(u1_top, R=36, seed=2, tilt=0.12))
@@ -408,7 +442,7 @@ def build():
     body.append(umbel(u2_top, R=33, seed=5, tilt=-0.1))
     body.append(front)
     body.append(C.part(22, C.L))
-    body.append(emit(cb + cf))
+    body.append(emit(cb + cf) + emit_stubs(cst))
     defs = "<defs>" + flower_defs() + "".join(v[1] for v in DEFS.values()) + "</defs>"
     return defs + "".join(body)
 
