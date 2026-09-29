@@ -139,7 +139,7 @@ def build_body():
     # One bunch: every stem springs from the bottom-left corner (the only place, with the top-right,
     # where the art crosses the cut) -- the upright sweep, the berries, the lily and the right sweep.
     # right sweep: low arc out to the right, echoing the top-right spray; stays >= 1 mm above the bottom cut
-    br = [(70, 930), (170, 856), (290, 830), (400, 804), (470, 788), (520, 780), (552, 776)]
+    br = [(70, 930), (170, 868), (290, 845), (400, 806), (470, 788), (520, 780), (552, 776)]
     o.append(branch(br, [(0.52, 98), (0.65, 80), (0.78, 96), (0.90, 62)], angle=38,
                     back_cols=[G["forest"], G["dark"]], front_cols=[G["sage"], G["mid"]], tip=(56, G["light"]), first=1, w0=7, w1=3))
     # berries branch off the upright stem (drawn first so the join sits under the stem)
@@ -147,8 +147,9 @@ def build_body():
     # upright stem, the berries themselves are drawn after it so the leaves don't hide them
     berries = BERRIES
     o.append(sprig(*berries, w=3.4, part="stalks"))
-    # lily stem forks off the upright stem low down
-    o.append(stem([(100, 890), (150, 862), (212, 842), (256, 818)], 7, 4, STEM_G))
+    # lily stem forks off the upright stem low down, rising steeper than the right sweep so the two splay apart
+    # (>= 2 mm of paper between them) right from the corner instead of running side by side
+    o.append(stem([(100, 876), (136, 850), (196, 832), (256, 818)], 7, 4, STEM_G))
     # upright sweep: up the left side, ending in a mustard sprig
     bl = [(85, 945), (106, 830), (100, 720), (108, 620)]
     o.append(branch(bl, [(0.24, 160), (0.43, 136), (0.61, 100), (0.80, 90)],
