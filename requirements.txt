@@ -1,0 +1,8 @@
+# Python 3.10+
+cairosvg>=2.7        # SVG -> PDF/PNG (needs the system Cairo library: macOS `brew install cairo`, Debian/Ubuntu `apt install libcairo2`)
+pillow>=10
+fonttools>=4.40      # text-to-outline for numbers and plant names; instancing of the variable Fraunces font
+lxml>=4.9            # print-prep pass over the plant SVGs
+pypdf>=3.17          # merges the 18 deck sheets into one PDF
+numpy>=1.24          # only for deck/coverage.py (ink estimate)
+shapely>=2.0         # only for regenerating the monstera (plants/species/monstera_deliciosa.py)

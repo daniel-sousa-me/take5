@@ -1,0 +1,186 @@
+"""Calathea ornata (pinstripe calathea) - v4.
+
+Basal clump of long, thin, upright petioles, each ending in a small pulvinus
+and an elliptic-oblong, acuminate leaf. Upper surface very dark green with
+paired blush pinstripes that leave the midrib and follow the lateral-vein
+curve toward the margin. Two leaves are turned to show the burgundy underside.
+"""
+import math
+import os
+import random
+import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.dirname(HERE))
+from core import PAL, Leaf, leaf_g, stem, line, f, T, pot, svg_doc, reset_ids, cr_path  # noqa: E402
+
+P = PAL
+CX, RIM_Y, RX = 300, 584, 100
+
+# leaf tones: back -> front. Neighbouring layers differ by >= 1 palette step and
+# overlapping pairs are arranged to differ by 2.
+TONE = {
+    "back": ("#27392C", "#223326"),      # night, a touch darker shade half
+    "mid": ("#314B37", "#29402F"),       # deep
+    "front": ("#405D43", "#37523B"),     # forest
+}
+STRIPE = P["blush"]
+# petiole / pulvinus tones per layer so crossing petioles stay separable
+PET = {
+    "back": ("#4B6349", P["mid"]),
+    "mid": (P["mid"], P["sage"]),
+    "front": (P["sage"], P["light"]),
+}
+UNDER = (P["burgundy"], P["wine"])
+
+
+def leaf_shape(L, seed, narrow=1.0):
+    rnd = random.Random(seed)
+    j = lambda: rnd.uniform(-0.012, 0.012)  # noqa: E731
+    right = [(0.02, 0.09), (0.11, 0.205 + j()), (0.28, 0.27 + j()), (0.48, 0.28 + j()),
+             (0.67, 0.24 + j()), (0.82, 0.165), (0.915, 0.085), (0.965, 0.035)]
+    left = [(0.02, 0.085), (0.12, 0.2 + j()), (0.30, 0.265 + j()), (0.50, 0.275 + j()),
+            (0.69, 0.23 + j()), (0.83, 0.155), (0.92, 0.08), (0.967, 0.032)]
+    right = [(t, w * narrow) for t, w in right]
+    left = [(t, w * narrow) for t, w in left]
+    return Leaf(L, right, left, bend=rnd.uniform(-0.05, 0.05), base_sharp=False, tip_t=1.0)
+
+
+def stripes(leaf, seed):
+    """Paired pinstripes from midrib toward margin, curving tipward."""
+    rnd = random.Random(seed + 99)
+    d = []
+    t = 0.09
+    while t < 0.78:
+        for s, sg in (("r", 1), ("l", -1)):
+            to = t + rnd.uniform(-0.008, 0.008)
+            for k in (0, 1):  # the pair
+                t0 = to + k * 0.021
+                dt = 0.15 - 0.05 * t0
+                w_end = leaf.width(t0 + dt, s) * 0.78
+                p0 = leaf.pt(t0, sg * 0.018)
+                p1 = leaf.pt(t0 + dt * 0.36, sg * leaf.width(t0 + dt * 0.36, s) * 0.46)
+                p2 = leaf.pt(t0 + dt, sg * w_end)
+                d.append(f"M{f(p0[0])} {f(p0[1])}Q{f(p1[0])} {f(p1[1])} {f(p2[0])} {f(p2[1])}")
+        t += 0.112 + rnd.uniform(-0.006, 0.006)
+    return (f'<path d="{"".join(d)}" fill="none" stroke="{STRIPE}" stroke-width="1.7" '
+            f'stroke-linecap="round" opacity=".92"/>')
+
+
+def under_veins(leaf):
+    d = []
+    t = 0.10
+    while t < 0.84:
+        for s, sg in (("r", 1), ("l", -1)):
+            dt = 0.15 - 0.05 * t
+            p0 = leaf.pt(t, sg * 0.015)
+            p1 = leaf.pt(t + dt * 0.22, sg * leaf.width(t + dt * 0.22, s) * 0.52)
+            p2 = leaf.pt(t + dt, sg * leaf.width(t + dt, s) * 0.85)
+            d.append(f"M{f(p0[0])} {f(p0[1])}Q{f(p1[0])} {f(p1[1])} {f(p2[0])} {f(p2[1])}")
+        t += 0.11
+    return (f'<path d="{"".join(d)}" fill="none" stroke="{P["plum"]}" stroke-width="1.3" '
+            f'stroke-linecap="round" opacity=".75"/>')
+
+
+def unit(deg):
+    a = math.radians(deg)
+    return math.sin(a), -math.cos(a)
+
+
+def plant_leaf(spec):
+    (sx, bx, by, ang, L, layer, seed, bow) = spec[:8]
+    opts = spec[8] if len(spec) > 8 else {}
+    ux, uy = unit(ang)
+    under = opts.get("under", False)
+    leaf = leaf_shape(L, seed, narrow=opts.get("narrow", 1.0))
+    # petiole: a smooth cubic from the soil (rising nearly vertically) that
+    # arrives aligned with the leaf axis, ending tucked under the blade base
+    S = (sx, RIM_Y + 14)
+    E = (bx + ux * 8, by + uy * 8)
+    h = by - S[1]
+    lean = opts.get("lean", 0.0)
+    c1 = (S[0] + lean, S[1] + h * 0.45)
+    k2 = abs(h) * opts.get("k2", 0.42)
+    c2 = (bx - ux * k2, by - uy * k2)
+    pts = []
+    for i in range(9):
+        t = i / 8
+        a, b, c, d = (1 - t) ** 3, 3 * (1 - t) ** 2 * t, 3 * (1 - t) * t * t, t ** 3
+        pts.append((a * S[0] + b * c1[0] + c * c2[0] + d * E[0],
+                    a * S[1] + b * c1[1] + c * c2[1] + d * E[1]))
+    plen = abs(h)
+    w0 = 5.2 + L * 0.012
+    w1 = 2.6 + L * 0.008
+    pc, pv = PET[layer]
+    out = [stem(pts, w0, w1, pc)]
+    # pulvinus: short swollen joint just below the blade (round-capped)
+    pa = (bx - ux * 15, by - uy * 15)
+    pb = (bx + ux * 2, by + uy * 2)
+    out.append(line([pa, pb], w1 + 1.8, pv))
+    if under:
+        fill, shade = UNDER
+        midrib = (P["rose"], 2.2, 0.9, 0.0, 0.93)
+        extra = under_veins
+    else:
+        fill, shade = TONE[layer]
+        midrib = (P["sage"], 1.9, 0.95, 0.0, 0.92)
+        extra = lambda lf: stripes(lf, seed)  # noqa: E731
+    side = "l" if ang > 0 else "r"
+    g = leaf_g(leaf, fill, shade=shade, side=side, midrib=midrib, extra=extra,
+               transform=T(bx, by, ang))
+    out.append(g)
+    return "".join(out), plen
+
+
+# (soil x, base x, base y, angle, length, layer, seed, bow, opts)
+LEAVES = [
+    # back layer (night)
+    (294, 266, 292, -5, 228, "back", 1, 0, {"lean": -4}),
+    (314, 366, 300, 24, 200, "back", 2, 0, {"lean": 10}),
+    # middle layer (deep)
+    (284, 186, 342, -38, 182, "mid", 3, 0, {"lean": -6}),
+    (326, 432, 378, 48, 160, "back", 4, 0, {"lean": 22}),
+    (302, 332, 372, 14, 148, "mid", 5, 0, {"under": True, "narrow": 0.74, "lean": -2}),
+    # front layer (forest)
+    (280, 208, 458, -62, 140, "front", 6, 0, {"lean": -8}),
+    (296, 250, 438, -22, 124, "front", 8, 0, {"under": True, "narrow": 0.76}),
+    (308, 364, 458, 36, 152, "front", 7, 0, {"lean": -2}),
+]
+
+FURLED = (298, 294, 398, 4, 108)
+
+
+def furled(sx, bx, by, ang, L):
+    """A new leaf still rolled into a slim spike on its own petiole."""
+    ux, uy = unit(ang)
+    S = (sx, RIM_Y + 14)
+    pts = [S, (sx + (bx - sx) * 0.4, S[1] - (S[1] - by) * 0.5), (bx, by)]
+    out = [stem(pts + [(bx + ux * 10, by + uy * 10)], 4.6, 3.4, P["sage"])]
+    lf = Leaf(L, [(0.08, 0.05), (0.3, 0.085), (0.62, 0.075), (0.88, 0.04)],
+              [(0.08, 0.05), (0.3, 0.08), (0.62, 0.07), (0.88, 0.035)], bend=0.06)
+    def wrap(leaf):  # the rolled edge: one lighter spiral band
+        a = [leaf.pt(t, -0.07 + 0.14 * t) for t in (0.05, 0.3, 0.6, 0.9)]
+        b = [leaf.pt(t, 0.02 + 0.03 * t) for t in (0.9, 0.6, 0.3, 0.05)]
+        return f'<path d="{cr_path(a + b, closed=True, sharp={0, 3, 4, 7})}" fill="{P["forest"]}"/>'
+    out.append(leaf_g(lf, P["mid"], extra=wrap, transform=T(bx, by, ang)))
+    return "".join(out)
+
+
+def build():
+    reset_ids()
+    back, front = pot(kind="classic", cx=CX, rim_y=RIM_Y, rx=RX, base_w=72, band=True)
+    parts = [back]
+    for i, spec in enumerate(LEAVES):
+        if i == 5:
+            parts.append(furled(*FURLED))
+        g, _ = plant_leaf(spec)
+        parts.append(g)
+    parts.append(front)
+    return "\n".join(parts)
+
+
+if __name__ == "__main__":
+    out = os.path.join(os.path.dirname(HERE), "out", "calathea_ornata.svg")
+    with open(out, "w") as fh:
+        fh.write(svg_doc(build(), "Calathea ornata (pinstripe calathea)"))
+    print(out, os.path.getsize(out))
