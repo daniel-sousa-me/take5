@@ -179,7 +179,9 @@ LILY = (268, 810, -8, 0.72)                              # flower base x, y, rot
 LILY_STEM = [(100, 876), (136, 850), (196, 828), (236, 824), (262, 817)]
 BR = [(70, 930), (170, 868), (290, 845), (400, 806), (470, 788), (520, 780), (552, 776)]   # low right sweep
 BERRY_R = 17
-BERRIES = ((104, 852), [((38, 770), -20), ((34, 845), 2), ((80, 814), -3)], STEM_R, BERRY_R, BERRY, BERRY_S)
+# the top berry sits in the open paper under the upright's dark lowest leaf (at (38, 770) it lay on that leaf,
+# burgundy on dark green: too little contrast); the low one moved a touch right/down to keep a clear gap to it
+BERRIES = ((104, 852), [((32, 806), 4), ((36, 848), 2), ((80, 814), -3)], STEM_R, BERRY_R, BERRY, BERRY_S)
 
 
 def build_body():

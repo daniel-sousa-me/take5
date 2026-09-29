@@ -246,21 +246,22 @@ def build(report=False):
 
     # runners: leave the crown at the rim, arch up and out, then hang
     LB = (104, 668)
-    RB = (506, 640)
+    RS = 0.78         # right pup's leaf-length scale
+    RB = (508, 680)   # right pup hangs lower and is smaller than the left one (no mirrored pair)
     runL = [(262, 614), (250, 586), (236, 556), (214, 526), (186, 504), (156, 496), (132, 506),
             (116, 530), (107, 564), (104, 604), (104, 640), LB]
     runR = [(338, 614), (350, 588), (368, 562), (396, 540), (430, 530), (462, 536), (484, 556),
-            (498, 584), (504, 612), RB]
+            (498, 584), (505, 616), (508, 650), RB]
     babyL = plantlet(*LB, [
         (-52, -124, 46, 6.0, "babyb"), (54, 134, 35, 5.6, "babyb"),
         (-24, -100, 64, 6.6, "baby"), (20, 76, 48, 6.4, "baby"),
         (-14, -58, 60, 6.6, "babyf"), (-98, -150, 36, 5.2, "baby"),
         (74, 128, 24, 4.8, "baby")], [(-6, 22), (6, 18), (0, 30)])
     babyR = plantlet(*RB, [
-        (-58, -136, 60, 5.6, "babyb"), (54, 142, 58, 5.6, "babyb"),
-        (-18, -92, 70, 6.0, "baby"), (22, 88, 66, 6.0, "babyf"),
-        (-88, -166, 42, 5.0, "baby"), (84, 166, 40, 5.0, "baby")],
-        [(-5, 20), (6, 24)])
+        (-58, -136, 60 * RS, 5.6, "babyb"), (54, 142, 58 * RS, 5.6, "babyb"),
+        (-18, -92, 70 * RS, 6.0, "baby"), (22, 88, 66 * RS, 6.0, "babyf"),
+        (-88, -166, 42 * RS, 5.0, "baby"), (84, 166, 40 * RS, 5.0, "baby")],
+        [(-4, 16), (5, 19)])
 
     cid, clip = rim_hide_clip()
     # the right runner leaves the crown behind all foliage and only shows

@@ -210,7 +210,7 @@ def build():
     add("back", pl.leaf(300, 308, 334, 3, 228, D, bend=-0.03, side="r", pet=F, wide=0.92))
     # --- flowers (stalks behind the foliage, spathes on top of it)
     add("flow", flower(296, [(290, 470), (268, 384), (240, 330), (227, 300)], 98, -25, bend=0.06, flip=True))
-    add("flow", flower(308, [(318, 470), (314, 350), (312, 262)], 114, -1, bend=-0.05))
+    add("flow", flower(314, [(330, 470), (330, 360), (325, 270)], 114, -5, bend=-0.05, open_=0.9))
     add("flow", flower(310, [(352, 500), (416, 414), (430, 336)], 90, 20, bend=0.07, open_=0.85))
     # --- mid: forest leaves filling the clump
     fan("mid", -25, 192, 164, M, 0.05, lean=1.3, pet=M)

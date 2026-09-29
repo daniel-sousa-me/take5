@@ -291,20 +291,33 @@ def along(pts, t):
     return s[-1], (0, 1)
 
 
-def bract(p, d, side, L=15, W=4.6):
-    nx, ny = -d[1] * side, d[0] * side
-    ax, ay = d[0] * 0.86 + nx * 0.5, d[1] * 0.86 + ny * 0.5
+def bract(p, d, side, L=15, W=4.6, sw=6.0):
+    """Fleshy ascending bract with a clasping base: the lower part is a short sheath
+    that hugs the stalk (spanning its width, with a slight lip past the far edge) and
+    the blade leaves it at a narrow angle -- so it reads as a bract clasping the stalk,
+    not as a seed hung off it by one tip."""
+    nx, ny = -d[1] * side, d[0] * side                 # towards the bract's side
+    ax, ay = d[0] * 0.93 + nx * 0.36, d[1] * 0.93 + ny * 0.36
     m = math.hypot(ax, ay)
     ax, ay = ax / m, ay / m
     px, py = -ay, ax
-    b = (p[0] - ax * 3, p[1] - ay * 3)
+    if px * nx + py * ny < 0:                           # +w = outer (away from the stalk)
+        px, py = -px, -py
+    h = sw / 2
+    C = W * 1.25                                        # sheath length below p along the stalk
 
-    def at(t, w):
-        return (b[0] + ax * L * t + px * W * w, b[1] + ay * L * t + py * W * w)
-    pts = [b, at(.18, .8), at(.5, 1.0), at(.8, .72), at(1, 0), at(.8, -.72), at(.5, -1.0), at(.18, -.8)]
-    half = [b, at(.18, .8), at(.5, 1.0), at(.8, .72), at(1, 0), at(.55, 0)]
-    return (f'<path d="{cr_path(pts, sharp={0, 4})}" fill="{BRACT_SH}"/>'
-            f'<path d="{cr_path(half, sharp={0, 4, 5})}" fill="{BRACT}"/>')
+    def st(u, v):   # u along the stalk from p, v across it in half-widths (+ = bract side)
+        return (p[0] + d[0] * u + nx * h * v, p[1] + d[1] * u + ny * h * v)
+
+    def at(t, w):   # blade frame, origin on the stalk axis at p
+        return (p[0] + ax * L * t + px * W * w, p[1] + ay * L * t + py * W * w)
+    far_lo, near_lo = st(-C, -1.15), st(-C * 1.1, 1.12)
+    pts = [far_lo, st(-C * 1.18, 0.0), near_lo, st(-C * 0.3, 1.5), at(.3, .95), at(.58, 1.0),
+           at(.84, .62), at(1, 0), at(.76, -.5), at(.5, -.62), st(C * 0.25, -1.12), st(-C * 0.4, -1.2)]
+    half = [near_lo, st(-C * 0.3, 1.5), at(.3, .95), at(.58, 1.0), at(.84, .62), at(1, 0),
+            at(.55, 0.0), at(.2, 0.05), st(-C * 0.7, 0.35), st(-C * 1.12, 0.3)]
+    return (f'<path d="{cr_path(pts, sharp={0, 2, 7})}" fill="{BRACT_SH}"/>'
+            f'<path d="{cr_path(half, sharp={0, 5, 9})}" fill="{BRACT}"/>')
 
 
 def bell_def():
@@ -359,7 +372,8 @@ def stalk_svg(pts, w0, w1, bracts, flowers, rise_side=1, bud_turn=0.0):
                f'fill="{STALK_SH}"/>')
     for i, t in enumerate(bracts):
         p, d = along(pts, t)
-        out.append(bract(p, d, (-1) ** i * rise_side, L=22 - 6 * t, W=6.0 - 1.6 * t))
+        out.append(bract(p, d, (-1) ** i * rise_side, L=22 - 6 * t, W=6.0 - 1.6 * t,
+                           sw=w0 + (w1 - w0) * t))
     for t, hang, s in flowers:
         p, d = along(pts, t)
         ang = math.degrees(math.atan2(-hang[0], hang[1]))

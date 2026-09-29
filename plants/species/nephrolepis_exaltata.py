@@ -367,7 +367,7 @@ RING3 = [  # arching over, mid
     dict(ctrl=[(316, 600), (354, 568), (410, 546), (464, 548), (506, 574), (528, 616), (534, 656)], pmax=25, seed=10, bare=0.16, peak=0.34, wf=1.08, dev0=60),
 ]
 DRAPE = [  # right side, behind the pot, draping past the rim: sage
-    dict(ctrl=[(318, 603), (342, 580), (386, 570), (428, 592), (454, 634), (464, 684), (466, 718)], pmax=24, seed=2, bare=0.18, peak=0.45),
+    dict(ctrl=[(318, 603), (342, 580), (386, 569), (426, 588), (451, 624), (462, 660), (465, 688)], pmax=24, seed=2, bare=0.18, peak=0.45),
 ]
 TUFT = [  # short young fronds screening the crown: sage, in front of the rings
     dict(ctrl=[(296, 602), (283, 562), (262, 530), (237, 510), (214, 502)], pmax=20, seed=31, bare=0.22, prof0=0.5, peak=0.5),

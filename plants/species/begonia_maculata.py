@@ -16,6 +16,15 @@ P = PAL
 
 
 # ------------------------------------------------------------------ helpers
+def refrac(pts, targets, per=14):
+    """Arc-length fractions on `pts` of the points closest to each target (point, angle)."""
+    s = cr_sample(pts, per)
+    acc = [0.0]
+    for a, b in zip(s, s[1:]):
+        acc.append(acc[-1] + math.hypot(b[0] - a[0], b[1] - a[1]))
+    return [acc[min(range(len(s)), key=lambda k: math.dist(s[k], p))] / acc[-1] for p, _ in targets]
+
+
 def along(pts, fracs, per=14):
     """Point + tangent angle (deg, 0 = up, clockwise) at arc-length fractions."""
     s = cr_sample(pts, per)
@@ -337,11 +346,14 @@ def build():
     CANE = P["sage"]
     NODE = P["plum"]
 
+    RX_TIP = (408, 292)
     canes = {
         "L": dict(pts=[(276, 606), (268, 520), (248, 430), (222, 350), (204, 288), (196, 258)],
                   w=(11.5, 6), nodes=[0.3, 0.52, 0.72, 0.88]),
         "R": dict(pts=[(314, 606), (324, 520), (348, 440), (378, 372), (396, 330)],
-                  w=(11, 5.8), nodes=[0.3, 0.55, 0.78, 0.92]),
+                  w=(11, 5.8), nodes=[0.3, 0.55, 0.78, 0.92],
+                  # drawn on past the big mid-green leaf so the small top leaf's join shows
+                  ext=[(RX_TIP[0] - 7, RX_TIP[1] + 22), RX_TIP]),
         "C": dict(pts=[(292, 606), (290, 520), (286, 430), (288, 340), (294, 250), (300, 175), (304, 140)],
                   w=(13, 6.5), nodes=[0.22, 0.4, 0.56, 0.7, 0.83, 0.93]),
     }
@@ -357,7 +369,7 @@ def build():
         ("L", 2, -100, 170, True, "deep", "top", 0.13, 21, 1),
         ("L", 1, -134, 170, True, "forest", "top", 0.12, 23, 1),
         ("L", 3, 116, 102, False, "deep", "top", 0.1, 22, 0),
-        ("R", "tip", 14, 100, False, "forest", "top", 0.08, 31, 1),
+        ("R", "tip", 14, 90, False, "forest", "top", 0.08, 31, 1),
         ("R", 3, 104, 166, False, "deep", "top", 0.13, 32, 1),
         ("R", 1, 128, 186, False, "forest", "top", 0.13, 33, 1),
         ("C", "tip", -4, 88, False, "mid", "top", 0.1, 41, 2),
@@ -369,7 +381,7 @@ def build():
 
     def node_of(c, i):
         if i == "tip":
-            p = canes[c]["pts"]
+            p = canes[c]["pts"] + canes[c].get("ext", [])
             a = math.degrees(math.atan2(p[-1][0] - p[-2][0], -(p[-1][1] - p[-2][1])))
             return p[-1], a
         return nodes[c][i]
@@ -395,7 +407,11 @@ def build():
     o += layer(0)
     for k in ("L", "R"):
         v = canes[k]
-        o.append(cane_svg(v["pts"], v["w"][0], v["w"][1], CANE, v["nodes"], NODE))
+        if "ext" in v:  # longer cane, same node rings (re-found on the extended curve)
+            pts = v["pts"] + v["ext"]
+            o.append(cane_svg(pts, v["w"][0], v["w"][1], CANE, refrac(pts, nodes[k]), NODE))
+        else:
+            o.append(cane_svg(v["pts"], v["w"][0], v["w"][1], CANE, v["nodes"], NODE))
     o += layer(1)
     v = canes["C"]
     o.append(cane_svg(v["pts"], v["w"][0], v["w"][1], CANE, v["nodes"], NODE))

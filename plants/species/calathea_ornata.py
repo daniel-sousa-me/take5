@@ -140,10 +140,15 @@ def plant_leaf(spec):
     w1 = 2.6 + L * 0.008
     pc, pv = PET[layer]
     out = [stem(pts, w0, w1, pc)]
-    # pulvinus: short swollen joint just below the blade (round-capped)
-    pa = (bx - ux * 15, by - uy * 15)
-    pb = (bx + ux * 2, by + uy * 2)
-    out.append(line([pa, pb], w1 + 1.8, pv))
+    # pulvinus: short swollen joint just below the blade (round-capped). It ends
+    # just short of the blade base, its round cap wholly on the petiole side, so it
+    # never straddles the blade edge (the rounded base otherwise covered half its end
+    # and the pale joint seemed to run on into the midrib)
+    pw = w1 + 1.8
+    gap = pw / 2 + 1.2
+    pa = (bx - ux * (11 + gap), by - uy * (11 + gap))
+    pb = (bx - ux * gap, by - uy * gap)
+    out.append(line([pa, pb], pw, pv))
     if under:
         # burgundy underside: flat halves + rose midrib only
         fill, shade = UNDER

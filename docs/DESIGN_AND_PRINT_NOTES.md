@@ -120,7 +120,7 @@ for history; where it disagrees with this file, this file wins (card size and pr
   name label and corner fields of every card it appears on (≥ 1.2 mm from numbers, underline and label,
   ≥ 2.0 mm from the penalty marks, and inside the 5 mm EDGE) and
   takes the largest scale that fits all of them, so a species is the same size everywhere; a plant blocked
-  by the bottom-right block may slide up to 3 mm left instead of shrinking (now spider plant and Boston fern 2 mm, wax plant and purple shamrock 1 mm).
+  by the bottom-right block may slide up to 3 mm left instead of shrinking (now spider plant, wax plant and purple shamrock 1 mm).
   Card 55 is the one exception to "same size everywhere" (`SHOWPIECE`): its bird of paradise is drawn as large as
   fits, up to 1.15× its species size, still checked against the same obstacles, with 2.0 mm (`SHOWPIECE_MARK_CLEAR`)
   round the top-left marks and 3.5 mm (`SHOWPIECE_BR_CLEAR`) round the whole bottom-right block (number and its
@@ -167,8 +167,9 @@ for history; where it disagrees with this file, this file wins (card size and pr
 - Leaf outline (`leaf_shape()`): the last node before the sharp tip sits at ~0.22–0.24 of the leaf width, so the
   outline runs straight into the point; the old narrower node (0.10–0.12) pinched the tip into a small hook that
   read as a notch at zoom.
-- The three burgundy berries sit fully inside the trim (≥ 1.2 mm; currently 1.8 mm at the closest), fanned out on
-  stalks from one point on the upright stem, drawn in front of the upright stem's leaves.
+- The three burgundy berries sit fully inside the trim (≥ 1.2 mm; currently 1.45 mm at the closest), fanned out on
+  stalks from one point on the upright stem, drawn in front of the upright stem's leaves. They sit in the open paper
+  below the upright's dark lowest leaf; the top one used to lie on that leaf (burgundy on dark green, too little contrast).
 - Art only crosses the cut at those two corners (within 22 mm of them), and only as leaves and stems (no berry is
   cut in half); everything else stays ≥ 1 mm inside,
   so cutting or duplex drift just crops a leaf differently. `back.check()` asserts both rules on every build
