@@ -348,10 +348,10 @@ def build():
     specs = [
         ("C", 4, -66, 156, True, "night", "top", 0.1, 11, 0),
         ("C", 5, 60, 126, False, "deep", "top", 0.12, 12, 2),
-        ("L", "tip", -20, 94, True, "deep", "under", 0.1, 13, 1),
+        ("L", "tip", -20, 82, True, "deep", "under", 0.1, 13, 1),
         ("L", 2, -100, 170, True, "deep", "top", 0.13, 21, 1),
         ("L", 1, -134, 170, True, "forest", "top", 0.12, 23, 1),
-        ("L", 3, 106, 120, False, "deep", "top", 0.1, 22, 0),
+        ("L", 3, 116, 102, False, "deep", "top", 0.1, 22, 0),
         ("R", "tip", 14, 100, False, "forest", "top", 0.08, 31, 1),
         ("R", 3, 104, 166, False, "deep", "top", 0.13, 32, 1),
         ("R", 1, 128, 186, False, "forest", "top", 0.13, 33, 1),

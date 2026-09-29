@@ -110,6 +110,7 @@ def frond_parts(pts, tone, n_pairs, lmax, seed, bare=0.2, near="upper", spread=(
         near_side = 1 if (near == "right") == (tm[1] < 0) else -1
     far_tone = DARKER[tone]
     rows = {1: [], -1: []}
+    last = 0.0
     for side in (1, -1):
         off = 0.0 if side == 1 else 0.45
         for i in range(n_pairs):
@@ -123,6 +124,7 @@ def frond_parts(pts, tone, n_pairs, lmax, seed, bare=0.2, near="upper", spread=(
             L = lmax * prof * rnd.uniform(0.94, 1.05)
             if L < 24:          # tip leaflets this small print as noise: leave them out
                 continue
+            last = max(last, fr)
             a = math.radians(spread[0] + (spread[1] - spread[0]) * u + rnd.uniform(-3, 3)) * side
             dx = t[0] * math.cos(a) - t[1] * math.sin(a)
             dy = t[0] * math.sin(a) + t[1] * math.cos(a)
@@ -177,7 +179,11 @@ def frond_parts(pts, tone, n_pairs, lmax, seed, bare=0.2, near="upper", spread=(
             sr.append((raw[j][0] + (raw[j + 1][0] - raw[j][0]) * u, raw[j][1] + (raw[j + 1][1] - raw[j][1]) * u))
         rach = ribbon(sr, w_l, rach_w[1], per=2)
     else:
-        rach = ribbon(s[::3] + [s[-1]], rach_w[0], rach_w[1], per=4)
+        # the rachis ends just past the last leaflet pair (no bare whip tip)
+        cut = min(1.0, last + 0.012)
+        k = next((i for i in range(len(acc)) if acc[i] >= cut * acc[-1]), len(s) - 1)
+        sc = s[:k + 1]
+        rach = ribbon(sc[::3] + ([sc[-1]] if (len(sc) - 1) % 3 else []), rach_w[0], rach_w[1], per=4)
     leaf = (f'<g fill="{far_tone}" color="{SH[far_tone]}">{"".join(fr_)}</g>'
             f'<g fill="{tone}" color="{SH[tone]}">{"".join(nr)}</g>')
     return leaf, f'<path d="{rach}" fill="{rc}"/>'
@@ -245,52 +251,76 @@ def sheath(pts, w, col, lift=7.0):
 
 
 # ------------------------------------------------------------------ build
+def arc_frac(pts, q):
+    """Arc fraction of the point on the spline through pts nearest to q."""
+    s, acc = resample(pts)
+    k = min(range(len(s)), key=lambda i: math.dist(s[i], q))
+    return acc[k] / acc[-1]
+
+
+def rings(pts, w0, w1, col, fracs):
+    """Node rings across a tapered cane (opaque, print-safe, one tone darker)."""
+    s, acc = resample(pts)
+    dd = []
+    for fr in fracs:
+        p, t = at(s, acc, fr)
+        w = (w0 + (w1 - w0) * fr) / 2 - 0.2
+        nx, ny = -t[1], t[0]
+        a = (p[0] + nx * w, p[1] + ny * w)
+        b = (p[0] - nx * w, p[1] - ny * w)
+        c = (p[0] + t[0] * 2.4, p[1] + t[1] * 2.4)
+        dd.append(f"M{f(a[0])} {f(a[1])}Q{f(c[0])} {f(c[1])} {f(b[0])} {f(b[1])}")
+    return (f'<path d="{"".join(dd)}" fill="none" stroke="{col}" stroke-width="3" '
+            f'stroke-linecap="round"/>')
+
+
+RING = {P["pale"]: P["sage"], P["light"]: SHADE[P["sage"]], P["sage"]: SHADE[P["sage"]],
+        P["mid"]: SHADE[P["mid"]]}
+
+
+def palm_frond(pts, start, tone, n_pairs, lmax, seed, stem_col, w0, ring_at, **kw):
+    """One frond on its own slender cane-like petiole, straight out of the soil:
+    a single tapered ribbon (one colour, soil to tip, so no joints), node
+    rings on the bare lower part, leaflets from the point nearest `start`."""
+    bare = arc_frac(pts, start)
+    leaf, rach = frond_parts(pts, tone, n_pairs, lmax, seed, bare=bare, rach_col=stem_col,
+                             rach_w=(w0, kw.pop("w1", 1.0)), **kw)
+    return leaf + rach + rings(pts, w0, 1.0, RING[stem_col], ring_at)
+
+
 def build():
     reset_ids()
     back, front = pot("classic", cx=CX, rim_y=RIM_Y, rx=100, base_w=70, band=True)
-    Y0 = RIM_Y + 10
-    CA, CB, CC = (293, 340), (345, 439), (251, 470.5)   # crowns
-    caneA = [(298, Y0), (297, 520), (295, 430), CA]
-    caneB = [(311, Y0), (318, 532), (332, 478), CB]
-    caneC = [(287, Y0), (281, 546), (264, 504), CC]
     G = []
-    # ---- back fronds: deep leaflets, sage rachis
-    # back-left frond: leaflets start well out along the rachis so none of them
-    # stand up through the leader frond
-    G.append(frond([(293, 346), (266, 272), (212, 214), (148, 198), (96, 218)], P["deep"], 9, 80, 1,
-                   bare=0.42, near="lower", spread=(46, 30), rach_col=P["sage"], rach_w=(4.6, 1.1)))
-    G.append(frond([CB, (392, 378), (446, 336), (500, 322), (546, 334)], P["deep"], 10, 74, 2,
-                   near="lower", rach_col=P["sage"], rach_w=(4.4, 1.1), lead=lead_from(caneB, 4.6)))
-    # ---- plant C second frond (behind its cane): up-left, forest
-    G.append(frond([CC, (218, 420), (180, 380), (140, 360), (108, 366)], P["forest"], 9, 66, 5,
-                   bare=0.24, near="upper", rach_col=P["light"], rach_w=(4.2, 1.0), lead=lead_from(caneC, 4.4)))
-    # ---- cane A + upright leader frond (mid)
-    G.append(cane(caneA, 9.5, 6.8, P["sage"], SHADE[P["sage"]], [0.2, 0.45, 0.7]))
-    lA, rA = frond_parts([CA, (298, 250), (312, 170), (332, 112), (356, 76)], P["mid"], 12, 76, 3,
-                         bare=0.12, near="left", spread=(50, 28), droop=(0.5, 0.2),
-                         rach_col=P["sage"], rach_w=(6.8, 1.1))   # continues the cane, same tone
-    G += [lA, rA]
-    # ---- front: plant A arching right frond (light); its rachis starts inside
-    # cane A and the top of the cane is redrawn over it, so the frond emerges
-    # from behind the cane in one smooth curve (no butt joint)
-    G.append(frond([(295, 398), (302, 352), (334, 298), (388, 250), (442, 228), (494, 232)], P["light"], 9, 70, 7,
-                   bare=0.4, near="lower", spread=(42, 28), droop=(0.45, 0.16), rach_col=P["pale"],
-                   rach_w=(5.6, 1.0)))
-    sA, accA = resample(caneA)
-    top = [at(sA, accA, fr_)[0] for fr_ in (0.62, 0.74, 0.87, 1.0)]
-    G.append(f'<path d="{ribbon(top, 9.5 + (6.8 - 9.5) * 0.62, 6.8, per=4)}" fill="{P["sage"]}"/>')
-    # ---- cane B + arching right frond (mid)
-    G.append(cane(trunc(caneB, 24), 9, 6.4, P["mid"], SHADE[P["mid"]], [0.3, 0.66]))
-    lB, rB = frond_parts([CB, (400, 440), (456, 458), (506, 492), (542, 536)], P["mid"], 9, 74, 4,
-                         near="upper", spread=(52, 38), droop=(0.4, 0.16), rach_col=P["light"], rach_w=(5, 1.1),
-                         lead=lead_from(caneB, 6.4))
-    G += [lB, rB]
-    # ---- cane C + low arching left frond (sage)
-    G.append(cane(trunc(caneC, 24), 8.5, 6.2, P["light"], SHADE[P["sage"]], [0.36, 0.72]))
-    lC, rC = frond_parts([CC, (206, 470), (152, 482), (104, 510), (66, 552)], P["sage"], 9, 70, 6,
-                         near="upper", spread=(52, 36), droop=(0.45, 0.18), rach_col=P["pale"], rach_w=(5, 1.0),
-                         lead=lead_from(caneC, 6.2))
-    G += [lC, rC]
+    # A clump of seedling canes, each carrying one frond, fanning out of the
+    # soil: outermost canes lean furthest and carry the lowest fronds.
+    # ---- back: up-left (deep) and up-right (deep)
+    G.append(palm_frond([(285, 602), (280, 520), (268, 432), (248, 354), (218, 288), (176, 240),
+                         (134, 214), (92, 218)], (212, 282), P["deep"], 9, 80, 1,
+                        P["mid"], 7.0, [0.2, 0.42], near="lower", spread=(46, 30)))
+    G.append(palm_frond([(322, 602), (330, 530), (347, 466), (378, 408), (424, 366), (474, 340),
+                         (516, 330), (548, 336)], (372, 416), P["deep"], 10, 74, 2,
+                        P["sage"], 6.8, [0.16, 0.34], near="lower"))
+    # ---- mid-left (forest)
+    G.append(palm_frond([(272, 602), (263, 538), (246, 476), (218, 422), (180, 385), (140, 362),
+                         (106, 361)], (230, 440), P["forest"], 9, 66, 5,
+                        P["sage"], 6.6, [0.14, 0.33], near="upper"))
+    # ---- leader: upright (mid)
+    G.append(palm_frond([(297, 602), (297, 500), (298, 404), (300, 318), (306, 226), (320, 152),
+                         (338, 106), (356, 76)], (300, 318), P["mid"], 12, 76, 3,
+                        P["sage"], 8.2, [0.12, 0.27, 0.41], w1=1.1, near="left",
+                        spread=(50, 28), droop=(0.5, 0.2)))
+    # ---- front: arching up-right (light)
+    G.append(palm_frond([(309, 602), (314, 520), (325, 440), (344, 364), (374, 304), (414, 262),
+                         (456, 240), (496, 240)], (356, 334), P["light"], 9, 70, 7,
+                        P["pale"], 6.4, [0.1, 0.3], near="lower", spread=(42, 28), droop=(0.45, 0.16)))
+    # ---- front: arching down-right (mid) and down-left (sage)
+    G.append(palm_frond([(336, 602), (346, 542), (364, 496), (398, 464), (450, 466), (500, 494),
+                         (542, 536)], (386, 472), P["mid"], 9, 74, 4,
+                        P["light"], 6.8, [0.12, 0.3], near="upper", spread=(52, 38), droop=(0.4, 0.16)))
+    G.append(palm_frond([(260, 602), (248, 548), (230, 506), (198, 484), (150, 490), (104, 514),
+                         (66, 552)], (214, 490), P["sage"], 9, 70, 16,
+                        P["light"], 6.6, [0.18], near="upper", spread=(52, 36), droop=(0.45, 0.18)))
     return defs() + back + "".join(G) + front
 
 

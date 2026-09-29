@@ -19,6 +19,9 @@ from core import PAL, SHADE, cr_path, pot, svg_doc, T, f, uid, reset_ids  # noqa
 P = PAL
 SC, DX = 1.08, 10  # plant scale about (300, 640) and x-shift before scaling
 MUST_SH = "#AE8436"  # shaded mustard (flower turned-away side)
+BUTTER = "#E3C677"   # mustard lifted toward cream: inner face of the petals
+BUTTER2 = "#D6B45F"  # a half step deeper, for alternating petals
+THROAT = "#86652B"   # the shadowed inside of the cup
 BAND = {  # thickness band tone for each face tone (a clear step darker)
     P["pale"]: "#8E9E80", P["light"]: P["sage"], P["sage"]: "#5F7355",
     P["mid"]: P["forest"], P["forest"]: "#2E4633",
@@ -168,32 +171,42 @@ def flower(x, y, deg, s=1.0, bud=False):
     # pericarpel
     per = cr_path([(0, 3), (9, -2), (11, -14), (8, -24), (-8, -24), (-11, -14), (-9, -2)], closed=True)
     cid = uid("fp")
-    g.append(f'<path d="{per}" fill="{P["sage"]}" transform="translate(3 2)"/>')
-    g.append(f'<clipPath id="{cid}"><path d="{per}"/></clipPath><path d="{per}" fill="{P["light"]}"/>')
-    g.append(f'<g clip-path="url(#{cid})"><rect x="4" y="-30" width="12" height="36" fill="{SHADE[P["light"]]}"/>'
-             '<use href="#ara" x="-4" y="-8"/><use href="#ara" x="4" y="-15"/><use href="#ara" x="-3" y="-20"/></g>')
+    pc = []  # drawn last: the ovary rim overlaps the petal bases
+    pc.append(f'<path d="{per}" fill="{P["sage"]}" transform="translate(3 2)"/>')
+    pc.append(f'<clipPath id="{cid}"><path d="{per}"/></clipPath><path d="{per}" fill="{P["light"]}"/>')
+    pc.append(f'<g clip-path="url(#{cid})"><rect x="4" y="-30" width="12" height="36" fill="{SHADE[P["light"]]}"/>'
+             '<use href="#ara" x="-4" y="-7"/><use href="#ara" x="4" y="-14"/></g>')
+    def petal(a, L, w, col, sh=None, oy=-20.0, claw=0.40, bw=0.14):
+        """Obovate petal (rounded tip) from the cup base, rotated by a; the
+        turned-away (right) half flat-shaded."""
+        pts = [(-w * bw, 0), (w * bw, 0), (w * claw, -L * 0.40), (w * 0.50, -L * 0.72),
+               (w * 0.36, -L * 0.93), (0, -L), (-w * 0.36, -L * 0.93), (-w * 0.50, -L * 0.72),
+               (-w * claw, -L * 0.40)]
+        d = cr_path(pts, closed=True, sharp={0, 1})
+        tr = f"translate(0 {f(oy)}) rotate({f(a)})"
+        if not sh:
+            return f'<path d="{d}" fill="{col}" transform="{tr}"/>'
+        c = uid("fq")
+        return (f'<g transform="{tr}"><clipPath id="{c}"><path d="{d}"/></clipPath><path d="{d}" fill="{col}"/>'
+                f'<path d="M{f(w * 0.08)} 2 Q{f(w * 0.16)} {f(-L * 0.5)} {f(w * 0.02)} {f(-L - 2)} L{f(w)} {f(-L - 2)} '
+                f'L{f(w)} 2Z" fill="{sh}" clip-path="url(#{c})"/></g>')
     if bud:
-        b = cr_path([(-8, -21), (-10, -31), (-6, -43), (0, -49), (6, -43), (10, -31), (8, -21)], closed=True,
-                    sharp={3})
-        bc = uid("fb")
-        g.append(f'<clipPath id="{bc}"><path d="{b}"/></clipPath><path d="{b}" fill="{P["mustard"]}"/>')
-        g.append(f'<g clip-path="url(#{bc})"><path d="M1 -60 Q4 -36 1 -18 L20 -18 L20 -60Z" fill="{MUST_SH}"/>'
-                 f'<path d="M-12 -41 Q0 -45.5 12 -41 L12 -60 L-12 -60Z" fill="{P["blush"]}"/></g>')
+        # closed bud: three furled petals (same mustard family as the open flower)
+        for a, L, c, sh in ((-8, 31, BUTTER2, None), (8, 31, BUTTER2, None), (0, 34, P["mustard"], MUST_SH)):
+            g.append(petal(a, L, 16, c, sh, oy=-19, claw=0.4, bw=0.3))
     else:
-        def petal(a, L, w, col):  # obovate petal fanning out from the cup base
-            p = cr_path([(-w * 0.15, 0), (w * 0.15, 0), (w * 0.42, -L * 0.45), (w * 0.52, -L * 0.8),
-                         (0, -L), (-w * 0.52, -L * 0.8), (-w * 0.42, -L * 0.45)], closed=True, sharp={0, 1})
-            return f'<path d="{p}" fill="{col}" transform="translate(0 -20) rotate({a})"/>'
-        # back petals (amber) -> stamen boss in the cup mouth -> front cup (mustard, scalloped rim)
-        for a, L, c in ((-20, 42, P["terra_hi"]), (21, 41, P["terra_hi"]), (-47, 36, P["amber"]), (48, 35, P["amber"])):
-            g.append(petal(a, L, 22, c))
-        g.append(f'<ellipse cx="0" cy="-49" rx="15" ry="5.5" fill="{P["cream"]}"/>')
-        g.append(f'<ellipse cx="0" cy="-50" rx="5" ry="2.2" fill="{P["yellow_edge"]}"/>')
-        cup = cr_path([(-4.5, -19), (4.5, -19), (13, -29), (18.5, -41), (17, -50), (9, -45.5), (0, -49),
-                       (-9, -45.5), (-17, -50), (-18.5, -41), (-13, -29)], closed=True, sharp={0, 1, 5, 7})
-        cc = uid("fc")
-        g.append(f'<clipPath id="{cc}"><path d="{cup}"/></clipPath><path d="{cup}" fill="{P["mustard"]}"/>')
-        g.append(f'<g clip-path="url(#{cc})"><path d="M5 -60 Q9 -38 4 -18 L24 -18 L24 -60Z" fill="{MUST_SH}"/></g>')
+        # open cup seen from the side, a little from above: four back petals
+        # show their pale inner face (alternating two close tones so each
+        # reads), the dark inside of the cup with a small cream stamen boss,
+        # three front petals (outer face, mustard, lit / shaded halves)
+        for a, L, c in ((-62, 31, BUTTER), (62, 31, BUTTER2), (-21, 38, BUTTER2), (21, 38, BUTTER)):
+            g.append(petal(a, L, 18, c, oy=-22, claw=0.3))
+        g.append(f'<ellipse cx="0" cy="-41.5" rx="15" ry="8" fill="{THROAT}"/>')
+        g.append(f'<ellipse cx="0" cy="-43.6" rx="7" ry="3.8" fill="{P["cream"]}"/>')
+        g.append(f'<circle cx="0" cy="-44.6" r="1.9" fill="{P["yellow_edge"]}"/>')
+        for a, L in ((-38, 26), (38, 26), (0, 23)):
+            g.append(petal(a, L, 16, P["mustard"], MUST_SH, oy=-19, claw=0.38, bw=0.26))
+    g += pc
     g.append("</g>")
     return "".join(g)
 
@@ -231,7 +244,7 @@ def build():
     body.append(f'<g transform="translate({f(300 - SC * (300 - DX))} {f(640 - SC * 640)}) scale({SC})">')
     body += [p.svg() for p in pads]
     fa = e2.top(8, 3)
-    body.append(flower(fa[0], fa[1], -6, 1.3))
+    body.append(flower(fa[0], fa[1], -6, 1.5))
     fb = e3.top(-26, 3)
     body.append(flower(fb[0], fb[1], -14, 1.05, bud=True))
     body.append("</g>")
