@@ -17,11 +17,13 @@ import deck
 
 G = dict(dark="#3F5A3C", forest="#4B6843", mid="#607B52", sage="#7F9468", light="#9DAE88",
          vein_d="#2F4630", vein_l="#C9D2BC")
-SHADE = {G["dark"]: "#34502F", G["forest"]: "#3F5A3C", G["mid"]: "#526B46",
-         G["sage"]: "#6E8459", G["light"]: "#8A9C75"}
+# turned-away half of each leaf: a darker solid, the same step as the card-face plants (plants/core.py SHADE)
+SHADE = {G["dark"]: "#2E4530", G["forest"]: "#3A5436", G["mid"]: "#4C6441",
+         G["sage"]: "#687D55", G["light"]: "#859771"}
 BERRY, BERRY_S = "#7E3B3E", "#6A2F33"
 MUSTARD, MUSTARD_S = "#D2A13E", "#B98A2E"
-ORANGE, ORANGE_S, ORANGE_HI = "#CF6A3C", "#B85632", "#DD8356"
+ORANGE, ORANGE_S, ORANGE_HI = "#C8744E", "#AF5F3E", "#D68C68"   # a notch softer than the first #CF6A3C so the
+                                                                  # lily stays second to the wordmark
 RED, RED_S, RED_HI = "#A9463A", "#91392F", "#BE5B4B"
 STEM_G, STEM_R = "#4B6843", "#6E3538"
 
@@ -35,12 +37,18 @@ def leaf_shape(L, width=0.26, bend=0.08, tip=0.92):
     return Leaf(L, right, left, bend=bend)
 
 
+def mix(a, b, t):
+    """Solid blend of hex colours a -> b (t = 0..1): tints are pre-blended, never drawn with opacity."""
+    return "#" + "".join(f"{round(int(a[i:i + 2], 16) * (1 - t) + int(b[i:i + 2], 16) * t):02X}" for i in (1, 3, 5))
+
+
 def leaf(x, y, rot, L, col, width=0.26, bend=0.08, side="r", flip=False, vein=True):
+    """Leaf with a darker turned-away half (as on the card faces) and an opaque midrib 0.3 mm wide."""
     lf = leaf_shape(L, width, bend)
-    vcol = G["vein_l"] if col in (G["dark"], G["forest"], G["mid"]) else G["vein_d"]
-    vop = 0.55 if vcol == G["vein_l"] else 0.35
+    light = col in (G["dark"], G["forest"], G["mid"])
+    vcol = mix(col, G["vein_l"], 0.5) if light else mix(col, G["vein_d"], 0.4)
     return leaf_g(lf, col, shade=SHADE.get(col), side=side,
-                  midrib=(vcol, 3.0, vop, 0.08, 0.8) if vein else None,
+                  midrib=(vcol, 3.0, None, 0.08, 0.8) if vein else None,
                   transform=T(x, y, rot, 1, -1 if flip else 1))
 
 
@@ -49,13 +57,13 @@ def dot(x, y, r, col, shade=None):
     return s
 
 
-def sprig(base, tips, col, r, dcol, dshade, w=3.2):
-    """Thin stems from base to each tip, each ending in a dot."""
+def sprig(base, tips, col, r, dcol, dshade, w=3.2, part="both"):
+    """Thin stems from base to each tip, each ending in a dot (part: "both", "stalks" or "dots")."""
     out = []
-    for (tx, ty), bend in tips:
+    for (tx, ty), bend in (tips if part != "dots" else []):
         mx, my = (base[0] + tx) / 2 + bend, (base[1] + ty) / 2
         out.append(line([base, (mx, my), (tx, ty)], w, col))
-    for (tx, ty), _ in tips:
+    for (tx, ty), _ in (tips if part != "stalks" else []):
         rr = r * (0.85 + 0.3 * ((tx * 7 + ty * 3) % 10) / 10)
         out.append(dot(tx, ty, rr, dcol, dshade))
     return "".join(out)
@@ -130,13 +138,17 @@ def build_body():
     o.append(branch(br, [(0.52, 98), (0.65, 80), (0.78, 96), (0.90, 62)], angle=38,
                     back_cols=[G["forest"], G["dark"]], front_cols=[G["sage"], G["mid"]], tip=(56, G["light"]), first=1, w0=7, w1=3))
     # berries branch off the upright stem (drawn first so the join sits under the stem)
-    o.append(sprig((104, 850), [((20, 774), -8), ((44, 826), 0), ((-12, 862), -4)], STEM_R, 19, BERRY, BERRY_S, w=3.4))
+    # all three berries sit fully inside the trim (>= 1 mm), none cut by the left edge; stalks go under the
+    # upright stem, the berries themselves are drawn after it so the leaves don't hide them
+    berries = ((104, 850), [((34, 792), -6), ((31, 847), 0), ((76, 836), -2)], STEM_R, 17, BERRY, BERRY_S)
+    o.append(sprig(*berries, w=3.4, part="stalks"))
     # lily stem forks off the upright stem low down
     o.append(stem([(100, 890), (150, 862), (212, 842), (256, 818)], 7, 4, STEM_G))
     # upright sweep: up the left side, ending in a mustard sprig
     bl = [(85, 945), (106, 830), (100, 720), (108, 620)]
     o.append(branch(bl, [(0.24, 160), (0.43, 136), (0.61, 100), (0.80, 90)],
                     back_cols=[G["dark"], G["forest"]], front_cols=[G["mid"], G["sage"]], first=1, w0=8))
+    o.append(sprig(*berries, w=3.4, part="dots"))
     o.append(sprig((108, 622), [((72, 566), -6), ((112, 544), 4), ((152, 570), 6)], STEM_G, 16, MUSTARD, MUSTARD_S))
     o.append(lily(258, 824, 10, 0.74, ORANGE, ORANGE_S, ORANGE_HI, "#D9A04A"))
 

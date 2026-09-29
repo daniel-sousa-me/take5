@@ -25,10 +25,22 @@ for history; where it disagrees with this file, this file wins (card size and pr
 - Paper is left unprinted behind the art (no full-bleed cream): less ink, flatter card, no banding in a big
   tint. Ivory/natural stock gives the cream look.
 - No transparency tricks on the card face; tints are pre-blended solids.
-- `print_prep.py` makes a print copy of each plant, sized for that plant's own scale on the card
-  (`deck.plant_scales()`, the smallest it is drawn anywhere in the deck):
-  dark lines ≥ 0.15 mm, light-on-dark lines ≥ 0.20 mm, faint (opacity < 0.34) hairlines under 0.3 mm removed.
-- The proof page tests line weights, the leaf-green steps, the corner tints and solid colours. If a green
+- `print_prep.py` makes a print copy of each plant, measured at that plant's own scale on the card
+  (`deck.plant_scales()`, the smallest it is drawn anywhere in the deck; plants run 0.050–0.065 mm per unit),
+  through every transform and `<use>`. Minimums: dark lines ≥ 0.15 mm, light-on-dark lines ≥ 0.20 mm; dots
+  and filled slivers ≥ 0.175 mm dark / ≥ 0.225 mm light (these are the plant policy's 3.0 / 4.0 / 3.5 / 4.5
+  units at 0.050 mm/unit). A line under its minimum is:
+  - **dropped** if it is translucent (element × stroke × every ancestor group/`<use>` opacity < 1): widening a
+    see-through line only makes a pale wash with ghost end caps;
+  - **widened** if it is opaque, by at most 1.6× (2.0× when every copy of it sits inside a clip-path, i.e. inside
+    its leaf, so it cannot spill); one that needs more is **dropped** (a fattened hairline reads as a bar).
+  A filled shape only loses its stroke; an outline in the shape's own fill colour is left alone. Dots and slivers
+  are never changed, only reported. The plant masters are drawn to these rules, so a compliant master passes
+  through unchanged (`ok (unchanged)` in the build output); `python deck/print_prep.py -v` lists the rest.
+- The pot band (`pot(band=True)` in `plants/core.py`) is an opaque pre-blended line 4 units wide (a step
+  darker again over the pot's shaded side), so masters and cards match.
+- The proof page tests line weights, the leaf-green steps, the corner tints and solid colours, and shows the
+  neighbouring tiers side by side as on the cards (2 vs 3, 3 vs 5: field, sprig, number, marks). If a green
   pair merges on the real card (most likely night/deep or deep/forest), lift the darks in `plants/core.py`
   `PAL`/`SHADE` and rebuild.
 
@@ -37,7 +49,9 @@ for history; where it disagrees with this file, this file wins (card size and pr
 - Number (DM Serif Display, ~13.6 mm cap) centred on an axis 0.5 mm outside the ¼ line (`NUM_AXIS`; the most
   that keeps 88/99 off the 5 mm EDGE, and it moves the bottom-right block that much further from the pot),
   5 mm from the top cut; its 180° twin at the bottom right. 100–104 are too wide and shift in just enough to
-  keep 5 mm clear. 6/9-style ambiguous numbers get a conventional underline: the full width of the numeral ink
+  keep 5 mm clear. 100–104 use a size step smaller (`NUM_SIZE_3` 18.5, cap ~12 mm) with tighter tracking,
+  and their plant is lifted (≈ 0.5 mm) so the pot clears the bottom-right number by `POT_GAP` = 4 mm; before, the
+  wide numeral sat ~2 mm under the pot as if the pot stood on it. 6/9-style ambiguous numbers get a conventional underline: the full width of the numeral ink
   (less 0.3 mm each end), centred, 0.7 mm thick.
 - Penalty = repeated wilted-leaf marks centred under the number: 1–3 in one row, 5 as 3 over 2, 7 as 4 over 3
   (4.0 mm marks, 0.8 mm apart, rows 0.7 mm apart; a row never crosses the EDGE line).
@@ -63,6 +77,8 @@ for history; where it disagrees with this file, this file wins (card size and pr
   ≥ 2.0 mm from the penalty marks, and inside the 5 mm EDGE) and
   takes the largest scale that fits all of them, so a species is the same size everywhere; a plant blocked
   by the bottom-right block may slide up to 3 mm left instead of shrinking (string of pearls, spider plant, wax plant).
+  Card 55 is the one exception to "same size everywhere" (`SHOWPIECE`): its bird of paradise is drawn as large as
+  fits, up to 1.15× its species size (currently ≈ 1.13×, pot 1 mm right), still checked against the same obstacles.
 - Plant name (common + botanical, Fraunces) runs up the right edge, 5 mm from the cut. Common name in forest
   green `#405D43`; botanical name in italic warm grey-brown `#625444` (darker than the first `#7A6A58`, which was
   too faint on ivory stock).
@@ -75,13 +91,17 @@ for history; where it disagrees with this file, this file wins (card size and pr
   bunch rising from the bottom-left corner: an upright stem with a mustard sprig, burgundy berries on stalks that
   branch off it, a lily stem forking off it low down, and a low sweep arcing out to the right. Every stem of the
   bunch springs from the corner, so nothing floats and nothing crosses the bottom cut mid-width. Leaves are
-  placed along their stems at a constant angle, alternating sides and shrinking to the tip.
-- Art only crosses the cut at those two corners (within ~22 mm of them); everything else stays ≥ 1 mm inside,
+  placed along their stems at a constant angle, alternating sides and shrinking to the tip. Like the card-face
+  plants, each leaf has a darker turned-away half (a solid, about the same step as `plants/core.py` `SHADE`) and an
+  opaque pre-blended midrib 0.3 mm wide; no opacity anywhere on the back.
+- The three burgundy berries sit fully inside the trim (≥ 1 mm), drawn in front of the upright stem's leaves.
+- Art only crosses the cut at those two corners (within ~22 mm of them), and only as leaves and stems (no berry is
+  cut in half); everything else stays ≥ 1 mm inside,
   so cutting or duplex drift just crops a leaf differently.
 - The "TAKE 5" wordmark is the focal point: deep green (`#314B37`), the largest and darkest element. The
   top-right sweep is drawn a step lighter (mid/sage/light greens), with shorter leaves and a thinner stem than
-  the bottom arrangement, and the lily is a little smaller and sits low (≥ 11 mm from the "5"), so neither
-  competes with the title.
+  the bottom arrangement, and the lily is a little smaller, sits low (≥ 11 mm from the "5") and is a
+  softer orange (`#C8744E`, shade `#AF5F3E`) than its first `#CF6A3C`, so neither competes with the title.
 
 ## Printing sequence
 

@@ -246,6 +246,12 @@ def sprig(col):
 
 EDGE = 5.0          # clear space from the trim to any text / number ink (mm)
 NUM_SIZE = 21.0     # numeral cap height ~13.6 mm
+NUM_SIZE_3 = 18.5   # 100-104: a size step smaller (cap ~12 mm) with tighter tracking, so the wide twin number
+NUM_TRACK, NUM_TRACK_3 = -0.02, -0.045   # in the bottom-right corner sits well clear under the pot
+POT_GAP = 4.0       # min gap (mm) between the pot and a bottom-right number that sits under it (3-digit cards);
+                    # the plant is lifted on those cards to keep it
+SHOWPIECE = {55: 1.15}   # cards whose plant may be drawn up to this much larger than its species size, as large
+SHOWPIECE_SHIFTS = (0.0, 0.5, 1.0, 1.5, -0.5, -1.0)   # as fits (collision-checked), pot sliding up to these mm
 GLYPH = 4.0
 # Plant size. Each plant is measured (ink box of its master SVG) and scaled so the deck reads as one
 # consistent size: a blend of height-fit and area-fit, damped and clamped so pots never jump wildly.
@@ -264,11 +270,16 @@ NUM_AXIS = B + TW / 4 - 0.5   # number axis: 0.5 mm outside the 1/4 line (the mo
 FIELD_SCALE = 0.6   # corner colour field size
 
 
-def number_ink(n, size):
+def num_style(n):
+    """(font size, tracking) of the number on card n."""
+    return (NUM_SIZE_3, NUM_TRACK_3) if n >= 100 else (NUM_SIZE, NUM_TRACK)
+
+
+def number_ink(n, size, track=NUM_TRACK):
     """(xmin, xmax) of the number's ink relative to its centring point (see number_path)."""
     s = size / UPM
     items = [(ch, glyph(ch)[1]) for ch in str(n)]
-    track = -0.02 * UPM
+    track = track * UPM
     total = sum(w for _, w in items) + track * (len(items) - 1)
     x = -total / 2
     xmin, xmax = 1e9, -1e9
@@ -334,9 +345,10 @@ def info_block(n, p, ncol, gcol):
     """Number + penalty marks in the top-left quadrant (card-local coords).
     Returns (svg, bottom of the block, ink boxes [(x0, y0, x1, y1)])."""
     top = B + EDGE
-    nh = numeral_height(NUM_SIZE)
+    size, track = num_style(n)
+    nh = numeral_height(size)
     base = top + nh
-    xmin, xmax = number_ink(n, NUM_SIZE)
+    xmin, xmax = number_ink(n, size, track)
     if PEN_STYLE == "quarter":
         axis = NUM_AXIS                                     # just outside the 1/4 line of the trim
         cx = axis - (xmin + xmax) / 2                       # centre the ink (not the advance) on the axis
@@ -345,7 +357,7 @@ def info_block(n, p, ncol, gcol):
     else:
         cx = B + EDGE - xmin
     mid = cx + (xmin + xmax) / 2
-    out = [f'<g fill="{ncol}">' + number_path(n, NUM_SIZE, cx, base) + "</g>"]
+    out = [f'<g fill="{ncol}">' + number_path(n, size, cx, base, track) + "</g>"]
     boxes = [(cx + xmin, top, cx + xmax, base)]
     extra = 0.0
     if needs_mark(n):   # 6/9 underline: the full width of the numeral ink less a small inset, centred
@@ -416,13 +428,30 @@ def label_box(species, cy, x_base):
     return (x_base - 3.6, cy - half, x_base + 2.2, cy + half)
 
 
-def plant_collides(name, s, boxes, dx=0.0):
+def plant_y(n):
+    """Card y of the pot base on card n. Normally PLANT_Y. On 100-104 (whose wide bottom-right number reaches
+    under the pot), and on any card whose twin number would, the plant is lifted just enough to leave POT_GAP
+    between the pot and the numeral, so the pot never looks as if it stands on it."""
+    _, _, boxes = info_block(n, penalty(n), "#000", "#000")
+    x0, y0, x1, y1 = boxes[0][:4]                              # the number's ink box (top-left block)
+    tx0, ty0 = CW - x1, CH - y1                                # its 180-degree twin: left edge, top
+    if n < 100 and tx0 > PLANT_X + POT_HALF_LOW:              # twin number clear of the pot sideways
+        return PLANT_Y
+    pot_bottom = PLANT_Y + POT_INK
+    return PLANT_Y - max(0.0, pot_bottom + POT_GAP - ty0)
+
+
+POT_INK = 0.4             # pot ink below its base point (the rounded bottom), mm
+POT_HALF_LOW = 6.0        # half-width of the lower pot body (widest pot, plus a margin), mm
+
+
+def plant_collides(name, s, boxes, dx=0.0, py=PLANT_Y):
     m = plant_mask(name)
     px = PLANT_X + dx
     H, W = m.shape
     for x0, y0, x1, y1 in boxes:
         u0 = int(math.floor((300 + (x0 - px) / s) / MASK_UNITS)); u1 = int(math.ceil((300 + (x1 - px) / s) / MASK_UNITS))
-        v0 = int(math.floor((752 + (y0 - PLANT_Y) / s) / MASK_UNITS)); v1 = int(math.ceil((752 + (y1 - PLANT_Y) / s) / MASK_UNITS))
+        v0 = int(math.floor((752 + (y0 - py) / s) / MASK_UNITS)); v1 = int(math.ceil((752 + (y1 - py) / s) / MASK_UNITS))
         u0, v0, u1, v1 = max(u0, 0), max(v0, 0), min(u1, W), min(v1, H)
         if u0 < u1 and v0 < v1 and m[v0:v1, u0:u1].any():
             return True
@@ -448,11 +477,12 @@ def obstacles(n, species):
     return obs
 
 
-def plant_scale(n, species, dx=0.0):
-    """Design scale, reduced until the plant clears everything on card n."""
-    s0 = s = plant_design_scale(species)
+def plant_scale(n, species, dx=0.0, s0=None):
+    """Design scale (or s0), reduced until the plant clears everything on card n."""
+    s0 = s = s0 or plant_design_scale(species)
     obs = obstacles(n, species)
-    while plant_collides(species, s, obs, dx):
+    py = plant_y(n)
+    while plant_collides(species, s, obs, dx, py):
         s *= 0.99
         assert s > 0.6 * s0, f"card {n}: {species} does not fit"
     return s
@@ -498,9 +528,13 @@ def card(n, species):
     # pot bottom-centre pinned to (PLANT_X, PLANT_Y): just left of centre so the bottom-right block sits
     # beside the narrow pot rather than under the leaves
     s, dx = species_fit(species)
-    if plant_collides(species, s, obstacles(n, species), dx):   # species forced onto another card (preview)
+    py = plant_y(n)
+    if n in SHOWPIECE:                                           # showpiece card: as large as it fits, up to the cap
+        s, dx = max(((plant_scale(n, species, d, s * SHOWPIECE[n]), d) for d in SHOWPIECE_SHIFTS),
+                    key=lambda t: (round(t[0], 5), -abs(t[1])))
+    elif plant_collides(species, s, obstacles(n, species), dx, py):   # species forced onto another card (preview)
         s = min(s, plant_scale(n, species, dx))
-    plant = (f'<g transform="translate({PLANT_X + dx:.3f} {PLANT_Y:.3f}) scale({s:.5f}) translate(-300 -752)">'
+    plant = (f'<g transform="translate({PLANT_X + dx:.3f} {py:.3f}) scale({s:.5f}) translate(-300 -752)">'
              f'{uniq(plant_inner(species), f"k{n}-")}</g>')
     # vertical name label on the right edge (the side without a number), caps on the EDGE line
     label = name_label(species, *LABEL_POS, "#405D43", LATIN_COL, rot=90)

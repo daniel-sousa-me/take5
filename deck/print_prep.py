@@ -1,12 +1,26 @@
 """Print-prep pass for pigment inkjet (Canon GX5050) on 250 gsm uncoated card.
 
-Scales every stroke by its *effective* size on the printed card and enforces:
-(each plant is drawn at its own scale -- see deck.plant_scale -- and lines are sized for the smallest
-scale that plant gets anywhere in the deck)
-  - positive (dark-on-light) lines  >= MIN_POS mm
-  - knockout (light-on-dark) lines  >= MIN_KO  mm   (dot gain fills thin light lines in)
-  - faint hairlines (opacity < DROP_OP) are removed: on uncoated stock they dither into speckle
-Writes print variants to OUT; the master SVGs are untouched.
+Makes a print copy of every master plant SVG (plants/out -> build/plants_print). Each plant is drawn at its
+own scale on the card (deck.plant_scales(): the smallest it appears anywhere in the deck), so every size
+below is the *printed* size in mm at that scale, following all transforms, including <use> instances.
+
+Rules (docs/DESIGN_AND_PRINT_NOTES.md and the plant print policy):
+  - Minimum stroke widths: dark-on-light lines >= MIN_POS mm, light (knockout) lines >= MIN_KO mm.
+  - A stroke that is under its minimum is
+      * DROPPED if it is translucent (effective opacity < 1: element, stroke-opacity and every ancestor
+        group / <use> opacity multiplied together). Widening a see-through line only turns it into a pale
+        wash with ghost caps; it is not widened.
+      * WIDENED if it is opaque, by at most MAX_WIDEN (MAX_WIDEN_CLIPPED if every instance of it is drawn
+        inside a clip-path, which keeps a widened vein inside its leaf). A line that needs more than that
+        is DROPPED (a fattened hairline reads as a bar, and an unclipped one spills past its leaf).
+    If the element is also filled, only its stroke is removed; the fill stays. An outline in the shape's own
+    fill colour is not a line (it only grows the shape) and is left alone.
+  - Filled dots and small shapes are never changed, only reported when they are under the dot minimums
+    (dark >= MIN_DOT_POS, light >= MIN_DOT_KO): the plant author decides whether to enlarge or drop them.
+A master that follows the policy passes through unchanged. Everything widened or dropped is printed per plant.
+
+Usage:  python deck/print_prep.py            # summary line per plant
+        python deck/print_prep.py -v         # plus the details (colour, width, count) of every change
 """
 import re, os, sys, math
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -15,28 +29,44 @@ from lxml import etree
 
 SRC = str(paths.PLANTS_SRC)
 OUT = str(paths.PLANTS_PRINT)
-MIN_POS, MIN_KO, DROP_OP = 0.15, 0.20, 0.34
+# Printed minimums (mm). The plant policy's unit figures (3.0 / 4.0 u lines, 3.5 / 4.5 u dots) are these at
+# 0.050 mm/unit, the smallest scale any plant is drawn at.
+MIN_POS, MIN_KO = 0.15, 0.20          # lines: dark on light / light on dark
+MIN_DOT_POS, MIN_DOT_KO = 0.175, 0.225  # filled dots and slivers (by their widest point), report only
+KO_LUM = 0.55                         # a stroke/fill lighter than this counts as a knockout (light-on-dark) mark
+MAX_WIDEN, MAX_WIDEN_CLIPPED = 1.6, 2.0
+TOL = 0.995                           # rounding slack: 0.1495 mm counts as 0.15
 NS = "{http://www.w3.org/2000/svg}"
+XLINK = "{http://www.w3.org/1999/xlink}href"
+SHAPES = {NS + t for t in ("path", "circle", "ellipse", "rect", "line", "polyline", "polygon")}
+SKIP = {NS + t for t in ("defs", "clipPath", "mask", "symbol", "title", "desc", "metadata", "style")}
+INHERIT = ("stroke", "stroke-width", "stroke-opacity", "fill", "fill-opacity", "color")
 
 
 def lum(hexc):
-    hexc = hexc.strip()
+    hexc = (hexc or "").strip()
+    if re.fullmatch(r"#[0-9A-Fa-f]{3}", hexc):
+        hexc = "#" + "".join(c * 2 for c in hexc[1:])
     if not re.fullmatch(r"#[0-9A-Fa-f]{6}", hexc):
         return None
     r, g, b = (int(hexc[i:i + 2], 16) / 255 for i in (1, 3, 5))
     return 0.2126 * r + 0.7152 * g + 0.0722 * b
 
 
+def num(v, default=1.0):
+    try:
+        return float(re.sub(r"[a-z%]+$", "", str(v).strip()))
+    except (TypeError, ValueError):
+        return default
+
+
 def tscale(tr):
-    """Approximate uniform scale of a transform attribute."""
+    """Uniform scale (sqrt |det|) of a transform attribute."""
     s = 1.0
-    if not tr:
-        return s
-    for fn, args in re.findall(r"(\w+)\(([^)]*)\)", tr):
+    for fn, args in re.findall(r"(\w+)\s*\(([^)]*)\)", tr or ""):
         a = [float(x) for x in re.split(r"[ ,]+", args.strip()) if x]
         if fn == "scale":
-            sx = a[0]; sy = a[1] if len(a) > 1 else a[0]
-            s *= math.sqrt(abs(sx * sy))
+            s *= math.sqrt(abs(a[0] * (a[1] if len(a) > 1 else a[0])))
         elif fn == "matrix":
             s *= math.sqrt(abs(a[0] * a[3] - a[1] * a[2]))
     return s
@@ -50,100 +80,201 @@ def get(el, key):
     return v
 
 
-def process(fn, mm_per_unit):
+def set_attr(el, key, val):
+    el.set(key, val)
+    if el.get("style"):
+        el.set("style", re.sub(rf"(?:^|;)\s*{key}\s*:[^;]+", "", el.get("style")).strip(";"))
+
+
+# ------------------------------------------------------------------ geometry for the dot/sliver report
+def path_polys(d, steps=8):
+    """Flatten an SVG path into polygons (list of point lists). Arcs are taken as straight chords."""
+    toks = re.findall(r"[A-Za-z]|[-+]?(?:\d*\.\d+|\d+\.?)(?:[eE][-+]?\d+)?", d)
+    polys, cur, pts = [], (0.0, 0.0), []
+    start, cmd, i = (0.0, 0.0), None, 0
+    counts = dict(M=2, L=2, H=1, V=1, C=6, S=4, Q=4, T=2, A=7, Z=0)
+    last_ctrl = None
+    while i < len(toks):
+        if re.match(r"[A-Za-z]", toks[i]):
+            cmd = toks[i]; i += 1
+            if cmd in "Zz":
+                if pts:
+                    polys.append(pts)
+                pts, cur = [], start
+                continue
+        n = counts[cmd.upper()]
+        a = [float(x) for x in toks[i:i + n]]; i += n
+        if len(a) < n:
+            break
+        rel = cmd.islower()
+        ox, oy = cur if rel else (0.0, 0.0)
+        C = cmd.upper()
+        if C == "M":
+            if pts:
+                polys.append(pts)
+            cur = start = (a[0] + ox, a[1] + oy); pts = [cur]
+            cmd = "l" if rel else "L"
+        elif C == "L" or C == "T":
+            cur = (a[0] + ox, a[1] + oy); pts.append(cur)
+        elif C == "H":
+            cur = (a[0] + (cur[0] if rel else 0), cur[1]); pts.append(cur)
+        elif C == "V":
+            cur = (cur[0], a[0] + (cur[1] if rel else 0)); pts.append(cur)
+        elif C == "A":
+            cur = (a[5] + ox, a[6] + oy); pts.append(cur)
+        else:
+            if C == "C":
+                p1, p2, p3 = (a[0] + ox, a[1] + oy), (a[2] + ox, a[3] + oy), (a[4] + ox, a[5] + oy)
+            elif C == "S":
+                p1 = (2 * cur[0] - last_ctrl[0], 2 * cur[1] - last_ctrl[1]) if last_ctrl else cur
+                p2, p3 = (a[0] + ox, a[1] + oy), (a[2] + ox, a[3] + oy)
+            else:  # Q
+                q, p3 = (a[0] + ox, a[1] + oy), (a[2] + ox, a[3] + oy)
+                p1 = (cur[0] + 2 / 3 * (q[0] - cur[0]), cur[1] + 2 / 3 * (q[1] - cur[1]))
+                p2 = (p3[0] + 2 / 3 * (q[0] - p3[0]), p3[1] + 2 / 3 * (q[1] - p3[1]))
+            p0 = cur
+            for k in range(1, steps + 1):
+                t = k / steps; u = 1 - t
+                pts.append((u ** 3 * p0[0] + 3 * u * u * t * p1[0] + 3 * u * t * t * p2[0] + t ** 3 * p3[0],
+                            u ** 3 * p0[1] + 3 * u * u * t * p1[1] + 3 * u * t * t * p2[1] + t ** 3 * p3[1]))
+            last_ctrl = p2; cur = p3
+            continue
+        last_ctrl = None
+    if pts:
+        polys.append(pts)
+    return polys
+
+
+def shape_width(el):
+    """Rough 'widest point' of a filled shape, in its own units: 4*area/perimeter (= the diameter of a circle,
+    ~1.3x the widest point of a tapered sliver). None if it is not a closed filled shape we can measure."""
+    t = el.tag[len(NS):]
+    if t == "circle":
+        return 2 * num(el.get("r"), 0)
+    if t == "ellipse":
+        return 2 * min(num(el.get("rx"), 0), num(el.get("ry"), 0))
+    if t == "rect":
+        return min(num(el.get("width"), 0), num(el.get("height"), 0))
+    if t != "path" or not el.get("d"):
+        return None
+    A = P = 0.0
+    for poly in path_polys(el.get("d")):
+        if len(poly) < 3:
+            continue
+        a = sum(poly[k][0] * poly[k - 1][1] - poly[k - 1][0] * poly[k][1] for k in range(len(poly)))
+        A += abs(a) / 2
+        P += sum(math.dist(poly[k], poly[k - 1]) for k in range(len(poly)))
+    return 4 * A / P if P else None
+
+
+# ------------------------------------------------------------------ render walk
+def instances(root):
+    """Every rendered instance of every shape: {element: [ctx, ...]}, ctx = dict(scale, opacity, clipped,
+    stroke, stroke-width, ...) with presentation attributes resolved by inheritance, <use> expanded."""
+    ids = {e.get("id"): e for e in root.iter() if isinstance(e.tag, str) and e.get("id")}
+    found = {}
+
+    def walk(el, ctx, depth=0):
+        if not isinstance(el.tag, str) or el.tag in SKIP or depth > 40:
+            return
+        c = dict(ctx)
+        c["scale"] *= tscale(el.get("transform"))
+        c["opacity"] *= num(get(el, "opacity"), 1.0)
+        if get(el, "clip-path") not in (None, "none"):
+            c["clipped"] = True
+        for k in INHERIT:
+            v = get(el, k)
+            if v is not None and v != "inherit":
+                c[k] = v
+        if el.tag == NS + "use":
+            ref = ids.get((el.get("href") or el.get(XLINK) or "")[1:])
+            if ref is not None:
+                walk(ref, c, depth + 1)
+        elif el.tag in SHAPES:
+            found.setdefault(el, []).append(c)
+        else:
+            for ch in el:
+                walk(ch, c, depth + 1)
+
+    walk(root, {"scale": 1.0, "opacity": 1.0, "clipped": False, "fill": "#000", "stroke": "none",
+                "stroke-width": "1", "stroke-opacity": "1", "fill-opacity": "1", "color": "#000"})
+    for ctxs in found.values():
+        for c in ctxs:
+            for k in ("fill", "stroke"):
+                if c[k] == "currentColor":
+                    c[k] = c["color"]
+    return found
+
+
+def process(fn, mm_per_unit, out_dir=OUT):
+    """Write the print copy of one plant; return the report (Counters keyed by a short description)."""
     tree = etree.parse(fn)
     root = tree.getroot()
-    ids = {e.get("id"): e for e in root.iter() if e.get("id")}
-    # effective scale at which each element is drawn; for <defs> content use the smallest <use> scale
-    use_scale = {}
+    rep = dict(widened={}, dropped={}, small={})
 
-    def walk_scale(el, s):
-        s = s * tscale(el.get("transform"))
-        if el.tag == NS + "use":
-            ref = (el.get("href") or el.get("{http://www.w3.org/1999/xlink}href") or "")[1:]
-            use_scale[ref] = min(use_scale.get(ref, 9e9), s)
-        for c in el:
-            if c.tag in (NS + "defs",):
-                continue
-            walk_scale(c, s)
-    walk_scale(root, 1.0)
+    def note(kind, key, mm):
+        n, lo, hi = rep[kind].get(key, (0, 9e9, 0))
+        rep[kind][key] = (n + 1, min(lo, mm), max(hi, mm))
+    for el, ctxs in instances(root).items():
+        s = min(c["scale"] for c in ctxs)
+        c0 = min(ctxs, key=lambda c: c["scale"])
+        # ---- stroke
+        stroke = c0["stroke"]
+        same = str(stroke).lower() == str(c0["fill"]).lower()   # outline in its own fill colour: grows the shape, not a line
+        if stroke not in (None, "none", "transparent") and not same:
+            wv = num(c0["stroke-width"], 1.0)
+            eff = wv * s * mm_per_unit
+            L = lum(stroke)
+            need = MIN_KO if L is not None and L > KO_LUM else MIN_POS
+            op = min(c["opacity"] * num(c["stroke-opacity"], 1.0) for c in ctxs)
+            if eff < need * TOL and wv > 0:
+                filled = c0["fill"] not in ("none", "transparent")
+                factor = need / eff
+                cap = MAX_WIDEN_CLIPPED if all(c["clipped"] for c in ctxs) else MAX_WIDEN
+                if op < 0.999 or factor > cap:
+                    why = f"translucent (opacity {op:.2f})" if op < 0.999 else f"opaque, needs > x{cap:g}"
+                    note("dropped", f"stroke {stroke} {why}", eff)
+                    if filled:
+                        set_attr(el, "stroke", "none")
+                    else:
+                        el.getparent().remove(el)
+                        continue
+                else:
+                    set_attr(el, "stroke-width", f"{need / (s * mm_per_unit):.2f}")
+                    note("widened", f"stroke {stroke} {'clipped' if cap == MAX_WIDEN_CLIPPED else 'unclipped'}", eff)
+        # ---- filled dots / slivers (report only)
+        fill = c0["fill"]
+        if fill not in ("none", "transparent") and (c0["stroke"] in (None, "none") or same):
+            w = shape_width(el)
+            if w is not None and same:
+                w += num(c0["stroke-width"], 1.0)
+            if w is not None:
+                L = lum(fill)
+                need = MIN_DOT_KO if L is not None and L > KO_LUM else MIN_DOT_POS
+                eff = w * s * mm_per_unit
+                if eff < need * TOL:
+                    note("small", f"{el.tag[len(NS):]} {fill} ({'light' if need == MIN_DOT_KO else 'dark'})", eff)
+    os.makedirs(out_dir, exist_ok=True)
+    tree.write(os.path.join(out_dir, os.path.basename(fn)), xml_declaration=False, encoding="utf-8")
+    return rep
 
-    def base_scale(el):
-        # walk up to find a referenced ancestor inside defs
-        s, e = 1.0, el
-        while e is not None:
-            s *= tscale(e.get("transform")) if e is not el else 1.0
-            if e.get("id") in use_scale and (e.getparent() is not None and e.getparent().tag in (NS + "defs", NS + "symbol") or e.tag == NS + "symbol"):
-                return s * use_scale[e.get("id")]
-            e = e.getparent()
-        return None
 
-    changes = dict(widened=0, dropped=0)
-    for el in list(root.iter()):
-        if not isinstance(el.tag, str):
-            continue
-        w = get(el, "stroke-width")
-        stroke = get(el, "stroke")
-        if w is None or stroke in (None, "none") or el.tag == NS + "g" and False:
-            continue
-        # cumulative scale
-        s = 1.0; e = el; in_defs = False
-        chain = []
-        while e is not None:
-            chain.append(e)
-            if e.tag in (NS + "defs", NS + "clipPath", NS + "mask"):
-                in_defs = True
-            e = e.getparent()
-        if any(c.tag == NS + "clipPath" for c in chain):
-            continue
-        if in_defs:
-            s = None
-            for c in chain:
-                if c.get("id") in use_scale:
-                    s = use_scale[c.get("id")]
-                    for c2 in chain[:chain.index(c) + 1]:
-                        if c2 is not c:
-                            s *= tscale(c2.get("transform"))
-                    s *= tscale(el.get("transform")) if el is not c else 1
-                    break
-            if s is None:
-                continue
-        else:
-            for c in chain:
-                s *= tscale(c.get("transform"))
-        try:
-            wv = float(re.sub(r"[a-z]+$", "", w))
-        except ValueError:
-            continue
-        eff_mm = wv * s * mm_per_unit
-        L = lum(stroke) if stroke else None
-        ko = L is not None and L > 0.55
-        need = MIN_KO if ko else MIN_POS
-        if eff_mm < need:
-            el.set("stroke-width", f"{need / (s * mm_per_unit):.2f}")
-            if el.get("style"):
-                el.set("style", re.sub(r"stroke-width\s*:[^;]+;?", "", el.get("style")))
-            changes["widened"] += 1
-        # faint hairline texture can't survive pigment dot gain on uncoated stock: drop it
-        op = el.get("opacity") or get(el, "stroke-opacity")
-        anc_op = 1.0
-        for c in chain[1:]:
-            if c.get("opacity"):
-                anc_op *= float(c.get("opacity"))
-        eff_op = (float(op) if op else 1.0) * anc_op
-        if eff_mm < 0.3 and eff_op < DROP_OP:
-            el.getparent().remove(el)
-            changes["dropped"] += 1
-            continue
-    os.makedirs(OUT, exist_ok=True)
-    tree.write(os.path.join(OUT, os.path.basename(fn)), xml_declaration=False, encoding="utf-8")
-    return changes
+def summary(rep):
+    n = {k: sum(x[0] for x in v.values()) for k, v in rep.items()}
+    return "ok (unchanged)" if not any(n.values()) else \
+        f"widened {n['widened']:3d} · dropped {n['dropped']:3d} · small dots/slivers {n['small']:3d}"
 
 
 if __name__ == "__main__":
     import deck
+    verbose = "-v" in sys.argv
     scales = deck.plant_scales()          # mm per plant-canvas unit, smallest use in the deck
     for f in sorted(os.listdir(SRC)):
         if f.endswith(".svg"):
             k = scales[f[:-4]]
-            print(f"{f[:-4]:24} {k * 740:5.1f} mm/740u", process(os.path.join(SRC, f), k))
+            rep = process(os.path.join(SRC, f), k)
+            print(f"{f[:-4]:24} {k:.4f} mm/u  {summary(rep)}")
+            if verbose:
+                for kind in ("widened", "dropped", "small"):
+                    for d, (c, lo, hi) in sorted(rep[kind].items(), key=lambda x: -x[1][0]):
+                        print(f"    {kind:8} {c:3d} × {d:52} {lo:.3f}–{hi:.3f} mm")

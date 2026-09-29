@@ -90,7 +90,24 @@ def build():
         g.append(t(x5 + 5, yy, o, 2.3))
     g.append(t(130, y + 20, "Also: Prevent paper abrasion ON", 2.2))
     g.append(t(130, y + 25.2, "Load one sheet at a time", 2.2))
-    assert y + 40 <= deck.REC_BOT, y + 40
+    # 5 — neighbouring tiers side by side: field + sprig + number + marks, as on the cards
+    y += 44
+    g.append(h(y, "5  Neighbouring tiers — each pair must read as two different penalties at a glance"))
+    for k, (pa, pb) in enumerate(((2, 3), (3, 5))):
+        for j, (p, n) in enumerate(((pa, {2: 25, 3: 30, 5: 22}[pa]), (pb, {2: 25, 3: 30, 5: 22}[pb]))):
+            x = X0 + k * 94 + j * 43
+            yy = y + 3
+            tint, acc, spr, ncol, gcol = deck.TIER[p]
+            cid = f"tp{k}{j}"
+            g.append(f'<clipPath id="{cid}"><rect x="{x}" y="{yy}" width="41" height="18"/></clipPath>'
+                     f'<rect x="{x}" y="{yy}" width="41" height="18" fill="none" stroke="#bbb" stroke-width="0.15"/>'
+                     f'<g clip-path="url(#{cid})"><g transform="translate({x} {yy}) scale(0.55)">'
+                     + deck.field_blob(tint, acc) + deck.sprig(spr) + "</g></g>")
+            g.append(f'<g fill="{ncol}">' + deck.number_path(n, 11, x + 29, yy + 8.5) + "</g>")
+            g.append(deck.wilt_row(deck.penalty(n), x + 28, yy + 11, 3.2, gcol))
+            g.append(t(x, yy + 21, f"tier {p} (card {n})", 2.0))
+        g.append(t(X0 + k * 94 + 38, y + 14, "vs", 2.2))
+    assert y + 24 <= deck.REC_BOT, y + 24
     g.append("</svg>")
     return "".join(g)
 

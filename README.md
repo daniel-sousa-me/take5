@@ -26,7 +26,7 @@ A clean rebuild reproduces the files in `dist/` exactly.
 | `plants/out/*.svg` | **Master plant art** (600 × 800, transparent, flat colour) |
 | `plants/BRIEF.md` | The illustration brief the plants were drawn to (style rules + craft checklist) |
 | `deck/deck.py` | Card face + A4 sheet layout, rules (penalties), plant assignment, plant names |
-| `deck/print_prep.py` | Print pass for pigment ink on uncoated card (line minimums, drops faint hairlines) |
+| `deck/print_prep.py` | Print pass for pigment ink on uncoated card: widens thin opaque lines a little, drops thin translucent ones, reports under-size dots (`-v` for details) |
 | `deck/back.py` | Card back artwork |
 | `deck/backs_sheet.py` | A4 sheet of 6 backs, positioned for a long-edge flip |
 | `deck/proof.py` | One-page printer / paper proof |
@@ -39,9 +39,10 @@ A clean rebuild reproduces the files in `dist/` exactly.
 ## Common edits
 
 - **Card face layout** — constants at the top of the card section in `deck/deck.py`:
-  `EDGE` (clear space to the cut, 5 mm), `NUM_SIZE`, `NUM_AXIS`, `GLYPH_Q` (mark size), `FIELD_SCALE`, `PEN_STYLE`
+  `EDGE` (clear space to the cut, 5 mm), `NUM_SIZE` / `NUM_SIZE_3` (100–104), `NUM_AXIS`, `POT_GAP`, `GLYPH_Q` (mark size), `FIELD_SCALE`, `PEN_STYLE`
   (`"quarter"` is current; `"under"`, `"beside"`, `"rosette"`, `"corner"` are the explored alternatives).
-- **Which plant is on which card** — `ORDER`, `SHOWY_55`, `SHOWY_11` and `assign()` in `deck/deck.py`.
+- **Which plant is on which card** — `ORDER`, `SHOWY_55`, `SHOWY_11` and `assign()` in `deck/deck.py`;
+  `SHOWPIECE` lets a card (55) draw its plant larger than the species size.
 - **Plant names** — `NAMES` in `deck/deck.py`.
 - **Plant size** — `PLANT_S` (reference scale, 0.054 mm/unit ≈ 40 mm for the full canvas), `PLANT_REF`,
   `PLANT_FIT`, `PLANT_CLAMP`, `POT_MAX`, `PLANT_X/PLANT_Y` (pot base point), `PLANT_CLEAR` / `MARK_CLEAR` in `deck/deck.py`.
@@ -53,7 +54,9 @@ A clean rebuild reproduces the files in `dist/` exactly.
   (not recommended for print; use ivory stock instead — see docs).
 - **A plant drawing** — edit `plants/species/<name>.py`, then `python plants/build_plants.py <name>` and
   `python build_all.py`. The card size of each plant is recomputed from the SVG, and `print_prep.py` takes
-  each plant's actual scale from `deck.plant_scales()`, so nothing else needs updating.
+  each plant's actual scale from `deck.plant_scales()`, so nothing else needs updating. Check the plant's
+  line in the `print_prep.py` output: a master that follows the print rules reports `ok (unchanged)`;
+  `python deck/print_prep.py -v` lists every widened or dropped line and every dot under the minimum.
 
 ## Printing
 

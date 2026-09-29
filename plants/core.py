@@ -300,13 +300,24 @@ def pot(kind="classic", cx=300, rim_y=584, bottom=752, rx=104, rim_h=32, base_w=
         f'<path d="{body}" fill="{P["terra"]}"/>',
         f'<g clip-path="url(#{bid})">',
         f'<path d="{shade}" fill="{P["terra_dark"]}" opacity=".30"/>',
+    ]
+    if band:
+        # a subtle band round the body: an OPAQUE pre-blended line (terra_dark at ~40 % over the body colour,
+        # and over the shaded side a step darker) 4 units wide, so it survives print_prep unchanged
+        def mix(a, b, t):
+            return "#" + "".join(f"{round(int(a[i:i + 2], 16) * (1 - t) + int(b[i:i + 2], 16) * t):02X}" for i in (1, 3, 5))
+        on_body = mix(P["terra"], P["terra_dark"], 0.40)
+        on_shade = mix(mix(P["terra"], P["terra_dark"], 0.30), P["terra_dark"], 0.40)
+        yb = by0 + (bottom - by0) * 0.55
+        bd = f"M{f(cx - 200)} {f(yb)} Q{f(cx)} {f(yb + 16)} {f(cx + 200)} {f(yb)}"
+        sid = uid("ps")
+        front += [f'<path d="{bd}" fill="none" stroke="{on_body}" stroke-width="4"/>',
+                  f'<clipPath id="{sid}"><path d="{shade}"/></clipPath>',
+                  f'<path d="{bd}" fill="none" stroke="{on_shade}" stroke-width="4" clip-path="url(#{sid})"/>']
+    front += [
         f'<path d="M{f(cx - 200)} {f(by0 - 6)} H{f(cx + 200)} V{f(by0 + 10)} Q{f(cx)} {f(by0 + 22)} {f(cx - 200)} {f(by0 + 10)}Z" fill="{P["terra_dark"]}" opacity=".38"/>',
         f'<path d="{hi}" fill="none" stroke="{P["terra_hi"]}" stroke-width="7" stroke-linecap="round" opacity=".55"/>',
     ]
-    if band:
-        yb = by0 + (bottom - by0) * 0.55
-        front.append(f'<path d="M{f(cx - 200)} {f(yb)} Q{f(cx)} {f(yb + 16)} {f(cx + 200)} {f(yb)}" fill="none" '
-                     f'stroke="{P["terra_dark"]}" stroke-width="4" opacity=".28"/>')
     front.append("</g>")
     rid = uid("rc")
     front += [
