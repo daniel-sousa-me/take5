@@ -106,7 +106,11 @@ for history; where it disagrees with this file, this file wins (card size and pr
   Size is normalised per plant from its ink box: a blend of height-fit (0.6) and area-fit (0.4), damped
   (^0.8) and clamped to 0.92–1.2 × the reference scale of 0.054 mm/unit (≈ 40 mm for the full 740-unit canvas,
   ≈ 35.5 mm of actual ink for a typical plant), with the pot rim capped at 13.5 mm so squat plants in wide
-  bowls don't balloon. Each plant is then checked against the ink boxes of the numbers, marks, underline,
+  bowls don't balloon. Because the pot scales with its plant, each generator's `pot(rx=…, base_w=…)` is sized
+  against that plant's fitted scale so the printed pots match side by side: every classic pot rim prints at
+  10.3–10.9 mm (median ≈ 10.55 mm, all within ±3.5 %), and the four succulent bowls (aloe, jade, echeveria,
+  bunny ears) are allowed ≈ 7–8 % wider (≈ 11.3–11.4 mm). A plant whose fitted scale changes needs its pot `rx`
+  re-checked (printed rim = 2 × rx × scale). Each plant is then checked against the ink boxes of the numbers, marks, underline,
   name label and corner fields of every card it appears on (≥ 1.2 mm from numbers, underline and label,
   ≥ 2.0 mm from the penalty marks, and inside the 5 mm EDGE) and
   takes the largest scale that fits all of them, so a species is the same size everywhere; a plant blocked

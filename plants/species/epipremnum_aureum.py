@@ -227,7 +227,7 @@ def vine(pts, leaves, w0, w1, col, pcol=None):
 
 # ------------------------------------------------------------------ plant
 def build():
-    back, front = pot("classic", rx=98, rim_y=588, base_w=72, band=False)
+    back, front = pot("classic", rx=90, rim_y=588, base_w=66, band=False)
     out = [back]
 
     # --- crown: (leaf base point, rotation, L, fill, seed, flip, stem start x, bow)

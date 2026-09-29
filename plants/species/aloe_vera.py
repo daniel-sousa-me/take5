@@ -170,7 +170,7 @@ def aloe_leaf(spine, wmax, face, side=1, k=0.35, teeth=True, speck=0, seed=0, n=
 
 def build():
     reset_ids()
-    back, front = pot(kind="bowl", cx=CX, rim_y=RIM_Y, bottom=752, rx=124, rim_h=30, base_w=84)
+    back, front = pot(kind="bowl", cx=CX, rim_y=RIM_Y, bottom=752, rx=100, rim_h=30, base_w=68)
     by = BASE_Y
     L = []
     # --- back tier: upright, darkest

@@ -22,7 +22,7 @@ from core import PAL, SHADE, Leaf, cr_path, f, uid, reset_ids, pot, svg_doc  # n
 P = PAL
 CX = 300
 RIM = 588
-RX = 96
+RX = 94
 CROWN_Y = 600          # rachis bases start here (inside soil, hidden by rim front)
 LIGHT = (-0.55, -0.83)  # light from the upper left
 U = 10.0               # unit pinna length in defs

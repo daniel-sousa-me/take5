@@ -22,9 +22,9 @@ from core import PAL, cr_path, cr_sample, ribbon, f, uid, reset_ids, pot, svg_do
 
 P = PAL
 CX = 300
-RIM_Y = 604
+RIM_Y = 616
 RIM_H = 28
-POT_RX = 114
+POT_RX = 94
 EL = math.radians(46)                 # camera elevation above the horizon
 SE, CE = math.sin(EL), math.cos(EL)
 
@@ -315,7 +315,7 @@ def bell_def():
     sh = [at(0, 0), at(.45, 0.05), at(.8, 0.02), at(1, 0.0), at(1.0, -.78), at(.8, -.92),
           at(.45, -.98), at(.12, -.62)]
     sep = [at(-.05, 0), at(.1, .72), at(.34, .56), at(.16, 0), at(.34, -.56), at(.1, -.72)]
-    mouth = [at(1.0, .8), at(1.08, .42), at(1.12, 0), at(1.08, -.42), at(1.0, -.8), at(.94, 0)]
+    mouth = [at(1.0, .8), at(1.1, .44), at(1.16, 0), at(1.1, -.44), at(1.0, -.8), at(.92, 0)]
     return "".join([
         f'<path d="{ribbon([(0, 0), (1.2, ped / 2), (0, ped + 1)], 2.8, 2.2)}" fill="{STALK}"/>',
         f'<path d="{cr_path(body, sharp={0, 4, 5})}" fill="{BELL}"/>',
@@ -368,16 +368,17 @@ def stalk_svg(pts, w0, w1, bracts, flowers, rise_side=1, bud_turn=0.0):
 
 # ------------------------------------------------------------------ build
 RC = (300, 548)          # rosette centre (soil level of the rosette, projected)
-PUPS = [(186, 612, .34), (420, 616, .28)]   # x, y, scale
+PUPS = [(210, 612, .34), (396, 616, .28)]   # x, y, scale (drawn PLANT_DY lower, like the rosette)
+PLANT_DY = 12            # rosette + pups + stalks sit this much lower (the shallow bowl's rim is at RIM_Y)
 
 
 def build():
     reset_ids()
     back, front = pot(kind="bowl", cx=CX, rim_y=RIM_Y, bottom=752, rx=POT_RX, rim_h=RIM_H,
-                      base_w=82)
+                      base_w=67)
     # tall stalk: rises from the leaf axils behind the heart, arches right and nods
-    stalk1 = [(314, 516), (320, 440), (324, 360), (338, 290), (366, 236), (404, 210), (440, 214),
-              (464, 238), (472, 266)]
+    stalk1 = [(314, 516), (318, 420), (320, 322), (330, 240), (354, 176), (392, 144), (432, 148),
+              (460, 174), (468, 204)]
     stalk2 = [(270, 520), (258, 466), (238, 416), (208, 384), (178, 376), (156, 388), (148, 408)]
     fl1 = [(0.58, (0.18, 1), 1.08), (0.66, (0.12, 1), 1.06), (0.74, (0.04, 1), 1.02),
            (0.81, (-0.08, 1), 0.98), (0.875, (-0.25, 1), 0.92), (0.935, (-0.45, 1), 0.84),
@@ -396,7 +397,7 @@ def build():
     defs = f'<defs><g id="bell">{bell_def()}</g><g id="pup">{pup}</g></defs>'
     pups = "".join(f'<use href="#pup" transform="translate({x} {y}) scale({s:g})"/>'
                    for x, y, s in PUPS)
-    return defs + back + front + main + pups
+    return defs + back + front + f'<g transform="translate(0 {PLANT_DY})">' + main + pups + "</g>"
 
 
 if __name__ == "__main__":

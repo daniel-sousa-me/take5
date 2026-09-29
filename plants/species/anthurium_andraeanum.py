@@ -157,7 +157,7 @@ def fstalk(spec, sp, base, via, w0=5.5, w1=4.0):
 # ------------------------------------------------------------------ build
 def build():
     reset_ids()
-    back, front = pot(kind="classic", cx=300, rim_y=586, rx=100, rim_h=30, base_w=70, band=True)
+    back, front = pot(kind="classic", cx=300, rim_y=586, rx=104, rim_h=30, base_w=73, band=True)
     out = [back]
 
     # leaves, back -> front.  x,y = sinus anchor (local origin); rot 0 = tip up.

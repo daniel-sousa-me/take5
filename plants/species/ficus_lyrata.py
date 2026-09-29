@@ -237,7 +237,7 @@ LEAVES = [
 
 def build():
     reset_ids()
-    back, front = pot(kind="classic", rx=96, rim_y=588, base_w=66, band=True)
+    back, front = pot(kind="classic", rx=99, rim_y=588, base_w=68, band=True)
     out = [back]
     stems = {"T": TRUNK, "B": BRANCH}
     layers = {0: [], 1: []}

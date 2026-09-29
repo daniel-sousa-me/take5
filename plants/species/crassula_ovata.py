@@ -261,7 +261,7 @@ def rosette(samples, size, tone, pairs=3, seed=0, gap=1.0, spread=0, tilt=0, fir
 # ------------------------------------------------------------------ build
 def build():
     reset_ids()
-    back, front = pot("bowl", rx=126, rim_y=600, rim_h=26, base_w=92)
+    back, front = pot("bowl", rx=100, rim_y=600, rim_h=26, base_w=73)
     out = [back, leaf_defs()]
 
     # ---- wood: (points, widths, bumps, scar every, scar start)

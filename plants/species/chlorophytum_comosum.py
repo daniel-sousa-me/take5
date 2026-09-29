@@ -24,7 +24,7 @@ from core import PAL, cr_path, ribbon, f, uid, pot, svg_doc, reset_ids  # noqa: 
 P = PAL
 CX = 300
 RIM_Y = 586
-RX = 100
+RX = 92
 CROWN = (300, 614)      # leaf bases converge here (hidden by the rim front)
 
 # tiers: margin, margin shade, stripe, stripe shade
@@ -220,7 +220,7 @@ def plantlet(x, y, spec, roots):
 
 # ------------------------------------------------------------------ build
 def build(report=False):
-    back, front = pot("classic", cx=CX, rim_y=RIM_Y, rx=RX, base_w=70, band=False)
+    back, front = pot("classic", cx=CX, rim_y=RIM_Y, rx=RX, base_w=65, band=False)
     layers = {}
     for k, specs in LEAVES.items():
         svgs = []

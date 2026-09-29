@@ -226,7 +226,7 @@ def flower(x, y, deg, s=1.0, bud=False):
 # ------------------------------------------------------------------ build
 def build():
     reset_ids()
-    back, front = pot(kind="bowl", cx=300, rim_y=600, bottom=752, rx=126, rim_h=28, base_w=88, band=True)
+    back, front = pot(kind="bowl", cx=300, rim_y=600, bottom=752, rx=112, rim_h=28, base_w=78, band=True)
     D, F, M, S, Lt, Pa = P["deep"], P["forest"], P["mid"], P["sage"], P["light"], P["pale"]
 
     # base pad, rooted below the rim

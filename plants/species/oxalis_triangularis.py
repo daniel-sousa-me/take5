@@ -320,7 +320,7 @@ LEAVES = [
 
 def build():
     reset_ids()
-    back, front = pot(kind="classic", cx=300, rim_y=592, bottom=752, rx=96, rim_h=30, base_w=70,
+    back, front = pot(kind="classic", cx=300, rim_y=592, bottom=752, rx=100, rim_h=30, base_w=72,
                       band=True)
     body = [back]
     # flowers sit behind most foliage in depth but rise above it

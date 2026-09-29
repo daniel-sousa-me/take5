@@ -310,7 +310,7 @@ def grow(n, L0, L1, tier, first=1, f0=0.2, ang0=58, ang1=26, up=0.25, under=(), 
 
 # ---------------------------------------------------------------- plant
 def build():
-    back, front = pot("classic", cx=300, rim_y=590, rx=102, base_w=72, band=True)
+    back, front = pot("classic", cx=300, rim_y=590, rx=92, base_w=65, band=True)
     out = [defs(), back]
     Y = SOIL_Y
 
@@ -359,8 +359,8 @@ def build():
     out.append(front)
 
     # front copy: only beyond the lip crossing (x side of the strand) and outside the opening
-    ell = f"M{f(300 - 102)} 590A102 15.3 0 1 0 {f(300 + 102)} 590A102 15.3 0 1 0 {f(300 - 102)} 590Z"
-    for i, (x0, x1) in enumerate(((0, 238), (364, 600))):
+    ell = f"M{f(300 - 92)} 590A92 13.8 0 1 0 {f(300 + 92)} 590A92 13.8 0 1 0 {f(300 - 92)} 590Z"
+    for i, (x0, x1) in enumerate(((0, 245), (357, 600))):
         out.append(f'<clipPath id="rimout{i}"><path clip-rule="evenodd" '
                    f'd="M{x0} 0H{x1}V800H{x0}Z{ell}"/></clipPath>')
     out += [sh.stem(f"rimout{i}" if sh.lead else None) for i, sh in enumerate(trails)]
@@ -377,14 +377,14 @@ def trail_shoots():
     hanging stems; some twist to show the plum underside."""
     return [
         # long left strand: hangs down the pot side, tip turning out well above the ground line
-        Shoot([(232, 600), (198, 594), (170, 610), (150, 644), (134, 674), (116, 694), (98, 700)], 5.4, 2.8, 2,
+        Shoot([(239, 600), (208, 594), (172, 610), (150, 644), (134, 674), (116, 694), (98, 700)], 5.4, 2.8, 2,
               grow(8, 74, 34, 2, first=-1, f0=0.08, seed=11, ang0=78, ang1=44, up=0.9, under={2, 5},
                    utone=1, shapes="abcab", tier_tip=1, bracts=True),
-              tip_flower=(15, 10, 10), lead=[(272, 614), (264, 597), (249, 592)]),
+              tip_flower=(15, 10, 10), lead=[(272, 614), (268, 597), (254, 592)]),
         # medium right strand
-        Shoot([(370, 600), (406, 594), (436, 612), (454, 652), (462, 700), (462, 730)], 5.2, 2.8, 2,
+        Shoot([(363, 600), (396, 594), (432, 612), (454, 652), (462, 700), (462, 730)], 5.2, 2.8, 2,
               grow(7, 72, 34, 2, first=1, f0=0.08, seed=12, ang0=78, ang1=44, up=0.9, under={3},
-                   utone=0, shapes="cabca", tier_tip=1), lead=[(318, 614), (328, 596), (350, 592)]),
+                   utone=0, shapes="cabca", tier_tip=1), lead=[(318, 614), (325, 596), (345, 592)]),
         # short front drape
         Shoot([(326, 602), (344, 614), (352, 638), (352, 662)], 4.4, 2.8, 2,
               grow(3, 58, 36, 2, first=1, f0=0.35, seed=13, ang0=74, ang1=50, up=0.8, under={1},

@@ -241,13 +241,14 @@ def contour(phi0, phi1, u, n=6, wobble=0.04, seed=0, drift=0.0):
 def _flower_def():
     cup = cr_path([(-5.5, 0), (-7.2, -9), (-6.4, -15), (6.4, -15), (7.2, -9), (5.5, 0)],
                   closed=True, sharp={0, 2, 3, 5})
-    fan = cr_path([(-6.2, -13), (-15, -25), (-13.5, -33), (-5, -38.5), (5, -38.5), (13.5, -33),
-                   (15, -25), (6.2, -13)], closed=True, sharp={0, 7})
-    dots = [(-12.5, -30), (-6.5, -36.5), (0.5, -39), (7, -36), (12.8, -29.5), (-2.5, -31), (4.5, -30)]
-    d = "".join(f'<circle cx="{x}" cy="{y}" r="2.2" fill="{P["wine"]}"/>' for x, y in dots)
-    styles = (f'<path d="M-4 -16 L-9 -29 M0 -16 L0 -33 M4 -16 L9 -29" fill="none" '
-              f'stroke="{P["pale"]}" stroke-width="3" stroke-linecap="round"/>')
-    return (f'<g id="fl"><path d="{fan}" fill="{P["spot"]}"/>{styles}{d}'
+    # the white florets are the paper itself: no pale fan (it would print as a barely-there tint). A brush of
+    # five pale filaments, each ending in a dark anther, reads as the flower on its own.
+    tops = [(-12.5, -30), (-6.5, -36.5), (0.5, -39), (7, -36), (12.8, -29.5)]
+    roots = [(-4.2, -15), (-2.2, -15), (0, -15), (2.2, -15), (4.2, -15)]
+    fil = "".join(f"M{x0} {y0} L{x1 * 0.9:.1f} {y1 * 0.95 + 0.5:.1f}" for (x0, y0), (x1, y1) in zip(roots, tops))
+    styles = (f'<path d="{fil}" fill="none" stroke="{P["pale"]}" stroke-width="3.2" stroke-linecap="round"/>')
+    d = "".join(f'<circle cx="{x}" cy="{y}" r="2.4" fill="{P["wine"]}"/>' for x, y in tops)
+    return (f'<g id="fl">{styles}{d}'
             f'<path d="{cup}" fill="{P["sage"]}"/>'
             f'<path d="M1.5 -14 L5.8 -14 L6.4 -9 L4.6 0 L1.5 0Z" fill="#6A7E60"/></g>')
 
