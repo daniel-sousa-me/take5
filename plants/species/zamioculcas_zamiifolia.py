@@ -48,9 +48,13 @@ def stalk_path(pts, wfun, n=40, end=1.0):
         L.append((p[0] - nx * w, p[1] - ny * w))
         R.append((p[0] + nx * w, p[1] + ny * w))
     L, R = L[::2], R[::2]
-    tip, _ = at(s, acc, end)
+    # the tip point sits a little AHEAD of the last width pair (a short convex
+    # taper); at the same arc position it pinched the end into a V (two points)
+    # (the last side points get zero handles too: the coarse spacing made the
+    # spline overshoot there into two little horns either side of the tip)
+    tip, _ = at(s, acc, min(1.0, end + 2.0 / acc[-1]))
     ring = L + [tip] + R[::-1]
-    return cr_path(ring, closed=True, sharp={0, len(ring) - 1})
+    return cr_path(ring, closed=True, sharp={0, len(L) - 1, len(L) + 1, len(ring) - 1})
 
 
 def leaflet_shape(L, k, curl):

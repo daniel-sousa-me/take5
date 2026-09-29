@@ -174,7 +174,9 @@ def leaves():
         L.append(c)
 
     # ---- crown: young, pale leaves at the stem apex, peeking over the top leaf
-    add((256, 130), 31, .50, -16, "light", (298, 318), [(290, 250), (266, 168)], pet_w=(3.6, 2.4), pet="sage", nveins=5)
+    # (lifted a little up-left off the centre leaf so a short stretch of its stalk
+    # shows between the two, entering the rim aimed at the centre dot)
+    add((247, 121), 31, .50, -16, "light", (298, 318), [(290, 252), (256, 186)], pet_w=(3.8, 2.6), pet="sage", nveins=5)
     add((340, 114), 25, .44, 14, "pale", (299, 318), [(312, 250), (334, 148)], pet_w=(3.4, 2.2), pet="sage", nveins=5)
     # ---- back layer: big, dark leaves
     add((164, 322), 72, .88, -12, "deep", (297, 470), [(252, 420), (200, 360)], pet_w=(6, 3.4), pet="sage")

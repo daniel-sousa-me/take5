@@ -224,7 +224,7 @@ LEAVES = [
     (0, "T", 0.95, -22, 7, 136, 0.90, 1.0, -0.04, "deep", 5),     # upper left
     (0, "T", 0.92, 30, 7, 140, 0.88, 1.0, 0.04, "deep", 6),       # upper right
     (0, "T", 0.56, 118, 8, 128, 0.86, 1.0, 0.10, "deep", 15),     # low right, drooping
-    (0, "B", 0.72, -136, 6, 118, 0.88, 1.0, 0.08, "deep", 17),    # branch, drooping
+    (0, "B", 0.72, -136, 15, 118, 0.88, 1.0, 0.08, "deep", 17),   # branch, drooping (visible petiole)
     # ---- middle tones
     (1, "T", 1.00, 12, 5, 118, 0.92, 0.95, 0.03, "mid", 8),        # newest top leaf
     (1, "B", 1.00, -62, 6, 132, 0.86, 1.0, -0.05, "mid", 10),     # branch terminal leaf

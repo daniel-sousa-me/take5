@@ -201,8 +201,9 @@ def frond_parts(pts, tone, n_pairs, lmax, seed, bare=0.2, near="upper", spread=(
             sr.append((raw[j][0] + (raw[j + 1][0] - raw[j][0]) * u, raw[j][1] + (raw[j + 1][1] - raw[j][1]) * u))
         rach = ribbon(sr, w_l, rach_w[1], per=2)
     else:
-        # the rachis ends just past the last leaflet pair (no bare whip tip)
-        cut = min(1.0, last + 0.012)
+        # the rachis ends at the base of the last leaflet, its tip hidden in the
+        # leaflet junction (no bare whip tip poking past the last pair)
+        cut = min(1.0, last - 0.004)
         k = next((i for i in range(len(acc)) if acc[i] >= cut * acc[-1]), len(s) - 1)
         sc = s[:k + 1]
         rach = ribbon(sc[::3] + ([sc[-1]] if (len(sc) - 1) % 3 else []), rach_w[0], rach_w[1], per=4)

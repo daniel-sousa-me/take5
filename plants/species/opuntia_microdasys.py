@@ -29,8 +29,10 @@ STAMEN = "#D5D08E"   # pale yellow-green anthers: low contrast on the ochre thro
 STIGMA = "#C9CB84"   # stigma, a hair greener
 BAND = {  # thickness band tone for each face tone (a clear step darker)
     P["pale"]: "#8E9E80", P["light"]: P["sage"], P["sage"]: "#5F7355",
-    P["mid"]: P["forest"], P["forest"]: "#2E4633",
+    P["mid"]: P["forest"], P["forest"]: "#2E4633", "#4B6349": "#34503A",
 }
+BACKPAD = "#4B6349"  # edge-on centre-back pad: half a step lighter than forest (mid's own shade tone)
+PAD_SHADE = dict(SHADE, **{BACKPAD: P["forest"]})
 PROF = [(0.0, 0.16), (0.07, 0.5), (0.22, 0.82), (0.45, 0.99), (0.64, 1.0),
         (0.8, 0.9), (0.91, 0.66), (0.975, 0.34)]
 
@@ -102,7 +104,7 @@ class Pad:
     def svg(self, tufts=True):
         d = self.path()
         cid = uid("pd")
-        sh = SHADE.get(self.fill, "#27392C")
+        sh = PAD_SHADE.get(self.fill, "#27392C")
         band = BAND.get(self.fill, "#27392C")
         tr = T(self.x, self.y, self.deg, 1, self.sx)
         # thickness band: same outline, offset toward lower-right in world space
@@ -159,11 +161,11 @@ class Pad:
 
 
 def glochid_defs():
-    """Areole discs: warm cream-gold on the darker pads (light knockout),
+    """Areole discs: light gold (mustard lifted toward cream, same family) on the darker pads (light knockout),
     mustard on the pale young pads (dark-on-light). r=2.6 -> 5.6 units wide
     after the plant scale, above the 4.5-unit knockout minimum."""
     return ('<defs>'
-            f'<circle id="arb" r="2.6" fill="#E9D59A"/>'
+            f'<circle id="arb" r="2.6" fill="#E4C67A"/>'
             f'<circle id="ara" r="2.4" fill="{P["mustard"]}"/>'
             '</defs>')
 
@@ -231,7 +233,7 @@ def build():
     p0 = Pad(292, 672, -4, 228, 168, M, asym=0.04, seed=1)
     # tier 2: left pad leans out, right pad more upright (no mirror symmetry)
     a3 = p0.top(4, 14)
-    p3 = Pad(a3[0], a3[1], 6, 196, 150, F, sx=0.3, seed=3)            # edge-on, centre-back
+    p3 = Pad(a3[0], a3[1], 6, 196, 150, BACKPAD, sx=0.42, seed=3)            # edge-on, centre-back
     a1 = p0.top(-42, 16)
     p1 = Pad(a1[0], a1[1], -28, 182, 136, S, asym=-0.05, seed=4)
     a2 = p0.top(36, 16)

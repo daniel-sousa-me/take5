@@ -282,8 +282,10 @@ def build():
     ]
     top = [
         # B1: side fork off the leader (the trunk continues as the top branch)
+        # (scars start at sample 14: the ring at 3 sat in the fork, hidden by the trunk
+        # except for its round end, which peeked out as a dark half-disc)
         ([(288, 420), (268, 364), (250, 308), (238, 258), (233, 226)], [20, 15, 12.5, 10, 9],
-         (), 7, 3),
+         (), 7, 14),
     ]
     W = [wood(*l) for l in side + top]
     W.append(wood(TRUNK, TRUNK_W, ((1.6, 5), (3.4, 4), (5.0, 3), (7.6, 1.5)), every=8, start=4))

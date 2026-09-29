@@ -203,8 +203,8 @@ FOCAL = dict(x=298, y=338, rot=-8, L=150, col=F, side=1, x0=300,
 # --- turned leaf showing its burgundy underside, low left
 # its petiole rises on its own, left of the others, and only hooks over at
 # the very top into the sinus (never meeting a neighbouring petiole)
-UNDER = dict(x=222, y=472, rot=-118, L=104, col=P["burgundy"], x0=272,
-             via=[(262, 500)], w=(7, 4.5), pc=PET, ap=0.42)
+UNDER = dict(x=222, y=472, rot=-108, L=104, col=P["burgundy"], x0=272,
+             via=[(268, 446)], w=(7, 4.5), pc=PET, ap=0.5)
 
 
 

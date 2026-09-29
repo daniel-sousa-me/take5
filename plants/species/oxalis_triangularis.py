@@ -10,7 +10,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-from core import PAL, f, cr_path, ribbon, pot, svg_doc, uid, reset_ids  # noqa: E402
+from core import PAL, f, cr_path, cr_sample, ribbon, pot, svg_doc, uid, reset_ids  # noqa: E402
 
 P = PAL
 # leaf ramp, dark -> light (burgundy family); blotch uses the same ramp + 2
@@ -192,8 +192,34 @@ def trio(tip, L, yaw, droop=0.35, fold=0.1, elev=0.9, lean=0.0, off=0, var=(1, 1
     return "".join(leaflet(fr, Li, W, off, asym) for _, fr, Li, W, asym in parts)
 
 
-def petiole(base, tip, bow=0.0, w0=5.2, w1=3.0, color=PET_FRONT):
-    """Wiry petiole: rises steeply out of the soil, then arches out to the tip."""
+def tail_ribbon(pts, w0, w1, tail, per=6):
+    """core.ribbon, but the last `tail` units narrow to a fine point, so the stalk
+    runs into the leaflet junction without a round end showing above it."""
+    s = cr_sample(pts, per)
+    n = len(s)
+    dist = [0.0] * n
+    for i in range(n - 2, -1, -1):
+        dist[i] = dist[i + 1] + math.dist(s[i], s[i + 1])
+    L, R = [], []
+    for i, p in enumerate(s):
+        a, b = s[max(i - 1, 0)], s[min(i + 1, n - 1)]
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        m = math.hypot(dx, dy) or 1
+        nx, ny = -dy / m, dx / m
+        w = (w0 + (w1 - w0) * (i / (n - 1))) / 2
+        if dist[i] < tail:
+            w *= 0.15 + 0.85 * math.sin(dist[i] / tail * math.pi / 2)  # smooth onset, pointed end
+        L.append((p[0] + nx * w, p[1] + ny * w))
+        R.append((p[0] - nx * w, p[1] - ny * w))
+    step = max(1, per // 2)
+    keep = sorted(set(list(range(0, n, step)) + [k for k in range(n) if dist[k] < tail * 1.5] + [n - 1]))
+    ring = [L[k] for k in keep] + [R[k] for k in keep][::-1]
+    return cr_path(ring, closed=True, sharp={0, len(ring) - 1})
+
+
+def petiole(base, tip, bow=0.0, w0=5.2, w1=3.0, color=PET_FRONT, tail=0.0):
+    """Wiry petiole: rises steeply out of the soil, then arches out to the tip.
+    tail: narrow the last stretch to a point that runs into the leaflet junction."""
     bx, by = base
     tx, ty = tip
     dx, dy = tx - bx, ty - by
@@ -201,6 +227,8 @@ def petiole(base, tip, bow=0.0, w0=5.2, w1=3.0, color=PET_FRONT):
     p1 = (bx + dx * 0.10 + bow * 0.4, by + dy * 0.34 - lift * 0.5)
     p2 = (bx + dx * 0.50 + bow, by + dy * 0.78 - lift)
     p3 = (tx - dx * 0.12 + bow * 0.2, ty - dy * 0.06 - lift * 0.12)
+    if tail:
+        return f'<path d="{tail_ribbon([base, p1, p2, p3, tip], w0, w1, tail)}" fill="{color}"/>'
     return f'<path d="{ribbon([base, p1, p2, p3, tip], w0, w1)}" fill="{color}"/>'
 
 
@@ -311,7 +339,7 @@ def build():
         col = PET_BACK if off < 2.0 else PET_FRONT
         w0 = 5.6 if off >= 2.0 else 5.2
         bx = 300 + (tip[0] - 300) * 0.24 + (bx - 300) * 0.5
-        body.append(petiole((bx, 602), tip, bow, w0, 4.0, col))
+        body.append(petiole((bx, 602), tip, bow, w0, 4.0, col, tail=7.0))
         t = trio(tip, L, yaw, droop, fold, elev, lean, off, var, folds)
         (late if tip[1] > 540 else body).append(t)
     body.append(front)

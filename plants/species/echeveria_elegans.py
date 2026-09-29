@@ -325,7 +325,27 @@ def bell_def():
     ])
 
 
-def stalk_svg(pts, w0, w1, bracts, flowers, rise_side=1):
+def tip_bud(p, d, turn=0.0, s=1.0):
+    """Small unopened bud closing the raceme tip: its base sits over the end of the
+    stalk (hiding the stalk's round end), pointing on along the stalk, turned
+    `turn` degrees away from the last open bell. Coral like the bells, with a
+    shaded half and a little green sepal collar, all above the print minimums."""
+    a = math.degrees(math.atan2(d[1], d[0])) - 90 + turn
+    L, W = 12.5, 3.5
+
+    def at(t, w):
+        return (W * w, L * t - 2.5)
+    body = [at(0, 0), at(.2, .84), at(.48, 1.0), at(.76, .6), at(1, 0),
+            at(.76, -.6), at(.48, -1.0), at(.2, -.84)]
+    sh = [at(0, 0), at(.5, .06), at(1, 0), at(.76, -.6), at(.48, -1.0), at(.2, -.84)]
+    col = [at(-.02, 0), at(.14, 1.05), at(.34, .72), at(.22, 0), at(.34, -.72), at(.14, -1.05)]
+    return (f'<g transform="translate({f(p[0])} {f(p[1])}) rotate({a:.0f}) scale({s:g})">'
+            f'<path d="{cr_path(body, sharp={0, 4})}" fill="{BELL}"/>'
+            f'<path d="{cr_path(sh, sharp={0, 2})}" fill="{BELL_SH}"/>'
+            f'<path d="{cr_path(col, sharp={0, 1, 2, 3, 4, 5})}" fill="{RAMP[4]}"/></g>')
+
+
+def stalk_svg(pts, w0, w1, bracts, flowers, rise_side=1, bud_turn=0.0):
     cid = uid("q")
     sd = ribbon(pts, w0, w1, per=5)
     out = [f'<path id="{cid}p" d="{sd}" fill="{STALK}"/>']
@@ -341,6 +361,8 @@ def stalk_svg(pts, w0, w1, bracts, flowers, rise_side=1):
         ang = math.degrees(math.atan2(-hang[0], hang[1]))
         out.append(f'<use href="#bell" transform="translate({f(p[0])} {f(p[1])}) '
                    f'rotate({ang:.0f}) scale({s:g})"/>')
+    p, d = along(pts, 1.0)
+    out.append(tip_bud(p, d, bud_turn))
     return "".join(out)
 
 
@@ -364,8 +386,8 @@ def build():
            (1.0, (0.45, 1), 0.76)]
 
     def stalks():
-        return (stalk_svg(stalk2, 8.0, 4.4, [0.40], fl2, rise_side=-1)
-                + stalk_svg(stalk1, 9.0, 4.6, [0.30, 0.44], fl1))
+        return (stalk_svg(stalk2, 8.0, 4.4, [0.40], fl2, rise_side=-1, bud_turn=16)
+                + stalk_svg(stalk1, 9.0, 4.6, [0.30, 0.44], fl1, bud_turn=-34))
 
     main = rosette(*RC, hook=stalks, hook_after=1)
     pup_rings = [(7, 10, 24, 150, .40, 3, 0), (6, 34, 20, 112, .42, 5, 30),
