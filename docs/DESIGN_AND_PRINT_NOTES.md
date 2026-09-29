@@ -37,11 +37,26 @@ for history; where it disagrees with this file, this file wins (card size and pr
   A filled shape only loses its stroke; an outline in the shape's own fill colour is left alone. Dots and slivers
   are never changed, only reported. The plant masters are drawn to these rules, so a compliant master passes
   through unchanged (`ok (unchanged)` in the build output); `python deck/print_prep.py -v` lists the rest.
+- **Paper-white.** The stock is ivory (`STOCK` = `#F3EBDA` in `print_prep.py`, L* ≈ 93). Ink only darkens paper, so a
+  colour at or lighter than the stock can't print as drawn: the driver leaves it blank or dithers a sparse speckle
+  into it. `print_prep.py` sets every fill / stroke / stop colour with L* ≥ the stock's and chroma C* ≤ 15 (a near-
+  neutral cream or white) to `#FFFFFF`, i.e. no ink, bare stock. Today that is `#FBF6EA` (`PAL["ivory"]`): chlorophytum's
+  cream stripes (12 shapes), pilea (4), spathiphyllum's light spathe half (3), tradescantia (3), senecio's pearl
+  highlight (1). It's informational, not a rule break: the masters keep their colour (right on screen), the plant still
+  reports `ok (unchanged)` for the line rules, and the count is shown beside it as `[paper-white: N]` (`-v` lists the
+  colours). Darker creams such as `#E8E2D1` (L* 90) print as a real tint and are left alone. The card face itself
+  has nothing lighter than the stock (tier fields are L* ≤ 87; `PAPER_BG` is off, so `C["cream"]` `#F5EDDD` is unused;
+  the sheet background is `#fff` = no ink); the shared pot ground shadow is `deep` at 11 % opacity, ≈ `#E8EBE9` over
+  paper, just under the stock's L* and meant as a faint shadow, so it stays. The back has no paper-white colour
+  (`back.check()` asserts it).
 - The pot band (`pot(band=True)` in `plants/core.py`) is an opaque pre-blended line 4 units wide (a step
   darker again over the pot's shaded side), so masters and cards match.
 - The proof page tests line weights, the leaf-green steps (plus four burgundy pairs that meet on the cards:
   Tradescantia's leaf-band tiers and the oxalis / tradescantia wine–burgundy–plum steps, `BURG_PAIRS` in
-  `deck/proof.py`, which warns if those colours leave the plant art), the corner tints and solid colours, the
+  `deck/proof.py`, which warns if those colours leave the plant art), the corner tints and solid colours, a row of near-paper tints (`TINTS` in `deck/proof.py`: `#FFFFFF`, `#FBF6EA`, `#F6EFDF`,
+  `#F0E6D2`, `#EADFC8`, each as a patch on bare paper inside grey corner ticks and as a stripe down a leaf-green bar,
+  printed as drawn; `*` marks the ones at or lighter than the stock, which the plant print copies send as no ink —
+  check whether the unstarred `#F0E6D2` / `#EADFC8` print as a clean tint or as speckle), the
   scale, the 3-digit numerals at 100 % (the top-left 30 × 24 mm of real cards 100 and 104, the tightest digit pairs in the deck,
   so digit spacing can be judged on the real stock; the print-setting reminders that stood beside the scale test
   moved into the intro lines), and shows the neighbouring tiers side by side: the top 30.5 mm of real cards 25, 30, 22 and 55 (tiers 2, 3, 5, 7), drawn with
@@ -112,7 +127,14 @@ for history; where it disagrees with this file, this file wins (card size and pr
   bunch springs from the corner, so nothing floats and nothing crosses the bottom cut mid-width. Leaves are
   placed along their stems at a constant angle, alternating sides and shrinking to the tip. Like the card-face
   plants, each leaf has a darker turned-away half (a solid, about the same step as `plants/core.py` `SHADE`) and an
-  opaque pre-blended midrib 0.3 mm wide; no opacity anywhere on the back.
+  opaque pre-blended midrib 0.3 mm wide; no opacity anywhere on the back. Every midrib is a pale line 20 L* above its
+  leaf (`vein_col()`: a solid mix toward `VEIN_PALE` `#E1E6D6`, still darker than the stock). Before, the lighter
+  top-right leaves had dark midribs and the bottom-left bunch pale ones; the pale line reads crisper at card size.
+- The lily (`LILY` = base (268, 810), −8°, 0.72 in 0.1 mm units) sits a little higher and turned slightly left of its
+  first place, so its lower right petal no longer runs along the low sweep with ~1 mm of paper between them (a
+  near-tangent): now ≥ 2 mm of paper everywhere between the lily (flower + stem) and the sweep (2.2 mm at the closest;
+  `LILY_GAP`, asserted by `back.check()` via `paper_gap()`, which ignores the paper right beside a decisive overlap), its
+  left petal clearly overlaps the upright's big leaf, and its top is still ≈ 11.4 mm from the "5".
 - The three burgundy berries sit fully inside the trim (≥ 1.2 mm; currently 1.8 mm at the closest), fanned out on
   stalks from one point on the upright stem, drawn in front of the upright stem's leaves.
 - Art only crosses the cut at those two corners (within 22 mm of them), and only as leaves and stems (no berry is

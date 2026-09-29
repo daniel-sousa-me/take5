@@ -4,6 +4,7 @@ All content sits inside Canon's recommended print area for A4 on the GX5000 seri
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import cairosvg, deck, paths
+from print_prep import paper_white, STOCK
 
 PAL = dict(night="#27392C", deep="#314B37", forest="#405D43", mid="#5B7458", sage="#7F9273",
            light="#A5B296", pale="#C9D2BC", terra="#B96E4A", soil="#5C4331", red="#B95850",
@@ -19,6 +20,7 @@ TIER_CARDS = ((2, 25), (3, 30), (5, 22), (7, 55))   # section 5: one real card p
 CARD_S = 0.68     # section 5 card scale (four trim-wide cards across x 14..196 mm)
 NUM3_CARDS = (100, 104)   # section 4: 3-digit numbers at 100 %, top-left corner of the trim
 NUM3_W, NUM3_H, X3 = 30.0, 24.0, 133   # crop (mm) and left edge of that test
+TINTS = ("#FFFFFF", "#FBF6EA", "#F6EFDF", "#F0E6D2", "#EADFC8")   # section 3: near-paper tints, lightest first
 CROP = 30.5       # section 5: card shown from the top cut down to this depth (mm), just below two rows of marks
 
 
@@ -73,11 +75,11 @@ def build():
             x = 52 + i * 21
             g.append(f'<rect x="{x}" y="{yy}" width="18" height="6.5" fill="{bg}"/>')
             g.append("".join(f'<path d="M{x + 2.5 + k * 4.3} {yy + 0.8}v4.9" stroke="{fg}" stroke-width="{w}"/>' for k in range(4)))
-    g.append(t(52, y + 42, "The artwork uses ≥ 0.15 mm for dark lines and ≥ 0.20 mm for light-on-dark lines.", 2.1))
+    g.append(t(52, y + 41, "The artwork uses ≥ 0.15 mm for dark lines and ≥ 0.20 mm for light-on-dark lines.", 2.1))
 
     # 2 — tone steps: the palette's adjacent leaf greens, then the burgundy pairs that meet on the cards
     # (read from plants/out/tradescantia_zebrina.svg and oxalis_triangularis.svg, see BURG_PAIRS)
-    y += 47
+    y += 45
     g.append(h(y, "2  Leaf tone steps — each pair must still read as two different tones"))
     order = ["night", "deep", "forest", "mid", "sage", "light", "pale"]
     pairs = [(PAL[a], PAL[b], f"{a} / {b}") for a, b in zip(order, order[1:])]
@@ -94,7 +96,7 @@ def build():
 
     # 3 — flat fields + solids
     y += 33
-    g.append(h(y, "3  Flat colour — look for banding or grain; dry-rub the solids"))
+    g.append(h(y, "3  Flat colour — look for banding or grain; dry-rub the solids; near-paper tints (bottom row)"))
     for i, p in enumerate([1, 2, 3, 5, 7]):
         tint, acc, sprig, ncol, gcol = deck.TIER[p]
         x = X0 + i * 37
@@ -108,9 +110,25 @@ def build():
     for i, k in enumerate(["terra", "soil", "red", "burgundy", "blush", "mustard", "amber", "deep"]):
         g.append(f'<rect x="{X0 + i * 23}" y="{y + 23}" width="20" height="6" fill="{PAL[k]}"/>')
         g.append(t(X0 + i * 23, y + 32, k, 2.0))
+    # near-paper tints, printed as drawn: each as a patch on bare paper (grey corner ticks 0.6 mm outside it) and
+    # as a stripe down a leaf-green bar (chlorophytum's cream stripe, the spathe's light half). Tints marked * are
+    # at or lighter than the stock: print_prep.py sends those as no ink (#FFFFFF) in the plant print copies.
+    ty, th, tp = y + 34.3, 4.5, 28
+    for i, c in enumerate(TINTS):
+        x = X0 + i * tp
+        k6, e = 0.6, 1.2
+        ticks = "".join(f'M{cx + sx * k6} {cy + sy * k6 - sy * e}v{sy * e}h{-sx * e}'
+                        for cx, cy, sx, sy in ((x, ty, -1, -1), (x + 9, ty, 1, -1), (x, ty + th, -1, 1), (x + 9, ty + th, 1, 1)))
+        g.append(f'<path d="{ticks}" fill="none" stroke="#999" stroke-width="0.12"/>'
+                 f'<rect x="{x}" y="{ty}" width="9" height="{th}" fill="{c}"/>'
+                 f'<rect x="{x + 10.2}" y="{ty}" width="7" height="{th}" fill="{PAL["mid"]}"/>'
+                 f'<rect x="{x + 12.9}" y="{ty}" width="1.6" height="{th}" fill="{c}"/>')
+        g.append(t(x + 18.4, ty + 3.1, c + ("*" if paper_white(c) else ""), 1.7))
+    g.append(t(X0 + 5 * tp + 1, ty + 1.7, "Near-paper tints: on paper · on green", 1.6))
+    g.append(t(X0 + 5 * tp + 1, ty + 4.1, f"* ≥ {STOCK} stock → no ink on the cards", 1.6))
 
     # 4 — scale + setting log
-    y += 38
+    y += 44
     g.append(h(y, "4  Scale"))
     g.append(f'<path d="M{X0} {y + 6}h100M{X0} {y + 4.5}v3M{X0 + 100} {y + 4.5}v3" stroke="#333" stroke-width="0.25"/>')
     g.append(t(X0 + 71, y + 3.6, "must measure 100 mm", 2.3))

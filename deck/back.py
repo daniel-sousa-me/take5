@@ -15,6 +15,7 @@ import paths
 sys.path.insert(0, str(paths.PLANTS_DIR))
 from core import Leaf, leaf_g, cr_path, ribbon, stem, line, T, f, uid, reset_ids
 import deck
+from print_prep import STOCK, lab, paper_white
 
 G = dict(dark="#3F5A3C", forest="#4B6843", mid="#607B52", sage="#7F9468", light="#9DAE88",
          vein_d="#2F4630", vein_l="#C9D2BC")
@@ -43,11 +44,26 @@ def mix(a, b, t):
     return "#" + "".join(f"{round(int(a[i:i + 2], 16) * (1 - t) + int(b[i:i + 2], 16) * t):02X}" for i in (1, 3, 5))
 
 
+VEIN_PALE = "#E1E6D6"   # midrib target: a pale sage, still darker than the ivory stock (never paper-white)
+VEIN_DL = 20.0          # every midrib sits this many L* above its leaf, so the veins read alike on every tone
+
+
+def vein_col(col):
+    """Pale midrib for a leaf of colour col: the solid mix of col -> VEIN_PALE that is VEIN_DL L* lighter.
+    Every leaf on the back gets the same kind of vein (a pale line, like the bottom-left bunch had);
+    before, the lighter top-right leaves had dark veins, which read as a smudge at card size."""
+    L0 = lab(col)[0]
+    lo, hi = 0.0, 1.0
+    for _ in range(20):
+        t = (lo + hi) / 2
+        lo, hi = (t, hi) if lab(mix(col, VEIN_PALE, t))[0] < L0 + VEIN_DL else (lo, t)
+    return mix(col, VEIN_PALE, hi)
+
+
 def leaf(x, y, rot, L, col, width=0.26, bend=0.08, side="r", flip=False, vein=True):
     """Leaf with a darker turned-away half (as on the card faces) and an opaque midrib 0.3 mm wide."""
     lf = leaf_shape(L, width, bend)
-    light = col in (G["dark"], G["forest"], G["mid"])
-    vcol = mix(col, G["vein_l"], 0.5) if light else mix(col, G["vein_d"], 0.4)
+    vcol = vein_col(col) if vein else None
     return leaf_g(lf, col, shade=SHADE.get(col), side=side,
                   midrib=(vcol, 3.0, None, 0.08, 0.8) if vein else None,
                   transform=T(x, y, rot, 1, -1 if flip else 1))
@@ -120,43 +136,55 @@ def branch(pts, leaves, back_cols, front_cols, width=0.2, angle=46, w0=8, w1=3.2
     return out
 
 
+LILY = (268, 810, -8, 0.72)                              # flower base x, y, rotation, scale
+LILY_STEM = [(100, 876), (136, 850), (196, 826), (266, 804)]
+BR = [(70, 930), (170, 868), (290, 845), (400, 806), (470, 788), (520, 780), (552, 776)]   # low right sweep
 BERRY_R = 17
 BERRIES = ((104, 852), [((38, 770), -20), ((34, 845), 2), ((80, 814), -3)], STEM_R, BERRY_R, BERRY, BERRY_S)
 
 
 def build_body():
+    return "".join(s for _, s in build_parts())
+
+
+def build_parts():
+    """The back's layers in drawing order as (name, svg) pairs (build_body joins them); names let check()
+    measure the paper between neighbouring elements."""
     reset_ids()
-    o = []
+    o = _Parts()
     CX = W / 2
     # ---------------------------------------------------------------- top-right spray: one sweep from the corner toward the title
     # kept a step lighter and thinner than the bottom arrangement so the wordmark stays the focal point
     tr = [(700, -60), (618, 30), (538, 100), (460, 148), (380, 178)]
     o.append(branch(tr, [(0.22, 138), (0.36, 132), (0.50, 124), (0.64, 90), (0.78, 90)], sides=[1, -1, 1, -1, 1], w0=6.5,
-                    w1=2.8, back_cols=[G["mid"], G["sage"]], front_cols=[G["sage"], G["sage"], G["light"]], tip=(66, G["light"])))
-    o.append(sprig((462, 147), [((412, 200), -7), ((440, 229), 1), ((472, 223), 5)], STEM_G, 11, MUSTARD, MUSTARD_S, w=2.8))
+                    w1=2.8, back_cols=[G["mid"], G["sage"]], front_cols=[G["sage"], G["sage"], G["light"]], tip=(66, G["light"])), "tr")
+    o.append(sprig((462, 147), [((412, 200), -7), ((440, 229), 1), ((472, 223), 5)], STEM_G, 11, MUSTARD, MUSTARD_S, w=2.8), "tr_sprig")
 
     # ---------------------------------------------------------------- bottom-left arrangement
     # One bunch: every stem springs from the bottom-left corner (the only place, with the top-right,
     # where the art crosses the cut) -- the upright sweep, the berries, the lily and the right sweep.
     # right sweep: low arc out to the right, echoing the top-right spray; stays >= 1 mm above the bottom cut
-    br = [(70, 930), (170, 868), (290, 845), (400, 806), (470, 788), (520, 780), (552, 776)]
+    br = BR
     o.append(branch(br, [(0.52, 98), (0.65, 80), (0.78, 96), (0.90, 62)], angle=38,
-                    back_cols=[G["forest"], G["dark"]], front_cols=[G["sage"], G["mid"]], tip=(56, G["light"]), first=1, w0=7, w1=3))
+                    back_cols=[G["forest"], G["dark"]], front_cols=[G["sage"], G["mid"]], tip=(56, G["light"]), first=1, w0=7, w1=3), "sweep")
     # berries branch off the upright stem (drawn first so the join sits under the stem)
     # all three berries sit fully inside the trim (>= 1.2 mm, see check()), none cut by the left edge; stalks go under the
     # upright stem, the berries themselves are drawn after it so the leaves don't hide them
     berries = BERRIES
-    o.append(sprig(*berries, w=3.4, part="stalks"))
+    o.append(sprig(*berries, w=3.4, part="stalks"), "berry_stalks")
     # lily stem forks off the upright stem low down, rising steeper than the right sweep so the two splay apart
-    # (>= 2 mm of paper between them) right from the corner instead of running side by side
-    o.append(stem([(100, 876), (136, 850), (196, 832), (256, 818)], 7, 4, STEM_G))
+    # right from the corner instead of running side by side. The flower (LILY) sits high enough and turned a little
+    # to the left so its lower right petal no longer runs along the sweep with a ~1 mm sliver of paper (it did at
+    # (258, 824, 10deg, 0.74)): now >= 2 mm everywhere (LILY_GAP, asserted in check()), and its left petal
+    # decisively overlaps the upright's big leaf instead of grazing it.
+    o.append(stem(LILY_STEM, 7, 4, STEM_G), "lily_stem")
     # upright sweep: up the left side, ending in a mustard sprig
     bl = [(85, 945), (106, 830), (100, 720), (108, 620)]
     o.append(branch(bl, [(0.24, 160), (0.43, 136), (0.61, 100), (0.80, 90)],
-                    back_cols=[G["dark"], G["forest"]], front_cols=[G["mid"], G["sage"]], first=1, w0=8))
-    o.append(sprig(*berries, w=3.4, part="dots"))
-    o.append(sprig((108, 622), [((72, 566), -6), ((112, 544), 4), ((152, 570), 6)], STEM_G, 16, MUSTARD, MUSTARD_S))
-    o.append(lily(258, 824, 10, 0.74, ORANGE, ORANGE_S, ORANGE_HI, "#D9A04A"))
+                    back_cols=[G["dark"], G["forest"]], front_cols=[G["mid"], G["sage"]], first=1, w0=8), "upright")
+    o.append(sprig(*berries, w=3.4, part="dots"), "berries")
+    o.append(sprig((108, 622), [((72, 566), -6), ((112, 544), 4), ((152, 570), 6)], STEM_G, 16, MUSTARD, MUSTARD_S), "mustard")
+    o.append(lily(*LILY, ORANGE, ORANGE_S, ORANGE_HI, "#D9A04A"), "lily")
 
     # ---------------------------------------------------------------- wordmark
     ink = deck.C["deep"]      # the darkest, largest element on the back: the eye lands here first
@@ -164,8 +192,16 @@ def build_body():
              + deck.LABEL_FONT.path("TAKE", 126, 318, 380, track=0.04)
              + "</g>"
              + '<g fill="%s">' % ink + deck.PathFont(deck.FONT).path("5", 218, 318, 540) + "</g>")
-    o.append(title)
-    return "".join(o)
+    o.append(title, "title")
+    return o.items
+
+
+class _Parts:
+    def __init__(self):
+        self.items = []
+
+    def append(self, svg, name=""):
+        self.items.append((name, svg))
 
 
 BERRY_MIN = 12       # berries stay >= 1.2 mm inside the trim
@@ -176,6 +212,41 @@ EDGE_BAND = 10       # top-right and bottom-left trim corners
 def berry_circles():
     """(x, y, r) of the burgundy berries, exactly as sprig() draws them."""
     return [(tx, ty, BERRY_R * (0.85 + 0.3 * ((tx * 7 + ty * 3) % 10) / 10)) for (tx, ty), _ in BERRIES[1]]
+
+
+LILY_GAP = 20        # >= 2 mm of paper between the lily (flower + stem) and the low sweep wherever they don't overlap
+
+
+def paper_gap(a_names, b_names, box=(60, 650, 560, 880), k=2, excl=20):
+    """Shortest paper gap (body units) between layers a and b of the back, rendered at k px per unit inside box,
+    ignoring the 'excl' units round any place where they overlap (a decisive crossing is fine; a near miss
+    that runs alongside, i.e. a near-tangent, is not). Returns (gap, where, overlap px)."""
+    import io, cairosvg, numpy as np
+    from PIL import Image, ImageFilter
+    parts = dict(build_parts())
+    x0, y0, x1, y1 = box
+
+    def mask(names):
+        svg = (f'<svg xmlns="http://www.w3.org/2000/svg" width="{x1 - x0}" height="{y1 - y0}" '
+               f'viewBox="{x0} {y0} {x1 - x0} {y1 - y0}">{"".join(parts[n] for n in names)}</svg>')
+        return np.array(Image.open(io.BytesIO(cairosvg.svg2png(bytestring=svg.encode(), scale=k))).convert("RGBA"))[..., 3] > 128
+
+    def filt(m, flt):
+        return np.array(Image.fromarray((m * 255).astype(np.uint8)).filter(flt)) > 0
+    a, b = mask(a_names), mask(b_names)
+    ov = a & b
+    near_ov = filt(ov, ImageFilter.MaxFilter(2 * excl * k + 1)) if ov.any() else np.zeros_like(a)
+    ea = a & ~filt(a, ImageFilter.MinFilter(3)) & ~near_ov & ~b
+    eb = b & ~filt(b, ImageFilter.MinFilter(3))
+    ya, xa = np.nonzero(ea)
+    yb, xb = np.nonzero(eb)
+    best = (9e9, None)
+    for i in range(0, len(xa), 400):
+        D = np.hypot(xa[i:i + 400, None] - xb[None], ya[i:i + 400, None] - yb[None]).min(1)
+        j = int(D.argmin())
+        if D[j] < best[0]:
+            best = (float(D[j]), (x0 + xa[i + j] / k, y0 + ya[i + j] / k))
+    return best[0] / k, best[1], int(ov.sum())
 
 
 def check(px_per_mm=10):
@@ -199,6 +270,13 @@ def check(px_per_mm=10):
     d_bl = np.hypot(bx, by - H)
     bad = near_edge & (d_tr > CORNER_R) & (d_bl > CORNER_R)
     assert not bad.any(), f"ink at the cut away from the two corners, e.g. {bx[bad][0]:.0f}, {by[bad][0]:.0f}"
+    # the lily and the low sweep must not run side by side with a sliver of paper between them
+    g, where, _ = paper_gap(["lily", "lily_stem"], ["sweep"])
+    assert g >= LILY_GAP - 1, f"lily only {g / 10:.2f} mm from the low sweep near {where}"
+    # nothing on the back may be lighter than the stock (ink cannot print lighter than the paper)
+    import re
+    pale = sorted({c for c in re.findall(r"#[0-9A-Fa-f]{6}\b", build_body()) if paper_white(c)})
+    assert not pale, f"colours at or lighter than the {STOCK} stock on the back: {pale}"
     return clear
 
 
@@ -219,8 +297,9 @@ def standalone(path, scale_px=8):
 
 if __name__ == "__main__":
     import cairosvg
-    print("back edge check ok; berry clearance to the trim (mm):", check())
+    print("back edge check ok; berry clearance to the trim (mm):", check(),
+          f"; lily-to-sweep paper {paper_gap(['lily', 'lily_stem'], ['sweep'])[0] / 10:.2f} mm")
     paths.BUILD.mkdir(exist_ok=True)
     svg = standalone(str(paths.BUILD / "card_back.svg"))
     guide = svg.replace("</svg>", f'<rect x="{deck.B}" y="{deck.B}" width="{deck.TW}" height="{deck.TH}" fill="none" stroke="#f0f" stroke-width="0.12"/></svg>')
-    cairosvg.svg2png(bytestring=guide.encode(), write_to=str(paths.BUILD / "card_back_preview.png"), output_width=int(deck.CW * 10), background_color="#FBF6EA")
+    cairosvg.svg2png(bytestring=guide.encode(), write_to=str(paths.BUILD / "card_back_preview.png"), output_width=int(deck.CW * 10), background_color=STOCK)  # preview on the ivory stock colour
