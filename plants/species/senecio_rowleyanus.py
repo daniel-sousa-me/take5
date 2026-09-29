@@ -1,16 +1,17 @@
-"""Senecio rowleyanus (string of pearls) -- v4.
+"""Senecio rowleyanus (string of pearls) -- v5.
 
-Classic pot (set scale, bottom 752). The crown is a dome built from strands
-that climb out of the soil and curl over along nested shells (back / tall /
-dark -> front / low / light), so the mound reads as tangled strings of beads,
-not a pile of grapes. The outer dome strands keep going over the rim and
-trail down the sides; short shoots arch up just above the dome and flop
-over; a few front strands spill over the front rim.
+Habit: a low cushion of pearls just above the rim, a few strands arching a
+little up and over, and a long curtain of strands spilling over the rim and
+hanging down both sides and the front of the pot at varied lengths. The
+vertical rhythm comes from the hanging strands, not from an upright column.
 
-Every bead is one shared <use>: a pre-rotated symbol (round body + small
-pointed tip + translucent window stripe, tip turned away from its stem and
-leaning toward the growing end) with an un-rotated darker lower crescent, so
-light always reads from above. Five tone sets give depth.
+Depth is carried by three clearly separated tone sets:
+  back  (forest)  - cushion silhouette + strands hanging behind the pot sides
+  mid   (sage)    - cushion middle + strands spilling over the side rims
+  front (pale)    - cushion front row + strands draping over the front rim
+Every bead is one shared <use>: a body (round, small pointed tip turned
+along the strand), an un-rotated darker lower-right crescent and an opaque
+upper-left highlight, so light always reads from above-left.
 
 Run:  python3 species/senecio_rowleyanus.py  -> out/senecio_rowleyanus.svg
 """
@@ -21,73 +22,63 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
-from core import PAL, cr_sample, open_path, pot, svg_doc, f, reset_ids  # noqa: E402
+from core import PAL, cr_path, cr_sample, open_path, pot, svg_doc, f, reset_ids  # noqa: E402
 
 P = PAL
 CX = 300
 RIM_Y = 588
 BOTTOM = 752
-RX = 100
+RX = 98
 R0 = 10.0      # bead symbol radius (scaled per bead)
-NANG = 16      # pre-rotated symbol angles
-SHOULDER = 0.85
-RXF = 1.08
-HT = 1.5       # crown height factor (dome shells' ry)
-SHOOT_UP = 55  # young shoots lifted by this much with the taller dome
+TIP_MIN = 6.8  # smallest bead radius: keeps the highlight dot print-safe
 
-# tone sets: body, crescent, window, stem
+# tone sets: body, crescent, highlight, stem
 TONES = {
-    "d": (P["forest"], "#34503A", P["mid"], P["night"]),
-    "b": (P["mid"], "#4B6349", P["sage"], P["deep"]),
-    "m": (P["sage"], "#6A7E60", P["light"], P["forest"]),
-    "f": (P["light"], "#8E9E80", P["pale"], P["forest"]),
-    "p": (P["pale"], P["light"], P["spot"], P["mid"]),
+    "d": (P["deep"], P["night"], P["mid"], P["night"]),
+    "m": (P["mid"], "#4B6349", P["light"], P["night"]),
+    "f": (P["light"], "#8E9E80", P["ivory"], P["forest"]),
 }
 
 
 # ------------------------------------------------------------------ bead defs
-def _crescent_path(dx=-2.2, dy=-3.6, r=R0):
-    """Circle(0,0,r) minus circle(dx,dy,r): a lower-right crescent."""
+def _crescent_path(dx=-3.4, dy=-4.8, r=R0, n=10):
+    """Circle(0,0,r) minus circle(dx,dy,r): a lower-right crescent, written with
+    cubic segments (no arcs, so the print checker measures it correctly)."""
     d = math.hypot(dx, dy)
-    mx, my = dx / 2, dy / 2
+    ux, uy = dx / d, dy / d
     h = math.sqrt(r * r - (d / 2) ** 2)
-    ux, uy = -dy / d, dx / d
-    p1 = (mx + ux * h, my + uy * h)
-    p2 = (mx - ux * h, my - uy * h)
-    return (f"M{p1[0]:.1f} {p1[1]:.1f}A{r:g} {r:g} 0 1 1 {p2[0]:.1f} {p2[1]:.1f}"
-            f"A{r:g} {r:g} 0 0 0 {p1[0]:.1f} {p1[1]:.1f}Z")
+    base = math.atan2(-uy, -ux)                    # direction of the crescent's middle
+    half = math.acos((d / 2) / r)                  # half-angle to the cusps on the outer circle
+    outer = [(r * math.cos(base - half + 2 * half * i / n), r * math.sin(base - half + 2 * half * i / n))
+             for i in range(n + 1)]
+    cx2, cy2 = dx, dy
+    b2 = math.atan2(outer[-1][1] - cy2, outer[-1][0] - cx2)
+    e2 = math.atan2(outer[0][1] - cy2, outer[0][0] - cx2)
+    if e2 > b2:
+        e2 -= 2 * math.pi
+    inner = [(cx2 + r * math.cos(b2 + (e2 - b2) * i / n), cy2 + r * math.sin(b2 + (e2 - b2) * i / n))
+             for i in range(1, n)]
+    return cr_path(outer + inner, closed=True, sharp={0, n})
 
 
 def defs(used):
-    """Shape defs + one symbol per (tone, angle) actually used."""
-    a = math.radians(16)
-    sx, sy = R0 * math.sin(a), -R0 * math.cos(a)
-    body = (f"M{sx:.2f} {sy:.2f}A{R0:g} {R0:g} 0 1 1 {-sx:.2f} {sy:.2f}"
-            f"Q-1 -11 0 -13.6Q1 -11 {sx:.2f} {sy:.2f}Z")
-    window = "M1.2 5.6Q5.4 -0.8 1.4 -8.4Q3.2 -1 1.2 5.6Z"
-    out = ["<defs>", f'<path id="bd" d="{body}"/>', f'<path id="bw" d="{window}"/>',
-           f'<path id="bc" d="{_crescent_path()}"/>']
+    """One bead symbol per tone: round body, lower-right crescent, upper-left highlight."""
+    out = ["<defs>", f'<path id="bc" d="{_crescent_path()}"/>']
     for k in sorted({t for t, _ in used}):
-        b, c, w, _ = TONES[k]
-        out.append(f'<use id="C{k}" href="#bc" fill="{c}"/>')
-        out.append(f'<g id="W{k}"><use href="#bd" fill="{b}"/><use href="#bw" fill="{w}" opacity=".7"/></g>')
-    for k, i in sorted(used):
-        out.append(f'<g id="{k}{i}"><use href="#W{k}" transform="rotate({i * 360 // NANG})"/>'
-                   f'<use href="#C{k}"/></g>')
+        b, c, h, _ = TONES[k]
+        out.append(f'<g id="{k}"><circle r="{R0:g}" fill="{b}"/><use href="#bc" fill="{c}"/>'
+                   f'<circle cx="-3.6" cy="-3.4" r="3.4" fill="{h}"/></g>')
     out.append("</defs>")
     return "".join(out)
 
 
 class Beads:
-    """Collects bead placements; renders each as a single <use>."""
-
     def __init__(self):
         self.used = set()
 
     def one(self, x, y, r, ang, tone):
-        i = int(round((ang % 360) / (360 / NANG))) % NANG
-        self.used.add((tone, i))
-        return f'<use href="#{tone}{i}" transform="translate({f(x)} {f(y)}) scale({r / R0:.2f})"/>'
+        self.used.add((tone, 0))
+        return f'<use href="#{tone}" transform="translate({f(x)} {f(y)}) scale({r / R0:.2f})"/>'
 
     def many(self, beads):
         return "".join(self.one(*b) for b in beads)
@@ -114,9 +105,11 @@ def _at(pts, acc, s):
     return b, ((b[0] - a[0]) / m, (b[1] - a[1]) / m)
 
 
-def strand(ctrl, tone, seed, r0=9.4, r1=3.8, start=0.0, side0=1, lean=30, taper_from=0.0, gmin=1.8):
-    """Thin stem through ctrl with beads alternating sides, shrinking toward
-    the end (after `taper_from` of the length). Returns (stem_svg, beads)."""
+def strand(ctrl, tone, seed, r0=9.4, r1=TIP_MIN, start=0.0, side0=1, lean=30, taper_from=0.5,
+           gmin=2.2):
+    """Stem through ctrl with beads alternating sides, shrinking toward the end
+    (after `taper_from` of the length). Returns (stem_svg, beads)."""
+    r1 = max(r1, TIP_MIN)
     rnd = random.Random(seed)
     pts = cr_sample(ctrl, 12)
     acc = _arclen(pts)
@@ -124,24 +117,24 @@ def strand(ctrl, tone, seed, r0=9.4, r1=3.8, start=0.0, side0=1, lean=30, taper_
 
     def rad(s):
         u = max(0.0, (min(1.0, s / L) - taper_from) / (1 - taper_from))
-        return r0 + (r1 - r0) * (u ** 1.15)
+        return r0 + (r1 - r0) * (u ** 1.2)
 
     beads = []
     s, side = start, side0
     while True:
         u = min(1.0, s / L)
-        r = rad(s) * rnd.uniform(0.94, 1.06)
+        r = rad(s) * rnd.uniform(0.95, 1.05)
         (px, py), (tx, ty) = _at(pts, acc, s)
         nx, ny = -ty * side, tx * side
-        off = r * rnd.uniform(0.42, 0.6)
+        off = r * rnd.uniform(0.38, 0.55)
         bx, by = px + nx * off, py + ny * off
-        la = math.radians(lean + rnd.uniform(-14, 14))
+        la = math.radians(lean + rnd.uniform(-12, 12))
         dx = nx * math.cos(la) + tx * math.sin(la)
         dy = ny * math.cos(la) + ty * math.sin(la)
         beads.append((bx, by, r, math.degrees(math.atan2(dx, -dy)), tone))
         rn = rad(s + 2 * r)
-        gap = gmin + rnd.uniform(0, 2.0) + 1.6 * u
-        lat = (r + rn) * 0.5
+        gap = gmin + rnd.uniform(0, 2.4) + 2.0 * u
+        lat = (r + rn) * 0.48
         step = math.sqrt(max((r + rn + gap) ** 2 - lat ** 2, (r + rn) ** 2 * 0.3))
         if s + step > L:
             break
@@ -151,120 +144,82 @@ def strand(ctrl, tone, seed, r0=9.4, r1=3.8, start=0.0, side0=1, lean=30, taper_
     sp = [p for p, a in zip(pts, acc) if a < s] + [(lx, ly)]
     sp = sp[::4] + [sp[-1]]
     stem_svg = (f'<path d="{open_path(sp)}" fill="none" stroke="{TONES[tone][3]}" '
-                f'stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>')
+                f'stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>')
     return stem_svg, beads
 
 
+def draw(B, items, **kw):
+    out = []
+    for c, t, sd, r0, s0 in items:
+        st, bs = strand(c, t, sd, r0=r0, side0=s0, **kw)
+        out += [st, B.many(bs)]
+    return out
+
+
 # ------------------------------------------------------------------ layout
-def shell_strand(x0, rx, ry, a0, a1, tail=None, jit=3.0, seed=0):
-    """Crown strand: rises from (x0, soil) to the shell top near angle a0 and
-    curls over along the ellipse (CX, RIM_Y) to angle a1 (deg from vertical,
-    + = right). Optional tail points continue it (e.g. over the rim)."""
-    rnd = random.Random(seed)
-    pts = [(x0, RIM_Y + 2)]
-    n = 5
-    for k in range(n + 1):
-        a = math.radians(a0 + (a1 - a0) * k / n)
-        sa, ca = math.sin(a), math.cos(a)
-        # superellipse (exponent < 1): full, rounded shoulders instead of a pointed dome
-        sx = math.copysign(abs(sa) ** SHOULDER, sa)
-        cy = math.copysign(abs(ca) ** SHOULDER, ca)
-        pts.append((CX + rx * sx + rnd.uniform(-jit, jit),
-                    RIM_Y - ry * cy + rnd.uniform(-jit, jit)))
-    if tail:
-        pts += tail
-    return pts
+# (control points, tone, seed, first bead radius, first side)
+# BACK: silhouette of the cushion; outer strands arch over the back rim and
+# hang behind / beside the pot sides (drawn before the pot front)
+BACK = [
+    ([(300, 590), (272, 522), (232, 494), (194, 500), (168, 530), (154, 580), (148, 630),
+      (144, 680), (148, 722)], "d", 11, 9.6, 1),
+    ([(304, 590), (330, 518), (370, 490), (408, 498), (432, 532), (446, 580), (452, 632),
+      (448, 682), (452, 726)], "d", 12, 9.6, -1),
+    ([(292, 588), (294, 512), (314, 476), (346, 468), (372, 482)], "d", 13, 9.8, 1),
+    ([(310, 588), (302, 510), (280, 472), (250, 464), (226, 478)], "d", 14, 9.8, -1),
+    # arching shoots: up a little, over, and down beside the pot
+    ([(266, 580), (238, 488), (192, 442), (142, 446), (110, 484), (98, 538), (96, 598),
+      (100, 648), (96, 690)], "d", 15, 9.4, 1),
+    ([(336, 580), (366, 504), (408, 474), (450, 484), (478, 516), (494, 560), (498, 600),
+      (494, 626)], "d", 16, 9.4, -1),
+    ([(300, 588), (300, 500), (318, 452), (350, 440), (380, 452), (394, 480)], "d", 19, 9.4, 1),
+]
+
+# MID: the middle of the cushion; the outer ones spill over the side rims
+MID_IN = [  # drawn before the pot front (stay inside the cushion)
+    ([(300, 594), (294, 540), (266, 512), (230, 514), (208, 540)], "m", 21, 9.8, 1),
+    ([(302, 594), (314, 538), (344, 512), (380, 518), (398, 546)], "m", 22, 9.8, -1),
+    ([(284, 594), (298, 532), (326, 500), (354, 498)], "m", 23, 9.8, 1),
+    ([(304, 582), (270, 572), (236, 574), (208, 584)], "m", 29, 9.6, 1),
+    ([(298, 584), (332, 570), (366, 572), (394, 584)], "m", 30, 9.6, -1),
+]
+MID_OUT = [  # over the side rims: drawn after the pot front
+    ([(262, 574), (230, 540), (200, 552), (186, 590), (182, 640), (188, 690), (182, 728)],
+     "m", 25, 9.6, -1),
+    ([(342, 574), (376, 540), (404, 556), (414, 596), (416, 640), (410, 680)], "m", 26, 9.6, 1),
+    ([(282, 566), (236, 516), (184, 504), (144, 526), (126, 570), (122, 620), (126, 664),
+      (122, 700)], "m", 27, 9.4, -1),
+    ([(322, 562), (372, 512), (424, 506), (462, 534), (476, 580), (478, 634), (472, 690),
+      (476, 724)], "m", 28, 9.4, 1),
+]
+
+# FRONT: the cushion's front row (resting on the rim) and strands draping
+# over the front of the rim and down the pot face
+FRONT_ROW = [
+    ([(308, 600), (276, 594), (244, 592), (214, 596)], "f", 31, 9.8, 1),
+    ([(294, 598), (326, 590), (358, 590), (388, 596)], "f", 32, 9.8, -1),
+]
+DRAPES = [
+    ([(234, 590), (220, 616), (216, 648), (222, 684), (216, 714)], "f", 41, 9.6, 1),
+    ([(266, 594), (258, 620), (262, 662), (256, 704), (260, 732)], "f", 42, 9.6, -1),
+    ([(318, 596), (324, 620), (318, 648), (324, 672)], "f", 43, 9.6, 1),
+    ([(352, 592), (362, 614), (358, 650), (364, 696), (358, 728)], "f", 44, 9.6, -1),
+    ([(386, 590), (398, 610), (400, 640)], "f", 45, 9.4, 1),
+]
 
 
 def build():
     reset_ids()
     B = Beads()
     back, front = pot(kind="classic", cx=CX, rim_y=RIM_Y, bottom=BOTTOM, rx=RX, rim_h=30,
-                      base_w=70, band=True)
-
-    # ---- crown shells: (x0, rx, ry, a0, a1, tone, tail)
-    crown = [
-        # back shell (tall, dark): defines the dome silhouette
-        (CX - 6, 112, 150, -6, -84, "d",
-         [(CX - 136, 612), (CX - 140, 646)]),
-        (CX + 8, 118, 146, 4, 92, "d",
-         [(CX + 128, 610), (CX + 136, 656), (CX + 128, 700), (CX + 134, 730)]),
-        (CX - 2, 100, 162, 14, -30, "d", None),
-        (CX + 4, 90, 158, -20, 34, "d", None),
-        # back-mid shell, the outer ones spill over the rim sides and trail
-        (CX - 14, 118, 104, -20, -96, "b",
-         [(CX - 120, 606), (CX - 128, 652), (CX - 120, 696), (CX - 126, 728)]),
-        (CX + 16, 120, 100, 18, 98, "b",
-         [(CX + 118, 606), (CX + 114, 648), (CX + 120, 680)]),
-        (CX + 2, 96, 126, -4, 44, "b", None),
-        (CX - 4, 92, 122, 8, -52, "b", None),
-        # mid shell
-        (CX - 10, 104, 84, 4, -84, "m", None),
-        (CX + 10, 100, 86, -6, 80, "m", None),
-        (CX + 4, 80, 104, -28, 26, "m", None),
-        # front shell (low, light) - front row sits on the rim
-        (CX - 16, 96, 58, -6, -80, "f", None),
-        (CX + 14, 94, 54, 10, 82, "f", None),
-        (CX, 64, 64, 30, -24, "f", None),
-    ]
-    # ---- front strands spilling over the front rim and down the pot face
-    drapes = [
-        ([(CX - 62, 592), (CX - 84, 610), (CX - 96, 652), (CX - 88, 698), (CX - 96, 734)],
-         "p", 41, 9.2, 3.8, 1),
-        ([(CX - 18, 598), (CX - 26, 632), (CX - 18, 672), (CX - 30, 712)], "p", 42, 9.0, 4.8, -1),
-        ([(CX + 24, 600), (CX + 32, 640), (CX + 22, 690), (CX + 30, 716), (CX + 24, 738)],
-         "p", 43, 9.2, 3.8, 1),
-        ([(CX + 70, 594), (CX + 88, 620), (CX + 90, 666)], "p", 44, 8.8, 5.4, -1),
-    ]
-
-    # ---- low carpet of strands lying on the soil (hides it; nothing floats)
-    carpet_back = [
-        ([(CX + 10, 579), (CX - 30, 574), (CX - 70, 576), (CX - 94, 584)], "b", 71, -1),
-        ([(CX - 14, 578), (CX + 30, 573), (CX + 70, 575), (CX + 94, 584)], "b", 72, 1),
-        ([(CX - 60, 586), (CX - 20, 584), (CX + 24, 586), (CX + 64, 585)], "b", 75, 1),
-    ]
-    carpet_front = [
-        ([(CX + 6, 591), (CX - 34, 595), (CX - 70, 594), (CX - 100, 598)], "m", 73, 1),
-        ([(CX - 8, 593), (CX + 36, 597), (CX + 72, 595), (CX + 100, 598)], "m", 74, -1),
-    ]
-
-    def lay(lst):
-        res = []
-        for c, t, sd, s0 in lst:
-            st, bs = strand(c, t, sd, 9.6, 8.8, start=2, side0=s0, lean=40, gmin=-1.0)
-            res += [st, B.many(bs)]
-        return res
-
+                      base_w=68, band=True)
     body = [back]
-    # ---- young shoots rising above the dome and flopping over (tips in air)
-    shoots = [  # rise at most ~80 px above the dome, then flop over
-        ([(CX - 30, 540), (CX - 52, 470), (CX - 74, 420), (CX - 104, 404), (CX - 126, 420),
-          (CX - 134, 450)], "b", 81, 9.8, 7.0, 1),
-        ([(CX - 4, 540), (CX - 10, 450), (CX - 4, 390), (CX + 18, 360), (CX + 48, 362),
-          (CX + 64, 388)], "m", 82, 9.6, 7.2, -1),
-        ([(CX + 36, 546), (CX + 60, 470), (CX + 92, 420), (CX + 126, 414), (CX + 146, 440)],
-         "b", 83, 9.4, 7.0, 1),
-        ([(CX - 16, 540), (CX - 26, 460), (CX - 30, 404), (CX - 46, 374), (CX - 70, 376),
-          (CX - 82, 398)], "m", 84, 9.4, 7.2, -1),
-    ]
-    body += lay(carpet_back)
-    for i, (x0, rx, ry, a0, a1, t, tail) in enumerate(crown):
-        if i == 3:
-            for c, t, sd, r0, r1, s0 in shoots:
-                c = [c[0]] + [(x, y - SHOOT_UP * min(1, (c[0][1] - y) / 60)) for x, y in c[1:]]
-                st, bs = strand(c, t, sd, r0, r1, start=40, side0=s0, lean=24, taper_from=0.5)
-                body += [st, B.many(bs)]
-        if i == len(crown) - 3:
-            body += lay(carpet_front)
-        pts = shell_strand(x0, rx * RXF, ry * HT, a0, a1, tail, seed=60 + i)
-        st, bs = strand(pts, t, 100 + i, r0=9.8, r1=(4.0 if tail else 7.2),
-                        start=14, side0=1 if i % 2 else -1, lean=26,
-                        taper_from=(0.45 if tail else 0.0))
-        body += [st, B.many(bs)]
+    body += draw(B, BACK, start=12, lean=28)
+    body += draw(B, MID_IN, start=10, lean=28, taper_from=0.9)
     body.append(front)
-    for c, t, sd, r0, r1, s0 in drapes:
-        st, bs = strand(c, t, sd, r0, r1, start=6, side0=s0, lean=38)
-        body += [st, B.many(bs)]
+    body += draw(B, MID_OUT, start=16, lean=30)
+    body += draw(B, DRAPES, start=8, lean=34, taper_from=0.35)
+    body += draw(B, FRONT_ROW, start=6, lean=30, taper_from=0.9)
     return defs(B.used) + "\n" + "\n".join(body)
 
 

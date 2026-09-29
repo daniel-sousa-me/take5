@@ -1,12 +1,16 @@
-"""Echeveria elegans (Mexican snowball) - v4 generator.
+"""Echeveria elegans (Mexican snowball) -- v5.
 python3 species/echeveria_elegans.py  -> out/echeveria_elegans.svg
 
-Each rosette is built as explicit concentric tiers of thick spoon-shaped leaves
-(flat, slightly creased upper face + keeled underside) in 3-D, projected from a
-3/4 camera and painted outer tier -> inner tier, back -> front, so the spiral
-tiers stay geometrically exact.  Per leaf: silhouette (side / thickness tone),
-upper face in its shaded tone, the lit half of the face, and a blush tip.
-Paths are written relative on a half-pixel grid (scale .5) to keep the file small.
+One rosette of thick spoon-shaped leaves in concentric rings around a single
+centre, seen from slightly above (each ring projects to an ellipse). Rings are
+painted outer -> inner and back -> front; each ring is one clear tone step
+lighter than the ring under it (outer deep blue-green -> pale powdery heart).
+Every leaf is: face (ring tone) + the half turned away from the light (one
+step darker) + its own opaque blush cap at the tip, all clipped to the leaf so
+nothing leaks. The rosette sits in a shallow bowl: its front leaves lie well
+over the rim band, whose lower part stays visible below and on both sides.
+Two offsets on the rim and two nodding coral flower stalks (the taller one
+gives the plant its height).
 """
 import math
 import os
@@ -14,117 +18,33 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
-from core import PAL, cr_sample, uid, reset_ids, pot, svg_doc  # noqa: E402
-
-try:
-    from shapely.geometry import Polygon, Point
-    from shapely.ops import unary_union
-except Exception:  # culling is an optimisation only
-    Polygon = None
+from core import PAL, cr_path, cr_sample, ribbon, f, uid, reset_ids, pot, svg_doc  # noqa: E402
 
 P = PAL
 CX = 300
-RIM_Y = 598
+RIM_Y = 604
 RIM_H = 28
-EL = math.radians(30)                      # camera elevation
-CE, SE = math.cos(EL), math.sin(EL)
-V = (0.0, -CE, SE)                          # towards the camera
-LIGHT = (-0.62, -0.25, 0.74)                # upper-left-front
-_m = math.sqrt(sum(c * c for c in LIGHT))
-LIGHT = tuple(c / _m for c in LIGHT)
+POT_RX = 114
+EL = math.radians(46)                 # camera elevation above the horizon
+SE, CE = math.sin(EL), math.cos(EL)
 
-# powdery blue-green ramp: a slightly bluer extension of PAL sage / light / pale
+# powdery blue-green ramp (bluer extension of PAL sage / light / pale), dark -> light
 RAMP = ["#4A6155", "#5A7165", "#6B8377", "#7F968A", "#94AB9F", "#AABFB4", "#C0D1C7", "#D5E1D8",
         "#E4ECE4"]
-TIP_SIDE = P["rose"]
-TIP_TOP = "#DDA6A2"                          # between PAL blush and its lighter tint
-TIP_TOP_HI = "#E8BDB6"
+BLUSH = "#DCA29E"      # tip cap (between PAL blush and its lighter tint)
+CAP_K = 0.17           # blush cap = leaf outline scaled by this about its tip
 
 
-def dot(a, b):
-    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+def mix(a, b, t):
+    pa = [int(a[i:i + 2], 16) for i in (1, 3, 5)]
+    pb = [int(b[i:i + 2], 16) for i in (1, 3, 5)]
+    return "#" + "".join(f"{round(x + (y - x) * t):02X}" for x, y in zip(pa, pb))
 
 
-def norm(v):
-    m = math.sqrt(dot(v, v)) or 1
-    return tuple(c / m for c in v)
-
-
-# ------------------------------------------------------------------ path encoding
-class Enc:
-    """Catmull-Rom -> relative cubic bezier on a 0.5 px grid (drawn in a scale(.5) group)."""
-
-    @staticmethod
-    def q(p):
-        return (round(p[0] * 2), round(p[1] * 2))
-
-    @staticmethod
-    def poly(pts):
-        cur = Enc.q(pts[0])
-        out = [f"M{cur[0]} {cur[1]}l"]
-        nums = []
-        for p in pts[1:]:
-            e = Enc.q(p)
-            nums += [e[0] - cur[0], e[1] - cur[1]]
-            cur = e
-        s = ""
-        for j, v in enumerate(nums):
-            t = str(v)
-            s += t if (j == 0 or t.startswith("-")) else " " + t
-        return out[0] + s + "z"
-
-    @staticmethod
-    def path(pts, sharp=(), closed=True, k=1.0):
-        n = len(pts)
-        sharp = set(sharp)
-        segs = n if closed else n - 1
-        cur = Enc.q(pts[0])
-        out = [f"M{cur[0]} {cur[1]}"]
-        for i in range(segs):
-            p1, p2 = pts[i], pts[(i + 1) % n]
-            p0 = pts[(i - 1) % n] if (closed or i > 0) else p1
-            p3 = pts[(i + 2) % n] if (closed or i + 2 < n) else p2
-            c1 = p1 if i in sharp else (p1[0] + (p2[0] - p0[0]) / 6 * k, p1[1] + (p2[1] - p0[1]) / 6 * k)
-            c2 = p2 if ((i + 1) % n) in sharp else (p2[0] - (p3[0] - p1[0]) / 6 * k,
-                                                     p2[1] - (p3[1] - p1[1]) / 6 * k)
-            a, b, e = Enc.q(c1), Enc.q(c2), Enc.q(p2)
-            nums = [a[0] - cur[0], a[1] - cur[1], b[0] - cur[0], b[1] - cur[1], e[0] - cur[0], e[1] - cur[1]]
-            s = "c"
-            for j, v in enumerate(nums):
-                t = str(v)
-                s += t if (j == 0 or t.startswith("-")) else " " + t
-            out.append(s)
-            cur = e
-        if closed:
-            out.append("z")
-        return "".join(out)
-
-
-def ribbon_d(pts, w0, w1, per=5):
-    """core.ribbon, but encoded on the half-pixel grid."""
-    s = cr_sample(pts, per)
-    n = len(s)
-    L, R = [], []
-    for i, p in enumerate(s):
-        a, b = s[max(i - 1, 0)], s[min(i + 1, n - 1)]
-        dx, dy = b[0] - a[0], b[1] - a[1]
-        m = math.hypot(dx, dy) or 1
-        nx, ny = -dy / m, dx / m
-        w = (w0 + (w1 - w0) * (i / (n - 1))) / 2
-        L.append((p[0] + nx * w, p[1] + ny * w))
-        R.append((p[0] - nx * w, p[1] - ny * w))
-    step = max(1, per // 2)
-    Ls = L[::step] + ([L[-1]] if (n - 1) % step else [])
-    Rs = R[::step] + ([R[-1]] if (n - 1) % step else [])
-    ring = Ls + Rs[::-1]
-    return Enc.path(ring, sharp={0, len(ring) - 1})
-
-
-# ------------------------------------------------------------------ 3-D leaf
-WP = [(0, .34), (.12, .46), (.28, .64), (.44, .82), (.58, .95), (.70, 1.0), (.80, .93),
-      (.89, .70), (.95, .40), (1.0, 0.0)]          # spatulate / spoon half-width profile
-TP = [(0, .35), (.2, .9), (.4, 1.0), (.65, .8), (.88, .45), (1.0, 0.0)]   # keel thickness profile
-US = [.16, .44, .70, .88]                # edge stations (base + tip added)
+# ------------------------------------------------------------------ leaf geometry
+WP = [(0, .30), (.14, .44), (.32, .66), (.50, .86), (.66, .98), (.78, .92), (.88, .66),
+      (.95, .30), (1.0, 0.0)]         # spoon-shaped half-width profile (fraction of W)
+ST = [0, .16, .38, .58, .76, .88, .95]
 
 
 def interp(tab, u):
@@ -134,322 +54,219 @@ def interp(tab, u):
     return tab[-1][1]
 
 
-class Leaf3:
-    def __init__(self, phi, alpha, L, W, T, curl, r0, z0, cup, tone):
-        self.phi, self.alpha, self.L, self.W, self.T = phi, alpha, L, W, T
-        self.cup, self.tone = cup, tone
-        d = (math.cos(phi), math.sin(phi), 0.0)
-        self.d, self.lat = d, (-math.sin(phi), math.cos(phi), 0.0)
-        n = 40
-        pts, nrm = [], []
+class Leaf:
+    """A leaf growing from the rosette centre in ground direction `th` (0 = right,
+    90 deg = towards the viewer), rising at `al` degrees and curling up by `curl`."""
+
+    def __init__(self, cx, cy, th, al, curl, L, W, r0=0.0, z0=0.0, cup=0.18):
+        self.cx, self.cy = cx, cy
+        self.th, self.L, self.W, self.cup = math.radians(th), L, W, cup
+        d = (math.cos(self.th), math.sin(self.th))
+        self.lat = (-d[1], d[0], 0.0)
+        n = 30
         x, y, z = d[0] * r0, d[1] * r0, z0
+        self.mid3, self.nrm = [], []
         for i in range(n + 1):
             u = i / n
-            th = alpha + curl * u ** 1.7          # the spoon tip curls upwards
-            pts.append((x, y, z))
-            nrm.append((-math.sin(th) * d[0], -math.sin(th) * d[1], math.cos(th)))
+            a = math.radians(al + curl * u ** 1.8)
+            self.mid3.append((x, y, z))
+            self.nrm.append((-math.sin(a) * d[0], -math.sin(a) * d[1], math.cos(a)))
             st = L / n
-            x += math.cos(th) * d[0] * st
-            y += math.cos(th) * d[1] * st
-            z += math.sin(th) * st
-        self._p, self._n = pts, nrm
+            x += math.cos(a) * d[0] * st
+            y += math.cos(a) * d[1] * st
+            z += math.sin(a) * st
+        # upper face visible?  view vector towards the camera: (0, CE, SE)
+        nm = self.nrm[18]
+        self.top = nm[1] * CE + nm[2] * SE > 0.05
+        self.depth = self.mid3[15][1] * CE + self.mid3[15][2] * SE   # nearer camera = larger
 
-    def mid(self, u):
-        i = min(int(u * 40), 39)
-        s = u * 40 - i
-        a, b, na, nb = self._p[i], self._p[i + 1], self._n[i], self._n[i + 1]
-        return (tuple(a[k] + (b[k] - a[k]) * s for k in range(3)),
-                tuple(na[k] + (nb[k] - na[k]) * s for k in range(3)))
+    def p3(self, u, w):
+        i = min(int(u * 30), 29)
+        s = u * 30 - i
+        a, b = self.mid3[i], self.mid3[i + 1]
+        m = [a[k] + (b[k] - a[k]) * s for k in range(3)]
+        n = self.nrm[i]
+        hw = self.W * interp(WP, u)
+        return tuple(m[k] + w * hw * self.lat[k] + self.cup * abs(w) * hw * n[k] for k in range(3))
 
-    def edge(self, u, side):
-        p, n = self.mid(u)
-        w = self.W * interp(WP, u)
-        return tuple(p[k] + side * w * self.lat[k] + self.cup * w * n[k] for k in range(3))
+    def pr(self, p):
+        return (self.cx + p[0], self.cy + p[1] * SE - p[2] * CE)
 
-    def keel(self, u):
-        p, n = self.mid(u)
-        t = self.T * interp(TP, u)
-        return tuple(p[k] - t * n[k] for k in range(3))
+    def pt(self, u, w):
+        return self.pr(self.p3(u, w))
 
-    def belly(self, u, side):
-        """Rounded underside between the margin and the keel."""
-        p, n = self.mid(u)
-        w = self.W * interp(WP, u)
-        t = self.T * interp(TP, u)
-        return tuple(p[k] + side * 0.72 * w * self.lat[k] - 0.78 * t * n[k] for k in range(3))
+    def outline(self):
+        R = [self.pt(u, 1) for u in ST]
+        Lf = [self.pt(u, -1) for u in ST]
+        tip = self.pt(1.0, 0)
+        pts = R + [tip] + Lf[1:][::-1]
+        return pts, {0, len(R), len(pts) - 1 + 1 if False else 0}
 
-    def normal(self, u=0.62):
-        return self.mid(u)[1]
+    def poly(self):
+        R = [self.pt(u, 1) for u in ST]
+        Lf = [self.pt(u, -1) for u in ST]
+        return [self.pt(0, 0)] + R[1:] + [self.pt(1.0, 0)] + Lf[1:][::-1]
 
-    def depth(self):
-        return dot(self.mid(0.6)[0], V)
+    def path(self):
+        R = [self.pt(u, 1) for u in ST]
+        Lf = [self.pt(u, -1) for u in ST]
+        tip = self.pt(1.0, 0)
+        pts = [self.pt(0, 0)] + R[1:] + [tip] + Lf[1:][::-1]
+        return rel_path(pts, sharp={0, len(R)})
+
+    def half(self, side):
+        """Polygon covering one side of the midline (to be clipped by the leaf)."""
+        us = [-.2, .25, .55, .8, 1.0, 1.15]
+        mids = [self.pt(max(0, min(1, u)), 0) if 0 <= u <= 1 else self._ext(u) for u in us]
+        far = [self._off(u, side * 4) for u in us]
+        return mids + far[::-1]
+
+    def _ext(self, u):
+        a, b = self.pt(0, 0), self.pt(0.1, 0)
+        c, d = self.pt(0.95, 0), self.pt(1.0, 0)
+        if u < 0:
+            return (a[0] + (a[0] - b[0]) * 3, a[1] + (a[1] - b[1]) * 3)
+        return (d[0] + (d[0] - c[0]) * 4, d[1] + (d[1] - c[1]) * 4)
+
+    def _off(self, u, w):
+        uu = max(0.02, min(0.98, u))
+        m = self.p3(uu, 0)
+        q = tuple(m[k] + w * self.W * self.lat[k] for k in range(3))
+        return self.pr(q)
+
+    def cap(self, u0=0.80):
+        """Blush cap: a pointed patch running back from the tip along the midline
+        (full width only over the last few percent), clipped by the leaf."""
+        t = self._ext(1.2)
+        c = self.pt(1.0, 0)
+        ex = (t[0] - c[0], t[1] - c[1])
+        r1, l1 = self._off(.94, .6), self._off(.94, -.6)
+        return [self._off(u0, 0), self._off(.88, .3), r1, (r1[0] + ex[0], r1[1] + ex[1]),
+                (l1[0] + ex[0], l1[1] + ex[1]), l1, self._off(.88, -.3)]
+
+    def lit_side(self):
+        """+1 if the right half (lat +) faces the upper-left light better."""
+        lx, ly = self.lat[0], self.lat[1] * SE
+        return 1 if (lx * -0.8 + ly * -0.6) > 0 else -1
 
 
-DROOP = [6, 8, 0, 0, 0, 0, 0]   # front leaves of the outer tiers flop forward a little
-LIFT = 18            # rosette raised so only its lowest leaves go behind the rim band
-MSCALE = 1.56
-PUPS = [(420, 614, .96), (182, 618, .72)]   # offsets sitting on the rim: x, y, scale
-UNDER_BLUSH = False  # rose tip on leaves seen from below (they only peek out as slivers)
-TIP_R = 0.5          # drop a side blush whose leaf tip is hidden ...
-SLIVER = 1.2         # ... or whose visible part is thinner than this (mean half-width)
-FRONT_CAP = 0.35     # leaves pointing at the viewer get their side blush in the face blush
+def _num(v):
+    t = f"{v:.1f}"
+    if t.endswith(".0"):
+        t = t[:-2]
+    if t in ("-0", "-0.0"):
+        t = "0"
+    return t.replace("0.", ".", 1) if t.startswith("0.") else t.replace("-0.", "-.", 1)
 
 
-def rosette(tiers, phase=0.0, twist=0.0, scale=1.0, tone_shift=0, jit=0.0, seed=1):
-    """tiers: (n, alpha_deg, L, Wfrac, r0, z0, tone). Leaves in a tier are evenly
-    spaced; each tier is rotated half a step + `twist` so leaves sit in the gaps."""
-    out = []
-    rot = phase
-    j = seed
-    for ti, (n, a, L, wf, r0, z0, tone) in enumerate(tiers):
-        step = 2 * math.pi / n
-        tier = []
-        for i in range(n):
-            j = (j * 9301 + 49297) % 233280
-            r = j / 233280 - 0.5
-            phi = rot + i * step + r * jit
-            Ls = L * scale * (1 + r * 0.06)
-            fr = max(0.0, -math.sin(phi)) ** 1.5
-            dr = DROOP[ti] if ti < len(DROOP) else 0
-            lf = Leaf3(phi, math.radians(a + r * 4 - dr * fr), Ls, Ls * wf, Ls * 0.17,
-                       curl=math.radians(26 - ti * 3), r0=r0 * scale, z0=z0 * scale,
-                       cup=0.12, tone=tone + tone_shift)
-            tier.append(lf)
-        tier.sort(key=lambda lf: lf.depth())
-        out.append(tier)
-        rot += step / 2 + twist
+def _join(nums):
+    out = ""
+    for v in nums:
+        t = _num(v)
+        if out and not t.startswith("-") and not (t.startswith(".") and "." in out.split(" ")[-1].split("-")[-1]):
+            out += " "
+        out += t
     return out
 
 
-# ------------------------------------------------------------------ 2-D faces
-def proj(p, ox, oy):
-    return (ox + p[0], oy - p[2] * CE - p[1] * SE)
+def rel_path(pts, sharp=()):
+    """cr_path, written with relative cubic segments (smaller file, same curve)."""
+    n = len(pts)
+    sharp = set(sharp)
+    q = lambda p: (round(p[0], 1), round(p[1], 1))  # noqa: E731
+    cur = q(pts[0])
+    d = [f"M{_num(cur[0])} {_num(cur[1])}c"]
+    segs = []
+    for i in range(n):
+        p0, p1, p2, p3 = pts[(i - 1) % n], pts[i], pts[(i + 1) % n], pts[(i + 2) % n]
+        c1 = p1 if i in sharp else (p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6)
+        c2 = p2 if (i + 1) % n in sharp else (p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6)
+        a, b, e = q(c1), q(c2), q(p2)
+        segs += [a[0] - cur[0], a[1] - cur[1], b[0] - cur[0], b[1] - cur[1], e[0] - cur[0], e[1] - cur[1]]
+        cur = e
+    return d[0] + _join(segs) + "z"
 
 
-def faces(lf, ox, oy, u_start=0.0):
-    """Projected faces.  Stations S start at u_start: 0 for leaves seen from above;
-    for leaves seen from below the part hidden in the axil (u < US[0]) is dropped so
-    no narrow wedge of leaf base pokes out beneath the next tier."""
-    pr = lambda p: proj(p, ox, oy)  # noqa: E731
-    S = [u_start] + [u for u in US if u > u_start + 1e-6]
-    tip = pr(lf.mid(1.0)[0])
-    R = [pr(lf.edge(u, 1)) for u in S]
-    Lf = [pr(lf.edge(u, -1)) for u in S]
-    K = [pr(lf.keel(u)) for u in S]
-    M = [pr(lf.mid(u)[0]) for u in S]
-    B = [[pr(lf.belly(u, sd)) for u in S] for sd in (1, -1)]
-    # silhouette: per station the extreme projected point on each side
-    sr, sl = [], []
-    for i, u in enumerate(S):
-        a = pr(lf.mid(max(u - .03, 0))[0])
-        b = pr(lf.mid(u + .03)[0])
-        t = (b[0] - a[0], b[1] - a[1])
-        m = math.hypot(*t) or 1
-        nx, ny = -t[1] / m, t[0] / m
-        if (R[i][0] - M[i][0]) * nx + (R[i][1] - M[i][1]) * ny < 0:
-            nx, ny = -nx, -ny
-        cand = [R[i], Lf[i], K[i], B[0][i], B[1][i]]
-        key = lambda p: (p[0] - M[i][0]) * nx + (p[1] - M[i][1]) * ny  # noqa: E731
-        sr.append(max(cand, key=key))
-        sl.append(min(cand, key=key))
-    # blunt, clasping leaf base
-    sil = [sl[0]] + sr + [tip] + sl[1:][::-1]
-    top = [Lf[0]] + R + [tip] + Lf[1:][::-1]
-    return dict(tip=tip, R=R, L=Lf, K=K, M=M, sil=sil, top=top, n=len(S) - 1)
+def poly_d(pts):
+    """Clip-only helper polygons: whole units are plenty."""
+    return "M" + "L".join(f"{round(x)} {round(y)}" for x, y in pts) + "Z"
 
 
-def half_pts(F, side, under=False):
-    """Lit/shaded half of the visible surface: edge -> tip -> midline (or keel)."""
-    E = F["R"] if side > 0 else F["L"]
-    inner = F["K"] if under else F["M"]
-    return [inner[0]] + E + [F["tip"]] + inner[1:][::-1]
+def width_metric(pts):
+    """4*area/perimeter of a polygon (the print report's 'widest point' measure)."""
+    A = abs(sum(pts[i][0] * pts[i - 1][1] - pts[i - 1][0] * pts[i][1] for i in range(len(pts)))) / 2
+    Pm = sum(math.dist(pts[i], pts[i - 1]) for i in range(len(pts)))
+    return 4 * A / Pm if Pm else 0
 
 
-def tip_pts(lf, ox, oy, u0, top=True):
-    """Blush at the leaf tip.  Upper face: a crescent hugging the margin that
-    tapers back along both edges.  Side/keel: the whole cross-section near the tip."""
-    pr = lambda p: proj(p, ox, oy)  # noqa: E731
-
-    def e(u, side, ext):
-        m = lf.mid(u)[0]
-        q = lf.edge(u, side) if side else lf.keel(u)
-        return pr(tuple(m[k] + ext * (q[k] - m[k]) for k in range(3)))
-    m1, m0 = lf.mid(1.0)[0], lf.mid(0.97)[0]
-    tipo = pr(tuple(m1[k] + (m1[k] - m0[k]) * 3 for k in range(3)))
-    um = u0 + (1 - u0) * 0.55
-    if top:
-        pts = [e(u0, 1, 1.0), e(u0, 1, 1.5), e(um, 1, 1.6), tipo, e(um, -1, 1.6), e(u0, -1, 1.5),
-               e(u0, -1, 1.0), e(um, -1, 0.8), pr(lf.mid(1 - (1 - u0) * 0.16)[0]), e(um, 1, 0.8)]
-        return pts, {0, 1, 5, 6}
-    # keel / side: convex hull of the (over-sized) cross-sections from u0 to the tip
-    from shapely.geometry import MultiPoint
-    cloud = [tipo]
-    for u in (u0, um, 1 - (1 - u0) * 0.15):
-        m = lf.mid(u)[0]
-        for q in (lf.edge(u, 1), lf.edge(u, -1), lf.keel(u), lf.belly(u, 1), lf.belly(u, -1)):
-            cloud.append(pr(tuple(m[k] + 1.5 * (q[k] - m[k]) for k in range(3))))
-    hull = list(MultiPoint(cloud).convex_hull.exterior.coords)[:-1]
-    return hull, set(range(len(hull)))
+MMU = 0.055          # planning print scale, mm per canvas unit (print policy)
+MIN_MM = 0.25        # light shapes narrower than this on the card are left out
 
 
-def poly(pts, sharp=()):
-    if Polygon is None:
-        return None
-    # sample the same Catmull-Rom the path uses (sharp corners approximated)
-    return Polygon(cr_sample(list(pts) + [pts[0]], 4)).buffer(0)
+def leaf_svg(lf, face, shade, blush=True, k=None, ps=MMU):
+    """ps: mm per unit of this rosette's own coordinates (pups are drawn scaled down)."""
+    wm = width_metric(lf.poly()) * ps
+    if wm < MIN_MM:
+        return ""
+    lid, cid = uid("L"), uid("C")
+    if not lf.top:                     # seen from below: whole leaf a step darker
+        face, shade = shade, mix(shade, RAMP[0], 0.5)
+    sh = lf.half(-lf.lit_side())
+    out = [f'<defs><path id="{lid}" d="{lf.path()}"/></defs><use href="#{lid}" fill="{face}"/>',
+           f'<clipPath id="{cid}"><use href="#{lid}"/></clipPath>',
+           f'<g clip-path="url(#{cid})"><path d="{poly_d(sh)}" fill="{shade}"/>']
+    k = k or CAP_K
+    if blush and lf.top and wm * k >= MIN_MM:
+        # the blush cap is the leaf's own outline shrunk towards its tip: a small
+        # leaf-shaped patch that shares the tip point and follows the leaf's shape
+        tx, ty = lf.pt(1.0, 0)
+        out.append(f'<use href="#{lid}" fill="{mix(BLUSH, face, 0.18)}" transform="matrix({k} 0 0 {k} '
+                   f'{f(tx * (1 - k))} {f(ty * (1 - k))})"/>')
+    out.append("</g>")
+    return "".join(out)
 
 
-class Painter:
-    """Collects shapes in paint order; emit() culls shapes that end up (almost)
-    fully covered by later ones, at the level of individual faces."""
-
-    def __init__(self):
-        self.shapes = []     # dict(poly, svg, id, needs)
-
-    def add(self, svg, pts=None, pid=None, needs=(), clip_poly=None, tip=None):
-        pg = None
-        if pts is not None and Polygon is not None:
-            pg = poly(pts)
-            if clip_poly is not None:
-                pg = pg.intersection(clip_poly)
-        self.shapes.append(dict(poly=pg, svg=svg, id=pid, needs=needs, cover=clip_poly is None, tip=tip))
-
-    def extra(self, svg):
-        self.shapes.append(dict(poly=None, svg=svg, id=None, needs=(), cover=False))
-
-    def leaf(self, lf, ox, oy, tipu=0.76, blush=True):
-        n_top = lf.normal()
-        top_vis = dot(n_top, V) > 0.04
-        F = faces(lf, ox, oy, 0.0 if top_vis else US[0])
-        n = F["n"]
-        b = 0.45
-        halves = {}
-        for s in (1, -1):
-            if top_vis:
-                nh = norm(tuple(n_top[k] * math.cos(b) + s * lf.lat[k] * math.sin(b) for k in range(3)))
-            else:
-                nh = norm(tuple(-n_top[k] * 0.5 + s * lf.lat[k] for k in range(3)))
-            halves[s] = dot(nh, LIGHT)
-        lit = 1 if halves[1] > halves[-1] else -1
-        lam = dot(n_top if top_vis else tuple(-c for c in n_top), LIGHT)
-        tone = lf.tone
-        if top_vis:
-            face_c = tone + (1 if lam > 0.55 else 0)
-            lit_c, sil_c = face_c + 1, face_c - 2
-        else:
-            face_c, lit_c, sil_c = tone - 2, tone - 1, tone - 3
-        c_sil, c_face, c_lit = [RAMP[max(0, min(len(RAMP) - 1, c))] for c in (sil_c, face_c, lit_c)]
-        sid, fid = uid("s"), uid("t")
-        sil_d = Enc.path(F["sil"], sharp={0, 1, n + 2})
-        self.add(f'<path id="{sid}" d="{sil_d}" fill="{c_sil}"/>', F["sil"], pid=(sid, sil_d))
-        silp = self.shapes[-1]["poly"]
-        topp = None
-        hs = {0, 1, n + 2}
-        def side_tip(u0):
-            # rose tip on the thickness band / underside (clipped to the silhouette)
-            if not blush:
-                return
-            c1 = uid("k")
-            tp, _ = tip_pts(lf, ox, oy, u0, top=False)
-            # leaves pointing at the viewer show their tip's thickness as a band *below*
-            # the face: paint it in the face's blush so the tip reads as one pink cap
-            # instead of a loose rose crescent under the leaf
-            col = TIP_TOP if -math.sin(lf.phi) > FRONT_CAP else TIP_SIDE
-            self.add(f'<clipPath id="{c1}"><use href="#{sid}"/></clipPath>'
-                     f'<path clip-path="url(#{c1})" d="{Enc.path(tp)}" fill="{col}"/>',
-                     tp, needs=(sid,), clip_poly=silp, tip=proj(lf.mid(1.0)[0], ox, oy))
-        if top_vis:
-            side_tip(0.93)
-            top_d = Enc.path(F["top"], sharp={0, 1, n + 2})
-            self.add(f'<path id="{fid}" d="{top_d}" fill="{c_face}"/>', F["top"], pid=(fid, top_d))
-            topp = self.shapes[-1]["poly"]
-            hp = half_pts(F, lit)
-            self.add(f'<path d="{Enc.path(hp, sharp=hs)}" fill="{c_lit}"/>', hp)
-        else:
-            for sd, c in ((lit, c_face), (-lit, c_lit)):
-                hp = half_pts(F, sd, under=True)
-                self.add(f'<path d="{Enc.path(hp, sharp=hs)}" fill="{c}"/>', hp)
-            if UNDER_BLUSH:
-                side_tip(0.93)
-        if blush and top_vis:
-            c2 = uid("k")
-            tp, sh = tip_pts(lf, ox, oy, tipu, top=True)
-            self.add(f'<clipPath id="{c2}"><use href="#{fid}"/></clipPath>'
-                     f'<path clip-path="url(#{c2})" d="{Enc.path(tp, sharp=sh)}" fill="{TIP_TOP}"/>',
-                     tp, needs=(fid,), clip_poly=topp)
-
-    def emit(self, thr=2.5):
-        keep = [True] * len(self.shapes)
-        cover = None
-        for i in range(len(self.shapes) - 1, -1, -1):
-            sh = self.shapes[i]
-            pg = sh["poly"]
-            if pg is None:
-                continue
-            vis = pg if cover is None else pg.difference(cover)
-            if vis.area < thr or (sh.get("tip") and cover is not None
-                                  and cover.contains(Point(sh["tip"]).buffer(TIP_R))):
-                # a rose tip whose leaf tip is hidden would only show as a loose crescent
-                keep[i] = False
-                continue
-            if sh.get("tip") and vis.length and 2 * vis.area / vis.length < SLIVER:
-                keep[i] = False      # ... and so would a thin visible band of one
-                continue
-            if sh["cover"]:
-                cover = pg if cover is None else unary_union([cover, pg])
-        needed = set()
-        for sh, k in zip(self.shapes, keep):
-            if k:
-                needed.update(sh["needs"])
-        out, defs = [], []
-        for sh, k in zip(self.shapes, keep):
-            if k:
-                out.append(sh["svg"])
-            elif sh["id"] and sh["id"][0] in needed:
-                defs.append(f'<path id="{sh["id"][0]}" d="{sh["id"][1]}"/>')
-        return (f"<defs>{''.join(defs)}</defs>" if defs else "") + "".join(out)
-
-
-# ------------------------------------------------------------------ rosettes
-MAIN = [  # n, alpha, L, Wfrac, r0, z0, tone
-    (8, 5, 118, .36, 7, 0, 3),
-    (8, 18, 105, .36, 5, 7, 4),
-    (7, 42, 85, .38, 4, 14, 4),
-    (6, 54, 64, .39, 3, 20, 4),
-    (5, 66, 46, .40, 2, 25, 5),
-    (4, 78, 30, .44, 1, 29, 6),
-    (3, 86, 18, .48, 0, 32, 6),
-]
-PUP = [
-    (6, 12, 104, .40, 6, 0, 2),
-    (5, 34, 76, .42, 4, 10, 4),
-    (4, 58, 50, .45, 4, 18, 5),
-    (3, 80, 28, .50, 1, 24, 6),
+# ------------------------------------------------------------------ rosette
+# rings, outer -> inner: (n, alpha, curl, L, W/L, ramp index of the face, phase deg)
+RINGS = [
+    (10, 2, 20, 150, .26, 2, 8),
+    (9, 10, 20, 114, .28, 4, 30),
+    (8, 20, 16, 84, .30, 5, 4),
+    (7, 30, 12, 58, .32, 6, 26),
+    (5, 38, 8, 38, .38, 7, 50),
+    (3, 46, 4, 22, .48, 8, 10),
 ]
 
 
-def paint_rosette(pt, tiers, ox, oy, after_tier=None, hook=None, core=0, **kw):
-    sc = kw.get("scale", 1.0)
-    for ti, tier in enumerate(rosette(tiers, **kw)):
-        for lf in tier:
-            pt.leaf(lf, ox, oy)
-        if hook is not None and ti == after_tier:
-            hook(pt)
-        if ti == core:
-            # shadowed heart of the rosette: fills gaps between the inner tiers' bases
-            r = tiers[0][2] * sc * 0.26
-            cy = oy - tiers[1][5] * sc * CE
-            pts = [(ox + r * math.cos(t * math.pi / 4), cy + r * 0.62 * math.sin(t * math.pi / 4))
-                   for t in range(8)]
-            pt.add(f'<path d="{Enc.path(pts)}" fill="{RAMP[1]}"/>', pts)
+def rosette(cx, cy, s=1.0, rings=RINGS, hook=None, hook_after=0, blush=True, jitter=True, k=None,
+            ps=MMU, bud=(5, 3.6)):
+    out = []
+    for ri, (n, al, curl, L, wf, ci, ph) in enumerate(rings):
+        leaves = []
+        for i in range(n):
+            j = ((i * 7 + ri * 3) % 5 - 2) / 2 if jitter else 0
+            th = ph + i * 360 / n + j * 4
+            Ls = L * s * (1 + j * 0.03)
+            leaves.append(Leaf(cx, cy, th, al + j * 2, curl, Ls, Ls * wf, r0=2 * s, z0=ri * 3 * s))
+        leaves.sort(key=lambda lf: lf.depth)
+        face = RAMP[ci]
+        shade = mix(RAMP[ci], RAMP[ci - 1], 0.75)
+        for lf in leaves:
+            out.append(leaf_svg(lf, face, shade, blush, k, ps))
+        if hook and ri == hook_after:
+            out.append(hook())
+    # tiny closed bud at the very heart hides where the innermost leaves meet
+    z = (len(rings) - 1) * 3 * s + 2 * s
+    out.append(f'<ellipse cx="{f(cx)}" cy="{f(cy - z * CE)}" rx="{f(bud[0] * s)}" ry="{f(bud[1] * s)}" '
+               f'fill="{RAMP[8]}"/>')
+    return "".join(out)
 
 
 # ------------------------------------------------------------------ flower stalks
 STALK = P["rose"]
-STALK_SH = P["plum"]
+STALK_SH = mix(P["rose"], P["plum"], 0.5)
 BELL = "#DE9A86"          # coral between PAL blush and terra_hi
 BELL_SH = "#C77F72"
-BELL_TIP = P["mustard"]
 BRACT = RAMP[5]
 BRACT_SH = RAMP[3]
 
@@ -471,8 +288,6 @@ def along(pts, t):
 
 
 def bract(p, d, side, L=15, W=4.6):
-    """Small fleshy sessile bract clasping the stalk (blue-green, like the leaves):
-    its base sits across the stalk, the blade angles up and out to one side."""
     nx, ny = -d[1] * side, d[0] * side
     ax, ay = d[0] * 0.86 + nx * 0.5, d[1] * 0.86 + ny * 0.5
     m = math.hypot(ax, ay)
@@ -484,91 +299,82 @@ def bract(p, d, side, L=15, W=4.6):
         return (b[0] + ax * L * t + px * W * w, b[1] + ay * L * t + py * W * w)
     pts = [b, at(.18, .8), at(.5, 1.0), at(.8, .72), at(1, 0), at(.8, -.72), at(.5, -1.0), at(.18, -.8)]
     half = [b, at(.18, .8), at(.5, 1.0), at(.8, .72), at(1, 0), at(.55, 0)]
-    return (f'<path d="{Enc.path(pts, sharp={0, 4})}" fill="{BRACT_SH}"/>'
-            f'<path d="{Enc.path(half, sharp={0, 4, 5})}" fill="{BRACT}"/>')
+    return (f'<path d="{cr_path(pts, sharp={0, 4})}" fill="{BRACT_SH}"/>'
+            f'<path d="{cr_path(half, sharp={0, 4, 5})}" fill="{BRACT}"/>')
 
 
-def bell(p, hang, s=1.0):
-    """Pendent urn-shaped flower: pedicel from p, bell hanging along `hang`."""
-    hx, hy = hang
-    px, py = -hy, hx
-    ped = 8 * s
-    b0 = (p[0] + hx * ped, p[1] + hy * ped)
-    L, W = 21 * s, 7.8 * s
+def bell_def():
+    """Pendent urn-shaped flower at the origin hanging along +y (pedicel + bell + sepals)."""
+    ped = 9
+    L, W = 23, 8.6
 
     def at(t, w):
-        return (b0[0] + hx * L * t + px * W * w, b0[1] + hy * L * t + py * W * w)
+        return (W * w, ped + L * t)
     body = [at(0, 0), at(.12, .62), at(.45, .98), at(.8, .92), at(1, .78),
             at(1.0, -.78), at(.8, -.92), at(.45, -.98), at(.12, -.62)]
     sh = [at(0, 0), at(.45, 0.05), at(.8, 0.02), at(1, 0.0), at(1.0, -.78), at(.8, -.92),
           at(.45, -.98), at(.12, -.62)]
-    sep = [at(-.05, 0), at(.1, .7), at(.3, .55), at(.16, 0), at(.3, -.55), at(.1, -.7)]
+    sep = [at(-.05, 0), at(.1, .72), at(.34, .56), at(.16, 0), at(.34, -.56), at(.1, -.72)]
+    mouth = [at(1.0, .8), at(1.08, .42), at(1.12, 0), at(1.08, -.42), at(1.0, -.8), at(.94, 0)]
     return "".join([
-        f'<path d="{ribbon_d([p, ((p[0] + b0[0]) / 2 + px * 1.2, (p[1] + b0[1]) / 2 + py * 1.2), b0], 2.2 * s, 1.6 * s)}" fill="{STALK}"/>',
-        f'<path d="{Enc.path(body, sharp={0, 4, 5})}" fill="{BELL}"/>',
-        f'<path d="{Enc.path(sh, sharp={0, 3, 4})}" fill="{BELL_SH}"/>',
-        f'<path d="{Enc.path(sep, sharp={0, 1, 2, 3, 4, 5})}" fill="{RAMP[4]}"/>',
+        f'<path d="{ribbon([(0, 0), (1.2, ped / 2), (0, ped + 1)], 2.8, 2.2)}" fill="{STALK}"/>',
+        f'<path d="{cr_path(body, sharp={0, 4, 5})}" fill="{BELL}"/>',
+        f'<path d="{cr_path(sh, sharp={0, 3, 4})}" fill="{BELL_SH}"/>',
+        f'<path d="{cr_path(mouth, sharp={0, 4})}" fill="{P["mustard"]}"/>',
+        f'<path d="{cr_path(sep, sharp={0, 1, 2, 3, 4, 5})}" fill="{RAMP[4]}"/>',
     ])
 
 
 def stalk_svg(pts, w0, w1, bracts, flowers, rise_side=1):
-    """pts: base (hidden inside the rosette) -> nodding tip."""
     cid = uid("q")
-    sd = ribbon_d(pts, w0, w1, per=5)
+    sd = ribbon(pts, w0, w1, per=5)
     out = [f'<path id="{cid}p" d="{sd}" fill="{STALK}"/>']
-    # thin shaded edge on the side away from the light (right-hand side), clipped to the stalk
-    sh_pts = [((a[0] + 0.4 * w0), a[1] + 0.1 * w0) for a in pts]
+    sh_pts = [(a[0] + 0.42 * w0, a[1] + 0.1 * w0) for a in pts]
     out.append(f'<clipPath id="{cid}"><use href="#{cid}p"/></clipPath>'
-               f'<path clip-path="url(#{cid})" d="{ribbon_d(sh_pts, w0 * 0.7, w1 * 0.7, per=5)}" '
-               f'fill="{STALK_SH}" opacity=".45"/>')
+               f'<path clip-path="url(#{cid})" d="{ribbon(sh_pts, w0 * 0.7, w1 * 0.7, per=5)}" '
+               f'fill="{STALK_SH}"/>')
     for i, t in enumerate(bracts):
         p, d = along(pts, t)
-        out.append(bract(p, (d[0], d[1]), (-1) ** i * rise_side, L=20 - 5 * t, W=5.6 - 1.4 * t))
+        out.append(bract(p, d, (-1) ** i * rise_side, L=22 - 6 * t, W=6.0 - 1.6 * t))
     for t, hang, s in flowers:
         p, d = along(pts, t)
         ang = math.degrees(math.atan2(-hang[0], hang[1]))
-        out.append(f'<use href="#bell" transform="translate({round(p[0] * 2)} {round(p[1] * 2)}) '
+        out.append(f'<use href="#bell" transform="translate({f(p[0])} {f(p[1])}) '
                    f'rotate({ang:.0f}) scale({s:g})"/>')
     return "".join(out)
 
 
 # ------------------------------------------------------------------ build
+RC = (300, 548)          # rosette centre (soil level of the rosette, projected)
+PUPS = [(186, 612, .34), (420, 616, .28)]   # x, y, scale
+
+
 def build():
     reset_ids()
-    back, front = pot(kind="bowl", cx=CX, rim_y=RIM_Y, bottom=752, rx=138, rim_h=RIM_H, base_w=96)
-    pt = Painter()
+    back, front = pot(kind="bowl", cx=CX, rim_y=RIM_Y, bottom=752, rx=POT_RX, rim_h=RIM_H,
+                      base_w=82)
+    # tall stalk: rises from the leaf axils behind the heart, arches right and nods
+    stalk1 = [(314, 516), (320, 440), (324, 360), (338, 290), (366, 236), (404, 210), (440, 214),
+              (464, 238), (472, 266)]
+    stalk2 = [(270, 520), (258, 466), (238, 416), (208, 384), (178, 376), (156, 388), (148, 408)]
+    fl1 = [(0.58, (0.18, 1), 1.08), (0.66, (0.12, 1), 1.06), (0.74, (0.04, 1), 1.02),
+           (0.81, (-0.08, 1), 0.98), (0.875, (-0.25, 1), 0.92), (0.935, (-0.45, 1), 0.84),
+           (0.99, (-0.7, 1), 0.76)]
+    fl2 = [(0.64, (-0.08, 1), 1.0), (0.77, (-0.06, 1), 0.94), (0.89, (0.12, 1), 0.86),
+           (1.0, (0.45, 1), 0.76)]
 
-    # short, tight arching stalks: they add the charm of the nodding coral
-    # bells without setting the plant's height, so the rosette stays dominant
-    stalk1 = [(x, y - LIFT) for x, y in [(296, 548), (296, 470), (300, 400), (318, 336), (350, 292), (390, 274),
-              (424, 282), (446, 306), (452, 326)]]
-    stalk2 = [(x, y - LIFT) for x, y in [(262, 552), (250, 492), (232, 446), (206, 414), (178, 404), (156, 414), (148, 428)]]
-    # one-sided nodding raceme: flowers hang from the underside of the arch,
-    # crowding towards the tip where they are still buds
-    fl1 = [(0.60, (0.18, 1), 1.08), (0.68, (0.12, 1), 1.06), (0.76, (0.04, 1), 1.02),
-           (0.83, (-0.08, 1), 0.96), (0.89, (-0.25, 1), 0.88), (0.945, (-0.45, 1), 0.78),
-           (0.99, (-0.7, 1), 0.66)]
-    fl2 = [(0.66, (-0.08, 1), 0.98), (0.79, (-0.06, 1), 0.92), (0.905, (0.12, 1), 0.82),
-           (1.0, (0.45, 1), 0.68)]
+    def stalks():
+        return (stalk_svg(stalk2, 8.0, 4.4, [0.40], fl2, rise_side=-1)
+                + stalk_svg(stalk1, 9.0, 4.6, [0.30, 0.44], fl1))
 
-    def hook(p):
-        p.extra(stalk_svg(stalk2, 8.0, 4.0, [0.42], fl2, rise_side=-1))
-        p.extra(stalk_svg(stalk1, 9.0, 4.2, [0.34, 0.46], fl1))
-
-    paint_rosette(pt, MAIN, 290, RIM_Y - 20 - LIFT, after_tier=1, hook=hook, phase=0.2, twist=0.09,
-                  scale=MSCALE)
-
-    # the offsets: one pup drawn once (at the origin) and placed twice
-    pup = Painter()
-    paint_rosette(pup, PUP, 0, 0, phase=1.1, twist=-0.1, scale=0.64)
-    defs = (f'<defs><g id="bell">{bell((0, 0), (0, 1), 1.0)}</g>'
-            f'<g id="pup">{pup.emit()}</g></defs>')
-    offsets = ''.join(f'<use href="#pup" transform="translate({round(x * 2)} {round(y * 2)}) scale({s:g})"/>'
-                      for x, y, s in PUPS)
-    # the rim band is drawn over the rosette's lowest leaves, so the rosette sits down
-    # in the bowl like every other plant; the offsets sit on the rim, spilling over it
-    main = f'<g transform="scale(.5)">{defs}{pt.emit()}</g>'
-    return back + main + front + f'<g transform="scale(.5)">{offsets}</g>'
+    main = rosette(*RC, hook=stalks, hook_after=1)
+    pup_rings = [(7, 10, 24, 150, .40, 3, 0), (6, 34, 20, 112, .42, 5, 30),
+                 (5, 56, 14, 72, .46, 6, 10), (3, 76, 8, 40, .52, 8, 40)]
+    pup = rosette(0, 0, 1.0, pup_rings, k=0.22, ps=MMU * min(p[2] for p in PUPS), bud=(15, 11))
+    defs = f'<defs><g id="bell">{bell_def()}</g><g id="pup">{pup}</g></defs>'
+    pups = "".join(f'<use href="#pup" transform="translate({x} {y}) scale({s:g})"/>'
+                   for x, y, s in PUPS)
+    return defs + back + front + main + pups
 
 
 if __name__ == "__main__":
