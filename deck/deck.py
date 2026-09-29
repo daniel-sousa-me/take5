@@ -7,7 +7,7 @@ from fontTools.pens.svgPathPen import SVGPathPen
 from fontTools.pens.boundsPen import BoundsPen
 
 PLANTS = str(paths.PLANTS_PRINT)   # print-prepped plants (see print_prep.py)
-PAPER_BG = None   # None = leave paper unprinted (use ivory/natural stock for the cream look); or e.g. "#F5EDDD"
+PAPER_BG = None   # None = leave the white stock unprinted (recommended); a tint must be L* <= 90 (face_colour_check)
 FONT = str(paths.DM_SERIF)
 paths.ensure_static_fonts()
 
@@ -252,7 +252,7 @@ def sheet_header(s, size=2.0, col="#777"):
     assert MX + f.width(s, size) <= PW - MX, f"sheet header overruns: {s!r}"
     assert MY - 5.2 - size * 0.75 >= REC_TOP
     return f'<g fill="{col}">' + f.path(s, size, MX, MY - 5.2, anchor="start") + "</g>"
-LATIN_COL = "#625444"    # botanical name: warm grey-brown, a step darker than the old #7A6A58 for uncoated ivory
+LATIN_COL = "#625444"    # botanical name: warm grey-brown, a step darker than the old #7A6A58 (too faint on uncoated card)
 LATIN_FONT = PathFont(str(paths.FRAUNCES_ITALIC))
 
 NAMES = {  # common name, currently accepted botanical name
@@ -675,6 +675,18 @@ def card(n, species):
             + f'<g transform="rotate(180 {CW / 2} {CH / 2})">{half}</g>'
             + plant + label)
 
+def face_colour_check():
+    """White stock: no card-face colour (tier fields / accents / sprigs / numbers / marks, name labels, PAPER_BG)
+    may be a near-white or sit in the speckle band (L* 90-95, low chroma: prints as a sparse dither, not an even
+    tint). Returns the lightest face colour and its L*."""
+    from print_prep import lab, paper_white, speckle_band
+    cols = {c for t in TIER.values() for c in t} | {"#405D43", LATIN_COL} | ({PAPER_BG} if PAPER_BG else set())
+    bad = sorted(c for c in cols if paper_white(c) or speckle_band(c))
+    assert not bad, f"card-face colours too light for white stock (L* > 90, near-neutral): {bad}"
+    top = max(cols, key=lambda c: lab(c)[0])
+    return top, lab(top)[0]
+
+
 # ------------------------------------------------------------------ sheets
 def slot(i):
     """Top-left of slot i on the page (slot is CH wide x CW tall)."""
@@ -712,6 +724,8 @@ if __name__ == "__main__":
     from pypdf import PdfWriter, PdfReader
     gaps = sorted((min(digit_gaps(n)), n) for n in range(10, 105))
     assert gaps[0][0] >= DIGIT_GAP - 0.01, gaps[:5]
+    c0, L0 = face_colour_check()
+    print(f"card-face colours ok on white stock (lightest {c0}, L* {L0:.1f}; none in the L* 90-95 speckle band)")
     print("digit gaps (mm), tightest:", ", ".join(f"{n} {g:.2f}" for g, n in gaps[:5]))
     outdir = sys.argv[1] if len(sys.argv) > 1 else str(paths.BUILD / "deck_sheets")
     os.makedirs(outdir, exist_ok=True)

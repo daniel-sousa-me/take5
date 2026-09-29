@@ -17,12 +17,16 @@ Rules (docs/DESIGN_AND_PRINT_NOTES.md and the plant print policy):
     fill colour is not a line (it only grows the shape) and is left alone.
   - Filled dots and small shapes are never changed, only reported when they are under the dot minimums
     (dark >= MIN_DOT_POS, light >= MIN_DOT_KO): the plant author decides whether to enlarge or drop them.
-  - Paper-white: a fill / stroke / stop colour that is at or lighter than the ivory stock (STOCK; L* >= the stock's
-    L* and chroma C* <= PAPER_MAX_C, i.e. a near-neutral cream or white) cannot be printed as drawn: ink only
-    darkens the paper, so the driver either leaves it blank or dithers a sparse speckle into it. It is set to
-    pure white (#FFFFFF = no ink, the bare stock shows). This is informational, not a rule break: the master
-    keeps its colour (it is right on screen) and the plant still reports "ok (unchanged)" for the line rules;
-    the count is shown separately as "paper-white N".
+  - Paper-white: the stock is WHITE card (STOCK = #FFFFFF). A fill / stroke / stop colour that is meant to look
+    white but is drawn as a near-white (L* >= PAPER_MIN_L and chroma C* <= PAPER_MAX_C) cannot print as an even
+    tint: pigment inkjet dithers such a light colour into a sparse speckle. It is set to pure white (#FFFFFF =
+    no ink, the bare paper shows). This is informational, not a rule break: the master keeps its colour (it is
+    right on screen) and the plant still reports "ok (unchanged)" for the line rules; the count is shown
+    separately as "[paper-white: N]".
+  - Speckle band: a near-neutral colour with SPECKLE_MIN_L < L* < PAPER_MIN_L (and C* <= PAPER_MAX_C) is too light
+    to print as an even tint and too dark to be sent as bare paper. It is printed as drawn and reported per plant
+    as a warning, "[speckle-band: N]" (-v lists the colours): the plant author should move it to L* <= 90 (a
+    visible pale tint) or to #FFFFFF (paper). Like paper-white it is a separate note, not part of "ok (unchanged)".
 A master that follows the policy passes through unchanged. Everything widened or dropped is printed per plant.
 
 Usage:  python deck/print_prep.py            # summary line per plant
@@ -41,9 +45,10 @@ MIN_POS, MIN_KO = 0.15, 0.20          # lines: dark on light / light on dark
 MIN_DOT_POS, MIN_DOT_KO = 0.175, 0.225  # filled dots and slivers (by their widest point), report only
 KO_LUM = 0.55                         # a stroke/fill lighter than this counts as a knockout (light-on-dark) mark
 MAX_WIDEN, MAX_WIDEN_CLIPPED = 1.6, 2.0
-STOCK = "#F3EBDA"                     # 250 gsm uncoated ivory card (measured/approximated); the face leaves it unprinted
-PAPER_MAX_C = 15.0                    # chroma limit for "paper-white": the stock itself is C* ~9 (warm cream)
-PAPER_L_TOL = 0.0                     # L* slack below the stock still treated as paper (0 = at or lighter than it)
+STOCK = "#FFFFFF"                     # 250 gsm uncoated WHITE card; the face leaves it unprinted
+PAPER_MAX_C = 15.0                    # chroma limit for paper-white and the speckle band (near-neutral whites / creams)
+PAPER_MIN_L = 95.0                    # L* >= this (and C* <= PAPER_MAX_C) -> printed as bare paper (#FFFFFF, no ink)
+SPECKLE_MIN_L = 90.0                  # SPECKLE_MIN_L < L* < PAPER_MIN_L -> "speckle band": sparse dither, warned about
 TOL = 0.995                           # rounding slack: 0.1495 mm counts as 0.15
 NS = "{http://www.w3.org/2000/svg}"
 XLINK = "{http://www.w3.org/1999/xlink}href"
@@ -87,38 +92,47 @@ def lab(hexc):
     return L, a, bb, math.hypot(a, bb)
 
 
-STOCK_L = lab(STOCK)[0]
-
-
 def paper_white(c):
-    """True if colour c is at or lighter than the stock and near-neutral: it cannot be printed as drawn."""
+    """True if colour c is a near-white (L* >= PAPER_MIN_L, near-neutral): it is printed as bare paper (no ink)."""
     v = lab(c)
-    return v is not None and v[0] >= STOCK_L - PAPER_L_TOL and v[3] <= PAPER_MAX_C
+    return v is not None and v[0] >= PAPER_MIN_L and v[3] <= PAPER_MAX_C
+
+
+def speckle_band(c):
+    """True if colour c is a near-neutral pale tint in the speckle band (SPECKLE_MIN_L < L* < PAPER_MIN_L): too
+    light for an even tint on white stock, too dark to send as paper. Printed as drawn, but warned about."""
+    v = lab(c)
+    return v is not None and SPECKLE_MIN_L < v[0] < PAPER_MIN_L and v[3] <= PAPER_MAX_C
 
 
 PAPER_KEYS = ("fill", "stroke", "stop-color", "flood-color", "lighting-color", "color")
 
 
 def paper_pass(root):
-    """Set every paper-white colour (attribute or style) to #FFFFFF (no ink). Returns {colour: count}."""
-    hits = {}
+    """Set every paper-white colour (attribute or style) to #FFFFFF (no ink); leave speckle-band colours as drawn
+    but count them. Returns ({colour: count} paper-white, {colour: count} speckle band)."""
+    hits, band = {}, {}
     for el in root.iter():
         if not isinstance(el.tag, str):
             continue
         for k in PAPER_KEYS:
             v = el.get(k)
+            if v is not None and speckle_band(v):
+                band[norm_hex(v)] = band.get(norm_hex(v), 0) + 1
             if v is not None and paper_white(v) and norm_hex(v) != "#FFFFFF":
                 hits[norm_hex(v)] = hits.get(norm_hex(v), 0) + 1
                 el.set(k, "#FFFFFF")
         st = el.get("style")
         if st:
             def sub(m):
+                if speckle_band(m.group(2)):
+                    band[norm_hex(m.group(2))] = band.get(norm_hex(m.group(2)), 0) + 1
                 if paper_white(m.group(2)) and norm_hex(m.group(2)) != "#FFFFFF":
                     hits[norm_hex(m.group(2))] = hits.get(norm_hex(m.group(2)), 0) + 1
                     return m.group(1) + "#FFFFFF"
                 return m.group(0)
             el.set("style", re.sub(r"((?:^|;)\s*(?:%s)\s*:\s*)([^;]+?)(?=\s*(?:;|$))" % "|".join(PAPER_KEYS), sub, st))
-    return hits
+    return hits, band
 
 
 def num(v, default=1.0):
@@ -323,20 +337,22 @@ def process(fn, mm_per_unit, out_dir=OUT):
                 if eff < need * TOL:
                     note("small", f"{el.tag[len(NS):]} {fill} ({'light' if need == MIN_DOT_KO else 'dark'})", eff)
     # paper-white pass last, so the line / dot rules above see the master's own colours
-    rep["paper"] = paper_pass(root)
+    rep["paper"], rep["speckle"] = paper_pass(root)
     os.makedirs(out_dir, exist_ok=True)
     tree.write(os.path.join(out_dir, os.path.basename(fn)), xml_declaration=False, encoding="utf-8")
     return rep
 
 
 def summary(rep):
-    """Line/dot rule result ("ok (unchanged)" when the master meets the policy), plus the paper-white count as a
-    separate informational note: it is a property of the stock, not something the plant author must fix."""
+    """Line/dot rule result ("ok (unchanged)" when the master meets the policy), plus two separate notes: the
+    paper-white count (informational: near-whites sent as bare paper) and the speckle-band count (a warning: pale
+    tints between L* 90 and 95 that the plant author should move to L* <= 90 or to #FFFFFF)."""
     n = {k: sum(x[0] for x in rep[k].values()) for k in ("widened", "dropped", "small")}
     s = "ok (unchanged)" if not any(n.values()) else \
         f"widened {n['widened']:3d} · dropped {n['dropped']:3d} · small dots/slivers {n['small']:3d}"
     p = sum(rep.get("paper", {}).values())
-    return s + (f"   [paper-white: {p}]" if p else "")
+    b = sum(rep.get("speckle", {}).values())
+    return s + (f"   [paper-white: {p}]" if p else "") + (f"   [speckle-band: {b}]" if b else "")
 
 
 if __name__ == "__main__":
@@ -355,5 +371,11 @@ if __name__ == "__main__":
                 for col, c in sorted(rep["paper"].items()):
                     L = lab(col)
                     print(f"    paper    {c:3d} × {col} (L* {L[0]:.1f}, C* {L[3]:.1f}) -> #FFFFFF, no ink")
-    print(f"paper-white = at or lighter than the {STOCK} stock (L* >= {STOCK_L:.1f}, C* <= {PAPER_MAX_C:g}): "
-          "printed as bare paper (#FFFFFF); informational, masters keep their colour")
+                for col, c in sorted(rep["speckle"].items()):
+                    L = lab(col)
+                    print(f"    SPECKLE  {c:3d} × {col} (L* {L[0]:.1f}, C* {L[3]:.1f}) printed as drawn: "
+                          f"move to L* <= {SPECKLE_MIN_L:g} or #FFFFFF")
+    print(f"paper-white = near-white (L* >= {PAPER_MIN_L:g}, C* <= {PAPER_MAX_C:g}) on the white {STOCK} stock: printed "
+          "as bare paper (#FFFFFF); informational, masters keep their colour")
+    print(f"speckle-band = pale near-neutral tint ({SPECKLE_MIN_L:g} < L* < {PAPER_MIN_L:g}, C* <= {PAPER_MAX_C:g}): "
+          "prints as sparse speckle, not an even tint; WARNING, fix in the master (L* <= 90 or #FFFFFF)")

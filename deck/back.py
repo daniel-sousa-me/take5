@@ -6,7 +6,8 @@ Design rules for hand cutting + manual duplex:
   * art only crosses the edges at the top-right and bottom-left corners, as organic shapes,
     so a 1-2 mm cut/registration drift just crops a leaf a little differently (check() asserts this and the
     berries' >= 1.2 mm clearance on every build)
-  * paper is left unprinted (use ivory stock for the cream look) -> no big flat tint to band
+  * paper is left unprinted (white stock) -> no big flat tint to band
+  * no colour in the near-white speckle band (L* 90-95, low chroma): check() asserts it
   * lines >= 0.25 mm, light-on-dark lines >= 0.25 mm (the midribs taper below that only in their last few mm)
 """
 import os, sys, math, random
@@ -15,7 +16,7 @@ import paths
 sys.path.insert(0, str(paths.PLANTS_DIR))
 from core import Leaf, leaf_g, cr_path, ribbon, stem, line, T, f, uid, reset_ids
 import deck
-from print_prep import STOCK, lab, paper_white
+from print_prep import STOCK, lab, paper_white, speckle_band
 
 G = dict(dark="#3F5A3C", forest="#4B6843", mid="#607B52", sage="#7F9468", light="#9DAE88",
          vein_d="#2F4630", vein_l="#C9D2BC")
@@ -46,7 +47,7 @@ def mix(a, b, t):
     return "#" + "".join(f"{round(int(a[i:i + 2], 16) * (1 - t) + int(b[i:i + 2], 16) * t):02X}" for i in (1, 3, 5))
 
 
-VEIN_PALE = "#E1E6D6"   # midrib target: a pale sage, still darker than the ivory stock (never paper-white)
+VEIN_PALE = "#E1E6D6"   # midrib mix target only (a pale sage); the midribs themselves stay at L* <= 90, out of the speckle band
 VEIN_DL = 20.0          # every midrib sits this many L* above its leaf, so the veins read alike on every tone
 
 
@@ -114,7 +115,7 @@ STAMENS = [((-3, -30), (-30, -120), (-58, -172), 20),
            ((3, -30), (40, -118), (74, -176), 10),
            ((5, -28), (46, -96), (118, -150), -25),
            ((6, -26), (58, -78), (106, -116), 5)]
-# filament width in flower units: 3.2 x the lily's 0.72 scale x 0.1 mm = 0.23 mm printed (mustard is light on the ivory
+# filament width in flower units: 3.2 x the lily's 0.72 scale x 0.1 mm = 0.23 mm printed (mustard is light on the white
 # stock, so it gets more than the 0.15 mm dark-line minimum; the old 2.6 printed 0.19 mm and looked faint)
 STAMEN_W = 3.2
 
@@ -318,10 +319,14 @@ def check(px_per_mm=10):
     assert g >= LILY_GAP - 1, f"lily only {g / 10:.2f} mm from the low sweep near {where}"
     g5, where5, ov5 = paper_gap(["lily"], ["title"], box=(60, 300, 635, 880))
     assert g5 >= TITLE_GAP and not ov5, f"lily only {g5 / 10:.2f} mm from the \"5\" near {where5}"
-    # nothing on the back may be lighter than the stock (ink cannot print lighter than the paper)
+    # white stock: no near-white that print_prep would send as bare paper, and no pale tint in the speckle band
+    # (L* 90-95, low chroma), which a pigment inkjet prints as a sparse dither instead of an even tint
     import re
-    pale = sorted({c for c in re.findall(r"#[0-9A-Fa-f]{6}\b", build_body()) if paper_white(c)})
-    assert not pale, f"colours at or lighter than the {STOCK} stock on the back: {pale}"
+    cols = {c.upper() for c in re.findall(r"#[0-9A-Fa-f]{6}\b", build_body())}
+    pale = sorted(c for c in cols if paper_white(c) and c != STOCK)   # #FFFFFF itself = no ink, fine
+    assert not pale, f"near-white colours on the back (the {STOCK} stock shows through instead): {pale}"
+    band = sorted(c for c in cols if speckle_band(c))
+    assert not band, f"speckle-band colours (L* 90-95) on the back: {band}"
     return clear
 
 
@@ -348,4 +353,4 @@ if __name__ == "__main__":
     paths.BUILD.mkdir(exist_ok=True)
     svg = standalone(str(paths.BUILD / "card_back.svg"))
     guide = svg.replace("</svg>", f'<rect x="{deck.B}" y="{deck.B}" width="{deck.TW}" height="{deck.TH}" fill="none" stroke="#f0f" stroke-width="0.12"/></svg>')
-    cairosvg.svg2png(bytestring=guide.encode(), write_to=str(paths.BUILD / "card_back_preview.png"), output_width=int(deck.CW * 10), background_color=STOCK)  # preview on the ivory stock colour
+    cairosvg.svg2png(bytestring=guide.encode(), write_to=str(paths.BUILD / "card_back_preview.png"), output_width=int(deck.CW * 10), background_color=STOCK)  # preview on the white stock

@@ -13,7 +13,7 @@ for history; where it disagrees with this file, this file wins (card size and pr
 - Sheet header lines (deck and backs sheets, `deck.sheet_header()`) are set in Fraunces Regular (opsz 9, the proof's
   body font, `deck.text_font()`) drawn as paths, 2.0 mm, grey, 5.2 mm above the card block; no installed font is
   needed and the header asserts it stays inside the recommended area and ends within the block width.
-- Stock: 250 gsm uncoated, loaded one sheet at a time in the rear tray.
+- Stock: 250 gsm uncoated **white** card, loaded one sheet at a time in the rear tray. Judge every render on white.
 
 ## Card size and sheet layout
 
@@ -25,8 +25,8 @@ for history; where it disagrees with this file, this file wins (card size and pr
 
 ## Ink on uncoated card
 
-- Paper is left unprinted behind the art (no full-bleed cream): less ink, flatter card, no banding in a big
-  tint. Ivory/natural stock gives the cream look.
+- Paper is left unprinted behind the art (no full-bleed tint): less ink, flatter card, no banding in a big
+  tint. The card is white; the art is designed and checked on white.
 - No transparency tricks on the card face; tints are pre-blended solids.
 - `print_prep.py` makes a print copy of each plant, measured at that plant's own scale on the card
   (`deck.plant_scales()`, the smallest it is drawn anywhere in the deck; plants run 0.050–0.065 mm per unit),
@@ -40,26 +40,36 @@ for history; where it disagrees with this file, this file wins (card size and pr
   A filled shape only loses its stroke; an outline in the shape's own fill colour is left alone. Dots and slivers
   are never changed, only reported. The plant masters are drawn to these rules, so a compliant master passes
   through unchanged (`ok (unchanged)` in the build output); `python deck/print_prep.py -v` lists the rest.
-- **Paper-white.** The stock is ivory (`STOCK` = `#F3EBDA` in `print_prep.py`, L* ≈ 93). Ink only darkens paper, so a
-  colour at or lighter than the stock can't print as drawn: the driver leaves it blank or dithers a sparse speckle
-  into it. `print_prep.py` sets every fill / stroke / stop colour with L* ≥ the stock's and chroma C* ≤ 15 (a near-
-  neutral cream or white) to `#FFFFFF`, i.e. no ink, bare stock. Today that is `#FBF6EA` (`PAL["ivory"]`) in three
-  plants: chlorophytum's cream leaf stripes (3 shapes), pilea's leaf-attachment dots on its light and pale leaves (4)
-  and tradescantia's flower centres (3); no other plant has any. It's informational, not a rule break: the masters
-  keep their colour (right on screen), the plant still reports `ok (unchanged)` for the line rules, and the count is shown beside it as `[paper-white: N]` (`-v` lists the
-  colours). Darker creams such as `#E8E2D1` (L* 90) print as a real tint and are left alone. The card face itself
-  has nothing lighter than the stock (tier fields are L* ≤ 87; `PAPER_BG` is off, so `C["cream"]` `#F5EDDD` is unused;
-  the sheet background is `#fff` = no ink); the shared pot ground shadow is `deep` at 11 % opacity, ≈ `#E8EBE9` over
-  paper, just under the stock's L* and meant as a faint shadow, so it stays. The back has no paper-white colour
-  (`back.check()` asserts it).
+- **White stock: paper-white and the speckle band.** The stock is white (`STOCK` = `#FFFFFF` in `print_prep.py`).
+  Ink only darkens paper, and a pigment inkjet lays a very light colour down as a sparse dither of dots rather
+  than an even tint. So, for every fill / stroke / stop colour with chroma C* ≤ 15 (a near-neutral white, cream
+  or pale grey):
+  - **L* ≥ 95 → paper-white**: `print_prep.py` sets it to `#FFFFFF` (no ink, the bare paper shows). A colour meant
+    to look white should simply be `#FFFFFF` in the master. Informational, not a rule break: the master keeps its
+    colour, the plant still reports `ok (unchanged)` for the line rules, and the count is shown beside it as
+    `[paper-white: N]` (`-v` lists the colours).
+  - **90 < L* < 95 → speckle band**: too light for an even tint, too dark to send as paper. It is printed as drawn
+    but reported per plant as a warning, `[speckle-band: N]` (`-v` lists each colour with its L* / C*). The fix
+    belongs in the master: move the colour to L* ≤ 90 (a real pale tint, e.g. `#EAE1D3`) or to `#FFFFFF`.
+  - **L* ≤ 90**: prints as a visible, even pale tint; left alone.
+  Current build: no plant reports any paper-white or speckle-band colour (see the `print_prep.py` output). The
+  card face has nothing above L* 87 (the lightest is the tier-1 sage field `#D8DDBF`); `deck.face_colour_check()`
+  asserts on every build that no tier colour, name label or `PAPER_BG` is a near-white or in the band (`PAPER_BG`
+  is off; the old cream `C["cream"]` `#F5EDDD`, L* 94, would now be refused). The sheet background is `#fff` =
+  no ink. The back's lightest colour is a midrib at L* 89; `back.check()` asserts no near-white and nothing in the
+  speckle band there. One thing the colour pass cannot see: the shared pot ground shadow (`plants/core.py` `pot()`)
+  is `deep` `#314B37` at 11 % opacity, which lands at ≈ `#E8EBE9` (L* 93) on white — inside the speckle band — so
+  judge it on the proof/real card and, if it speckles, pre-blend it to a solid at L* ≤ 90 or drop it.
 - The pot band (`pot(band=True)` in `plants/core.py`) is an opaque pre-blended line 4 units wide (a step
   darker again over the pot's shaded side), so masters and cards match.
 - The proof page tests line weights, the leaf-green steps (plus four burgundy pairs that meet on the cards:
   Tradescantia's leaf-band tiers and the oxalis / tradescantia wine–burgundy–plum steps, `BURG_PAIRS` in
-  `deck/proof.py`, which warns if those colours leave the plant art), the corner tints and solid colours, a row of near-paper tints (`TINTS` in `deck/proof.py`: `#FFFFFF`, `#FBF6EA`, `#F6EFDF`,
-  `#F0E6D2`, `#EADFC8`, each as a patch on bare paper inside grey corner ticks and as a stripe down a leaf-green bar,
-  printed as drawn; `*` marks the ones at or lighter than the stock, which the plant print copies send as no ink —
-  check whether the unstarred `#F0E6D2` / `#EADFC8` print as a clean tint or as speckle), the
+  `deck/proof.py`, which warns if those colours leave the plant art), the corner tints and solid colours, a row of near-white cream tints (`TINTS` in `deck/proof.py`, C* ≈ 8 at L* 97, 94, 92, 90, 87:
+  `#FEF5E7`, `#F5EDDE`, `#F0E7D9`, `#EAE1D3`, `#E1D9CB`, each as a patch on bare white paper inside grey corner ticks
+  and as a stripe down a leaf-green bar, all printed as drawn; `*` marks the one at L* ≥ 95 that the plant print copies
+  send as no ink, `!` the two in the L* 90–95 speckle band — check where the printer stops speckling and lays an
+  even tint: `#EAE1D3` (L* 90) and `#E1D9CB` (L* 87) should be clean; if L* 90 still speckles, lower `SPECKLE_MIN_L`
+  / the plant tints accordingly), the
   scale, the 3-digit numerals at 100 % (the top-left 30 × 24 mm of real cards 100 and 104, the tightest digit pairs in the deck,
   so digit spacing can be judged on the real stock; the print-setting reminders that stood beside the scale test
   moved into the intro lines), and shows the neighbouring tiers side by side: the top 30.5 mm of real cards 4, 25, 30, 22 and 55 (tiers 1, 2, 3, 5, 7, so
@@ -70,7 +80,7 @@ for history; where it disagrees with this file, this file wins (card size and pr
   own fonts, drawn as paths (DM Serif Display for the title and headings, Fraunces for the rest — Medium for the
   bold labels, a Regular opsz-9 instance made once into `build/fonts`), so it needs no installed font and every line's
   width is exact: `proof.fits()` asserts that each label and note ends inside its column. Sections have ≥ 2.5 mm of
-  paper between a caption and the next heading, and around the near-paper tint row. In that row each paper patch is 7 mm wide and its hex label
+  paper between a caption and the next heading, and around the near-white tint row. In that row each paper patch is 7 mm wide and its hex label
   (1.9 mm text) is asserted to end ≥ 1.5 mm before the next patch's corner ticks; the legend (2.0 mm text) ends
   ≥ 6 mm inside the 196 mm column edge. If a green
   pair merges on the real card (most likely night/deep or deep/forest), lift the darks in `plants/core.py`
@@ -129,7 +139,7 @@ for history; where it disagrees with this file, this file wins (card size and pr
   ≈ 3.7 mm to the top-left marks; before, at 1.08× with the pot 1 mm right, the bottom-right corner felt crowded).
 - Plant name (common + botanical, Fraunces) runs up the right edge, 5 mm from the cut. Common name in forest
   green `#405D43`; botanical name in italic warm grey-brown `#625444` (darker than the first `#7A6A58`, which was
-  too faint on ivory stock).
+  too faint on uncoated card).
 - Showy plants go on the high-penalty cards (bird of paradise on 55; flowering/striking plants on the other
   multiples of 11). Other plants cycle; no two consecutive numbers share a plant; each plant appears 4–5 times.
 
@@ -147,7 +157,7 @@ for history; where it disagrees with this file, this file wins (card size and pr
   base, where it meets the stem, and tapers toward the tip (`midrib()`: a filled ribbon 0.40 → 0.16 mm ending at
   0.86 of the leaf length, clipped to the leaf so it has no end cap at the base); it replaced a 0.3 mm round-capped
   stroke that stopped inside the leaf at both ends and read as a floating dash. Every midrib is a pale line 20 L* above its
-  leaf (`vein_col()`: a solid mix toward `VEIN_PALE` `#E1E6D6`, still darker than the stock). Before, the lighter
+  leaf (`vein_col()`: a solid mix toward `VEIN_PALE` `#E1E6D6`; the lightest midrib is L* 89, below the speckle band). Before, the lighter
   top-right leaves had dark midribs and the bottom-left bunch pale ones; the pale line reads crisper at card size.
 - The lily (`LILY` = base (268, 810), −8°, 0.72 in 0.1 mm units) sits a little higher and turned slightly left of its
   first place, so its lower right petal no longer runs along the low sweep with ~1 mm of paper between them (a
@@ -162,7 +172,7 @@ for history; where it disagrees with this file, this file wins (card size and pr
 - Lily stamens (`STAMENS` in `deck/back.py`): five, deliberately irregular — different lengths, spread and curvature,
   one leaning left, the tallest left of centre (away from the "5") — with small tilted oval anthers, instead of four
   fanned to one side at equal angle steps with round anthers on a neat arc. Filaments are `STAMEN_W` = 3.2 units
-  (× 0.72 × 0.1 mm = 0.23 mm printed): mustard is light on ivory, so they get more than the 0.15 mm line minimum
+  (× 0.72 × 0.1 mm = 0.23 mm printed): mustard is light on white card, so they get more than the 0.15 mm line minimum
   (the first 2.6 units, 0.19 mm, looked faint).
 - Leaf outline (`leaf_shape()`): the last node before the sharp tip sits at ~0.22–0.24 of the leaf width, so the
   outline runs straight into the point; the old narrower node (0.10–0.12) pinched the tip into a small hook that
@@ -181,7 +191,7 @@ for history; where it disagrees with this file, this file wins (card size and pr
 
 ## Printing sequence
 
-1. `take5_print_proof_A4.pdf` on the real card; try Plain Paper · High and Matte Photo Paper; tick the box,
+1. `take5_print_proof_A4.pdf` on the real white card; try Plain Paper · High and Matte Photo Paper; tick the box,
    let it dry, judge the blocks. Check the 100 mm line.
 2. Deck sheet 1 on the chosen setting; cut one card, try it in a 66 × 91 mm sleeve.
 3. All 18 deck sheets. Let them dry fully.

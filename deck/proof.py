@@ -4,7 +4,7 @@ All content sits inside Canon's recommended print area for A4 on the GX5000 seri
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import cairosvg, deck, paths
-from print_prep import paper_white, STOCK
+from print_prep import paper_white, speckle_band, lab as cielab
 
 PAL = dict(night="#27392C", deep="#314B37", forest="#405D43", mid="#5B7458", sage="#7F9273",
            light="#A5B296", pale="#C9D2BC", terra="#B96E4A", soil="#5C4331", red="#B95850",
@@ -20,7 +20,11 @@ TIER_CARDS = ((1, 4), (2, 25), (3, 30), (5, 22), (7, 55))   # section 5: one rea
 CARD_S = 0.54     # section 5 card scale (five trim-wide cards across x 14..196 mm, ~2.6 mm apart)
 NUM3_CARDS = (100, 104)   # section 4: 3-digit numbers at 100 %, top-left corner of the trim
 NUM3_W, NUM3_H, X3 = 30.0, 24.0, 133   # crop (mm) and left edge of that test
-TINTS = ("#FFFFFF", "#FBF6EA", "#F6EFDF", "#F0E6D2", "#EADFC8")   # section 3: near-paper tints, lightest first
+# section 3: near-white cream tints (C* ~8) on the WHITE stock, lightest first: L* 97, 94, 92, 90, 87. The first is
+# what print_prep sends as no ink (L* >= 95, "*"), the next two sit in the speckle band (L* 90-95, "!"); 90 and 87
+# are the pale tints the plants may use. The proof prints them all as drawn, to show where the printer stops dithering a speckle
+# and lays down an even tint.
+TINTS = ("#FEF5E7", "#F5EDDE", "#F0E7D9", "#EAE1D3", "#E1D9CB")
 CROP = 30.5       # section 5: card shown from the top cut down to this depth (mm), just below two rows of marks
 
 
@@ -121,7 +125,7 @@ def build():
 
     # 3 — flat fields + solids
     y += 31.8
-    g.append(h(y, "3  Flat colour — look for banding or grain; dry-rub the solids; near-paper tints (bottom row)"))
+    g.append(h(y, "3  Flat colour — look for banding or grain; dry-rub the solids; near-white tints (bottom row)"))
     for i, p in enumerate([1, 2, 3, 5, 7]):
         tint, acc, sprig, ncol, gcol = deck.TIER[p]
         x = X0 + i * 37
@@ -135,9 +139,10 @@ def build():
     for i, k in enumerate(["terra", "soil", "red", "burgundy", "blush", "mustard", "amber", "deep"]):
         g.append(f'<rect x="{X0 + i * 23}" y="{y + 21.3}" width="20" height="6" fill="{PAL[k]}"/>')
         g.append(t(X0 + i * 23, y + 30, k, 2.2))
-    # near-paper tints, printed as drawn: each as a patch on bare paper (grey corner ticks 0.6 mm outside it) and
+    # near-white tints, printed as drawn: each as a patch on bare paper (grey corner ticks 0.6 mm outside it) and
     # as a stripe down a leaf-green bar (chlorophytum's cream stripe, the spathe's light half). Tints marked * are
-    # at or lighter than the stock: print_prep.py sends those as no ink (#FFFFFF) in the plant print copies.
+    # near-whites (L* >= 95) that print_prep.py sends as no ink (#FFFFFF) in the plant print copies; ! marks the
+    # speckle band (L* 90-95), which it prints as drawn but warns about.
     # (2.5+ mm of paper between the solid labels and the tick marks above the tints)
     # patch 7 wide, green bar 6 wide, label, then >= 1.5 mm of paper before the next patch's corner ticks (the
     # labels used to run into them); the legend ends ~8 mm inside x 196
@@ -151,10 +156,11 @@ def build():
                  f'<rect x="{x}" y="{ty}" width="{pw}" height="{th}" fill="{c}"/>'
                  f'<rect x="{x + 8.4}" y="{ty}" width="6" height="{th}" fill="{PAL["mid"]}"/>'
                  f'<rect x="{x + 10.6}" y="{ty}" width="1.6" height="{th}" fill="{c}"/>')
-        lab = c + ("*" if paper_white(c) else "")
-        g.append(t(x + lx, ty + 3.1, lab, fs))
-        fits(lab, x + lx, x + tp - 0.6 - 1.5, fs)      # next patch's ticks start 0.6 mm left of it
-    for i, s in enumerate(("Near-paper tints: on paper · on green", f"* ≥ {STOCK} stock: no ink on cards")):
+        lbl = c + ("*" if paper_white(c) else "!" if speckle_band(c) else "")
+        g.append(t(x + lx, ty + 3.1, lbl, fs))
+        fits(lbl, x + lx, x + tp - 0.6 - 1.5, fs)      # next patch's ticks start 0.6 mm left of it
+    Ls = " · ".join(f"{cielab(c)[0]:.0f}" for c in TINTS)
+    for i, s in enumerate((f"Tints at L* {Ls}", "* no ink on cards · ! speckle band")):
         g.append(t(X0 + 5 * tp + 1.4, ty + 1.7 + i * 2.9, s, 2.0))
         fits(s, X0 + 5 * tp + 1.4, 190, 2.0)
 
