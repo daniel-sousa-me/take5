@@ -32,15 +32,17 @@ def penalty(n):
     if n % 5 == 0: return 2
     return 1
 
-TIER = {  # (field tint, field accent, number colour, glyph colour)
-    1: ("#E7E2C9", "#DFDBBF", C["deep"], "#8C6A4E"),
-    2: ("#EEDFB6", "#E8D6A4", C["deep"], "#9A6A3A"),
-    3: ("#EFD3BC", "#EAC7AC", C["deep"], C["terra_dark"]),
-    5: ("#ECCBC6", "#E5BDB8", "#5E3A40", "#8A4A4E"),
-    7: ("#E2BDBE", "#DAAEB0", "#5E3A40", "#74464D"),
+TIER = {  # (field tint, field accent, sprig ornament, number colour, glyph colour) -- pre-blended solids
+    # five hue families so a tier reads at a glance: sage, ochre, terracotta, dusty rose, and 55's own
+    # bird-of-paradise orange (the one card with 7 marks gets a strong field *and* an orange number)
+    1: ("#D8DDBF", "#CDD4AF", "#A3AF83", C["deep"], "#6B7C52"),
+    2: ("#EFD8A0", "#E8CC87", "#C9A45A", C["deep"], "#A0722C"),
+    3: ("#F0C4A4", "#E9B592", "#CF906B", C["deep"], "#A9583A"),
+    5: ("#E5B7BE", "#DCA5AE", "#BD8490", "#6A3A45", "#86465A"),
+    7: ("#E38E62", "#D97D51", "#F4C2A2", "#A8452A", "#A8452A"),
 }
 
-SPECIES = sorted(f[:-4] for f in os.listdir(PLANTS) if f.endswith(".svg"))
+SPECIES = sorted(f[:-4] for f in os.listdir(paths.PLANTS_SRC) if f.endswith(".svg"))
 SHOWY_55 = "strelitzia_reginae"
 SHOWY_11 = ["anthurium_andraeanum", "spathiphyllum", "hoya_carnosa", "echeveria_elegans",
             "begonia_maculata", "oxalis_triangularis", "alocasia_amazonica", "opuntia_microdasys"]
@@ -182,13 +184,14 @@ def needs_mark(n):
     return r != s and not r.startswith("0") and 1 <= int(r) <= 104
 
 # ------------------------------------------------------------------ penalty glyph: wilted leaf
-# drawn in a 10x10 box, origin top-left; stem arches over and the leaf hangs
-WILT = ('<path d="M1.6 9.6 C1.2 6.6 1.9 3.6 3.9 2.2 C5.3 1.2 6.9 1.3 7.7 2.4" fill="none" stroke="{c}" '
-        'stroke-width="1.0" stroke-linecap="round"/>'
-        '<path d="M7.7 2.3 C9.6 3.4 10.2 5.9 9.5 7.9 C9.0 9.2 7.9 10.0 6.4 10.2 C5.4 9.0 5.0 7.0 5.5 5.3 '
-        'C6.0 3.8 6.8 2.8 7.7 2.3Z" fill="{c}"/>'
-        '<path d="M7.6 3.3 C7.6 5.3 7.3 7.4 6.7 9.3" fill="none" stroke="{hi}" stroke-width="0.55" '
-        'stroke-linecap="round"/>')
+# 10x10 box, origin top-left. A stem rises and flops over into a crook; the main leaf hangs from the crook,
+# tip down, and a second small leaf droops off the stem. Designed to read at ~4 mm: no inner detail (a
+# paper-coloured midrib turned it into a coffee bean), pointed tips, open silhouette. Ink box x -0.4..9.4.
+WILT = ('<path d="M2.7 10 C2.5 7.0 2.7 4.2 3.7 2.6 C4.6 1.2 6.3 0.9 6.95 2.4" fill="none" stroke="{c}" '
+        'stroke-width="0.85" stroke-linecap="round"/>'
+        '<path d="M6.90 2.30 C5.32 4.85 6.78 8.18 8.40 9.36 C9.37 7.43 9.30 3.71 6.90 2.30Z" fill="{c}"/>'
+        '<path d="M2.75 6.00 C1.21 5.52 -0.15 6.72 -0.44 7.71 C0.70 7.98 2.52 7.46 2.75 6.00Z" fill="{c}"/>')
+WILT_C = (4.5, 5.5)   # visual centre of the ink in the 10x10 box
 
 
 def wilt_row(count, cx, y, size, col):
@@ -199,7 +202,7 @@ def wilt_row(count, cx, y, size, col):
     g = []
     for i in range(count):
         g.append(f'<g transform="translate({x0 + i * (size + gap):.3f} {y:.3f}) scale({s:.4f})">'
-                 + WILT.format(c=col, hi="#FFFFFF" if PAPER_BG is None else PAPER_BG) + "</g>")
+                 + WILT.format(c=col) + "</g>")
     return "".join(g)
 
 # ------------------------------------------------------------------ plant embedding
@@ -241,7 +244,17 @@ def sprig(col):
 EDGE = 5.0          # clear space from the trim to any text / number ink (mm)
 NUM_SIZE = 21.0     # numeral cap height ~13.6 mm
 GLYPH = 4.0
-PLANT_H = 36.0      # plant art height (mm)
+# Plant size. Each plant is measured (ink box of its master SVG) and scaled so the deck reads as one
+# consistent size: a blend of height-fit and area-fit, damped and clamped so pots never jump wildly.
+# The pot bottom (canvas y 752, x 300 in every plant SVG) always lands on the same point of the card.
+PLANT_S = 0.054           # mm per plant-canvas unit for a reference plant (= 40 mm for the full 740-unit canvas)
+PLANT_REF = (657, 113.5e3)  # reference ink height above the pot base (units) and ink area (units^2)
+PLANT_FIT = (0.6, 0.4, 0.8)  # weights of height-fit and area-fit, then damping exponent
+PLANT_CLAMP = (0.92, 1.2)  # limits on the per-plant factor
+POT_MAX = 13.5            # widest pot rim on the card (mm): squat plants in wide bowls don't balloon
+PLANT_X, PLANT_Y = CW / 2 - 1.5, 68.6   # card position of the pot's bottom centre
+PLANT_SHIFTS = (0.0, -1.0, -2.0, -3.0)  # allowed leftward pot shifts (mm) when a plant is blocked
+PLANT_CLEAR = 1.2         # min gap between plant ink and numbers / marks / label (mm); plants also stay inside EDGE
 FIELD_SCALE = 0.6   # corner colour field size
 
 
@@ -269,9 +282,8 @@ CLUSTER = {1: [(0, 0)], 2: [(0, -0.5), (0, 0.5)], 3: [(0, -0.55), (0, 0.55), (0.
 
 def wilt_at(x, y, size, rot, col):
     """One penalty glyph centred on (x, y)."""
-    hi = "#FFFFFF" if PAPER_BG is None else PAPER_BG
-    return (f'<g transform="translate({x:.3f} {y:.3f}) rotate({rot:.1f}) scale({size / 10:.4f}) translate(-5.7 -6.1)">'
-            + WILT.format(c=col, hi=hi) + "</g>")
+    return (f'<g transform="translate({x:.3f} {y:.3f}) rotate({rot:.1f}) scale({size / 10:.4f}) '
+            f'translate({-WILT_C[0]} {-WILT_C[1]})">' + WILT.format(c=col) + "</g>")
 
 
 def penalty_marks(style, p, gcol, left, top, nh, num_right, base_extra):
@@ -311,7 +323,8 @@ ROWS_Q = {1: [1], 2: [2], 3: [3], 5: [3, 2], 7: [4, 3]}
 
 
 def info_block(n, p, ncol, gcol):
-    """Number + penalty marks in the top-left quadrant (card-local coords)."""
+    """Number + penalty marks in the top-left quadrant (card-local coords).
+    Returns (svg, bottom of the block, ink boxes [(x0, y0, x1, y1)])."""
     top = B + EDGE
     nh = numeral_height(NUM_SIZE)
     base = top + nh
@@ -325,41 +338,161 @@ def info_block(n, p, ncol, gcol):
         cx = B + EDGE - xmin
     mid = cx + (xmin + xmax) / 2
     out = [f'<g fill="{ncol}">' + number_path(n, NUM_SIZE, cx, base) + "</g>"]
+    boxes = [(cx + xmin, top, cx + xmax, base)]
     extra = 0.0
     if needs_mark(n):
         out.append(f'<rect x="{mid - 4:.2f}" y="{base + 1.0:.2f}" width="8" height="0.7" rx="0.35" fill="{ncol}"/>')
         extra = 1.2
+        boxes.append((mid - 4, base + 1.0, mid + 4, base + 1.7))
     if PEN_STYLE != "quarter":
         marks, bottom = penalty_marks(PEN_STYLE, p, gcol, B + EDGE, top, nh, cx + xmax, extra)
         out.append(marks)
-        return "".join(out), bottom
+        boxes.append((B + EDGE, top, cx + xmax + 20, bottom))       # rough: alternative styles only
+        return "".join(out), bottom, boxes
     gs, gap, lead = 4.2, 0.9, 1.0
     y = base + 2.0 + extra
     for k in ROWS_Q[p]:
         w = k * gs + (k - 1) * gap
         for i in range(k):
             out.append(wilt_at(mid - w / 2 + gs / 2 + i * (gs + gap), y + gs / 2, gs, 0, gcol))
+        boxes.append((mid - w / 2, y, mid + w / 2, y + gs))
         y += gs + lead
-    return "".join(out), y - lead
+    return "".join(out), y - lead, boxes
+
+
+# ------------------------------------------------------------------ plant size + collision-safe fit
+_mask_cache = {}
+MASK_UNITS = 2            # plant canvas units per mask pixel
+
+
+def plant_measure(name):
+    """(ink mask, pot width in canvas units) of the master plant SVG. Mask = alpha > 40, 1 px = MASK_UNITS
+    canvas units; the pot is found by its terracotta colour in the lower part of the canvas."""
+    if name not in _mask_cache:
+        import io, cairosvg, numpy as np
+        from PIL import Image
+        png = cairosvg.svg2png(url=str(paths.PLANTS_SRC / f"{name}.svg"),
+                               output_width=600 // MASK_UNITS, output_height=800 // MASK_UNITS)
+        im = np.array(Image.open(io.BytesIO(png)).convert("RGBA")).astype(float)
+        r, g, b, a = (im[..., i] for i in range(4))
+        gr, br = g / np.maximum(r, 1), b / np.maximum(r, 1)
+        pot = (a > 200) & (r > 120) & (gr > 0.5) & (gr < 0.72) & (br > 0.3) & (br < 0.52)
+        pot[:540 // MASK_UNITS] = False
+        widths = [np.ptp(np.nonzero(row)[0]) for row in pot if row.sum() > 10]
+        _mask_cache[name] = (a > 40, max(widths, default=0) * MASK_UNITS)
+    return _mask_cache[name]
+
+
+def plant_mask(name):
+    return plant_measure(name)[0]
+
+
+def plant_design_scale(name):
+    """mm per canvas unit this plant is drawn at when nothing is in the way."""
+    import numpy as np
+    m, pot_w = plant_measure(name)
+    ys = np.nonzero(m.any(axis=1))[0]
+    h = 752 - ys.min() * MASK_UNITS
+    area = m.sum() * MASK_UNITS ** 2
+    wh, wa, damp = PLANT_FIT
+    rel = ((PLANT_REF[0] / h) ** wh * (PLANT_REF[1] / area) ** (wa / 2)) ** damp
+    s = PLANT_S * min(PLANT_CLAMP[1], max(PLANT_CLAMP[0], rel))
+    return min(s, POT_MAX / pot_w) if pot_w else s
+
+
+def label_box(species, cy, x_base):
+    common, latin = NAMES[species]
+    half = max(LABEL_FONT.width(common, 3.0, 0.02), LATIN_FONT.width(latin, 2.5)) / 2
+    return (x_base - 3.6, cy - half, x_base + 2.2, cy + half)
+
+
+def plant_collides(name, s, boxes, dx=0.0):
+    m = plant_mask(name)
+    px = PLANT_X + dx
+    H, W = m.shape
+    for x0, y0, x1, y1 in boxes:
+        u0 = int(math.floor((300 + (x0 - px) / s) / MASK_UNITS)); u1 = int(math.ceil((300 + (x1 - px) / s) / MASK_UNITS))
+        v0 = int(math.floor((752 + (y0 - PLANT_Y) / s) / MASK_UNITS)); v1 = int(math.ceil((752 + (y1 - PLANT_Y) / s) / MASK_UNITS))
+        u0, v0, u1, v1 = max(u0, 0), max(v0, 0), min(u1, W), min(v1, H)
+        if u0 < u1 and v0 < v1 and m[v0:v1, u0:u1].any():
+            return True
+    return False
+
+
+def obstacles(n, species):
+    """Boxes (card-local mm) the plant ink must stay out of."""
+    p = penalty(n)
+    _, _, boxes = info_block(n, p, "#000", "#000")
+    c = PLANT_CLEAR
+    obs = []
+    for x0, y0, x1, y1 in boxes:
+        obs.append((x0 - c, y0 - c, x1 + c, y1 + c))
+        obs.append((CW - x1 - c, CH - y1 - c, CW - x0 + c, CH - y0 + c))      # 180-degree twin
+    x0, y0, x1, y1 = label_box(species, *LABEL_POS)
+    obs.append((x0 - c, y0 - c, x1 + c, y1 + c))
+    fw, fh = 36 * FIELD_SCALE, 35 * FIELD_SCALE                                 # corner colour fields
+    obs += [(CW - fw, 0, CW, fh), (0, CH - fh, fw, CH)]
+    e, big = B + EDGE, 1e3
+    obs += [(-big, -big, e, big), (CW - e, -big, big, big), (-big, -big, big, e), (-big, CH - e, big, big)]
+    return obs
+
+
+def plant_scale(n, species, dx=0.0):
+    """Design scale, reduced until the plant clears everything on card n."""
+    s0 = s = plant_design_scale(species)
+    obs = obstacles(n, species)
+    while plant_collides(species, s, obs, dx):
+        s *= 0.99
+        assert s > 0.6 * s0, f"card {n}: {species} does not fit"
+    return s
+
+
+_species_fit = {}
+
+
+def species_fit(species):
+    """(scale, x shift) per species: the scale is the smallest that fits on every card the species appears
+    on, so a plant always looks the same size (print_prep sizes its lines for exactly this scale). A plant
+    whose design size is blocked on some card may slide up to PLANT_SHIFT mm left if that lets it stay bigger."""
+    if not _species_fit:
+        cards = {}
+        for n, sp in assign().items():
+            cards.setdefault(sp, []).append(n)
+        for sp, ns in cards.items():
+            best = None
+            for dx in PLANT_SHIFTS:
+                k = min(plant_scale(n, sp, dx) for n in ns)
+                if best is None or k > best[0] * 1.02:      # only move the pot for a real gain
+                    best = (k, dx)
+            _species_fit[sp] = best
+    return _species_fit.get(species) or (plant_scale(1, species), 0.0)
+
+
+def plant_scales():
+    """mm per plant-canvas unit for every species (used by print_prep.py)."""
+    return {sp: species_fit(sp)[0] for sp in SPECIES}
+
+
+LABEL_POS = (CH / 2 - 4.0, CW - B - EDGE - 2.15)   # (centre y, first baseline x) of the vertical name label
 
 
 def card(n, species):
     p = penalty(n)
-    tint, acc, ncol, gcol = TIER[p]
-    block, block_bottom = info_block(n, p, ncol, gcol)
+    tint, acc, sprig_col, ncol, gcol = TIER[p]
+    block, block_bottom, _ = info_block(n, p, ncol, gcol)
     # colour field lives in the corner opposite the number (top-right; its 180-degree twin is bottom-left)
     field = (f'<g transform="translate({CW} 0) scale(-1 1) scale({FIELD_SCALE})">'
-             + field_blob(tint, acc) + sprig(acc if p < 5 else "#C99A9A") + "</g>")
+             + field_blob(tint, acc) + sprig(sprig_col) + "</g>")
     half = field + block
-    ph = PLANT_H
-    pw = ph * 540 / 740
-    # The info block sits in the top-left quadrant and its twin beside the pot at bottom-right, so the
-    # plant drops below the tallest (two-row) block and nudges left, away from the bottom-right marks.
-    cx, cy = CW / 2 - 1.5, B + EDGE + 26.4 + ph / 2
-    plant = (f'<svg x="{cx - pw / 2:.3f}" y="{cy - ph / 2:.3f}" width="{pw:.3f}" height="{ph:.3f}" '
-             f'viewBox="30 40 540 740">{uniq(plant_inner(species), f"k{n}-")}</svg>')
+    # pot bottom-centre pinned to (PLANT_X, PLANT_Y): just left of centre so the bottom-right block sits
+    # beside the narrow pot rather than under the leaves
+    s, dx = species_fit(species)
+    if plant_collides(species, s, obstacles(n, species), dx):   # species forced onto another card (preview)
+        s = min(s, plant_scale(n, species, dx))
+    plant = (f'<g transform="translate({PLANT_X + dx:.3f} {PLANT_Y:.3f}) scale({s:.5f}) translate(-300 -752)">'
+             f'{uniq(plant_inner(species), f"k{n}-")}</g>')
     # vertical name label on the right edge (the side without a number), caps on the EDGE line
-    label = name_label(species, CH / 2 - 4.0, CW - B - EDGE - 2.15, "#405D43", "#7A6A58", rot=90)
+    label = name_label(species, *LABEL_POS, "#405D43", "#7A6A58", rot=90)
     bg = f'<rect x="0" y="0" width="{CW}" height="{CH}" fill="{PAPER_BG}"/>' if PAPER_BG else ""
     return (bg + half
             + f'<g transform="rotate(180 {CW / 2} {CH / 2})">{half}</g>'

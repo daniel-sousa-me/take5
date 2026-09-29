@@ -39,16 +39,21 @@ A clean rebuild reproduces the files in `dist/` exactly.
 ## Common edits
 
 - **Card face layout** — constants at the top of the card section in `deck/deck.py`:
-  `EDGE` (clear space to the cut, 5 mm), `NUM_SIZE`, `PLANT_H`, `FIELD_SCALE`, `PEN_STYLE`
+  `EDGE` (clear space to the cut, 5 mm), `NUM_SIZE`, `FIELD_SCALE`, `PEN_STYLE`
   (`"quarter"` is current; `"under"`, `"beside"`, `"rosette"`, `"corner"` are the explored alternatives).
 - **Which plant is on which card** — `ORDER`, `SHOWY_55`, `SHOWY_11` and `assign()` in `deck/deck.py`.
 - **Plant names** — `NAMES` in `deck/deck.py`.
-- **Penalty colours** — `TIER` in `deck/deck.py`.
+- **Plant size** — `PLANT_S` (reference scale, 0.054 mm/unit ≈ 40 mm for the full canvas), `PLANT_REF`,
+  `PLANT_FIT`, `PLANT_CLAMP`, `POT_MAX`, `PLANT_X/PLANT_Y` (pot base point), `PLANT_CLEAR` in `deck/deck.py`.
+  Each plant is measured from its master SVG and fitted automatically; it shrinks only if it would touch a
+  number, mark or label on one of its cards. `python -c "import sys; sys.path.insert(0,'deck'); import deck; print(deck.plant_scales())"` lists the result.
+- **Penalty colours** — `TIER` in `deck/deck.py`: (field, field accent, sprig ornament, number, marks) per tier.
+- **Penalty mark** — `WILT` (wilted-leaf glyph, 10 × 10 box) in `deck/deck.py`.
 - **Cream background instead of bare paper** — set `PAPER_BG = "#F5EDDD"` in `deck/deck.py`
   (not recommended for print; use ivory stock instead — see docs).
 - **A plant drawing** — edit `plants/species/<name>.py`, then `python plants/build_plants.py <name>` and
-  `python build_all.py`. If you change the plant size on the card, update `MM_PER_UNIT` in
-  `deck/print_prep.py` (= `PLANT_H / 740`).
+  `python build_all.py`. The card size of each plant is recomputed from the SVG, and `print_prep.py` takes
+  each plant's actual scale from `deck.plant_scales()`, so nothing else needs updating.
 
 ## Printing
 

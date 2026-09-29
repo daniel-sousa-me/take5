@@ -116,10 +116,11 @@ def build_body():
     o = []
     CX = W / 2
     # ---------------------------------------------------------------- top-right spray: one sweep from the corner toward the title
-    tr = [(700, -60), (610, 40), (520, 118), (430, 170), (360, 196)]
-    o.append(branch(tr, [(0.30, 165), (0.52, 140), (0.72, 112)], sides=[1, -1, 1],
-                    back_cols=[G["forest"]], front_cols=[G["mid"], G["mid"], G["sage"]], tip=(80, G["light"])))
-    o.append(sprig((446, 172), [((420, 236), -5), ((452, 250), 5)], STEM_G, 12, MUSTARD, MUSTARD_S, w=3.0))
+    # kept a step lighter and smaller than the bottom arrangement so the wordmark stays the focal point
+    tr = [(700, -60), (618, 30), (538, 100), (460, 148), (398, 172)]
+    o.append(branch(tr, [(0.34, 132), (0.54, 116), (0.73, 94)], sides=[1, -1, 1], w0=6.5, w1=2.8,
+                    back_cols=[G["mid"]], front_cols=[G["sage"], G["sage"], G["light"]], tip=(66, G["light"])))
+    o.append(sprig((474, 150), [((452, 204), -5), ((480, 216), 5)], STEM_G, 10, MUSTARD, MUSTARD_S, w=2.8))
 
     # ---------------------------------------------------------------- bottom-left arrangement: two sweeps + one lily
     # base leaves, off the bottom-left corner
@@ -136,13 +137,14 @@ def build_body():
     o.append(sprig((60, 870), [((12, 800), -8), ((58, 790), 6), ((-10, 850), -4)], STEM_R, 20, BERRY, BERRY_S, w=3.4))
     # lily on its own stem, between the two sweeps
     o.append(stem([(250, 930), (268, 860), (290, 792)], 8, 4, STEM_G))
-    o.append(lily(290, 796, 2, 0.84, ORANGE, ORANGE_S, ORANGE_HI, "#D9A04A"))
+    o.append(lily(290, 800, 2, 0.78, ORANGE, ORANGE_S, ORANGE_HI, "#D9A04A"))
 
     # ---------------------------------------------------------------- wordmark
-    title = ('<g fill="#3F5A3C">'
-             + deck.LABEL_FONT.path("TAKE", 118, 318, 372, track=0.04)
+    ink = deck.C["deep"]      # the darkest, largest element on the back: the eye lands here first
+    title = ('<g fill="%s">' % ink
+             + deck.LABEL_FONT.path("TAKE", 126, 318, 380, track=0.04)
              + "</g>"
-             + '<g fill="#3F5A3C">' + deck.PathFont(deck.FONT).path("5", 200, 318, 522) + "</g>")
+             + '<g fill="%s">' % ink + deck.PathFont(deck.FONT).path("5", 218, 318, 540) + "</g>")
     o.append(title)
     return "".join(o)
 

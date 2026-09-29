@@ -62,11 +62,14 @@ def build():
     y += 35
     g.append(h(y, "3  Flat colour — look for banding or grain; dry-rub the solids"))
     for i, p in enumerate([1, 2, 3, 5, 7]):
-        tint, acc, ncol, gcol = deck.TIER[p]
+        tint, acc, sprig, ncol, gcol = deck.TIER[p]
         x = X0 + i * 37
         g.append(f'<rect x="{x}" y="{y + 3}" width="34" height="14" fill="{tint}"/>'
                  f'<path d="M{x} {y + 17} C{x + 10} {y + 15} {x + 18} {y + 7} {x + 34} {y + 6} V{y + 17}Z" fill="{acc}"/>'
-                 f'<rect x="{x + 23}" y="{y + 5}" width="9" height="4.5" fill="{gcol}"/>')
+                 f'<rect x="{x + 23}" y="{y + 5}" width="9" height="4.5" fill="{gcol}"/>'
+                 f'<path d="M{x + 3} {y + 14} C{x + 7} {y + 9} {x + 12} {y + 7} {x + 18} {y + 6}" fill="none" '
+                 f'stroke="{sprig}" stroke-width="0.45" stroke-linecap="round"/>'
+                 f'<rect x="{x + 23}" y="{y + 10.5}" width="9" height="4.5" fill="{ncol}"/>')
         g.append(t(x, y + 20.5, f"penalty {p} field", 2.0))
     for i, k in enumerate(["terra", "soil", "red", "burgundy", "blush", "mustard", "amber", "deep"]):
         g.append(f'<rect x="{X0 + i * 23}" y="{y + 23}" width="20" height="6" fill="{PAL[k]}"/>')

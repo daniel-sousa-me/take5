@@ -1,6 +1,8 @@
 """Print-prep pass for pigment inkjet (Canon GX5050) on 250 gsm uncoated card.
 
 Scales every stroke by its *effective* size on the printed card and enforces:
+(each plant is drawn at its own scale -- see deck.plant_scale -- and lines are sized for the smallest
+scale that plant gets anywhere in the deck)
   - positive (dark-on-light) lines  >= MIN_POS mm
   - knockout (light-on-dark) lines  >= MIN_KO  mm   (dot gain fills thin light lines in)
   - faint hairlines (opacity < DROP_OP) are removed: on uncoated stock they dither into speckle
@@ -13,7 +15,6 @@ from lxml import etree
 
 SRC = str(paths.PLANTS_SRC)
 OUT = str(paths.PLANTS_PRINT)
-MM_PER_UNIT = 0.0486          # plant viewBox unit on the printed card (see deck.py plant zone)
 MIN_POS, MIN_KO, DROP_OP = 0.15, 0.20, 0.34
 NS = "{http://www.w3.org/2000/svg}"
 
@@ -49,7 +50,7 @@ def get(el, key):
     return v
 
 
-def process(fn):
+def process(fn, mm_per_unit):
     tree = etree.parse(fn)
     root = tree.getroot()
     ids = {e.get("id"): e for e in root.iter() if e.get("id")}
@@ -114,12 +115,12 @@ def process(fn):
             wv = float(re.sub(r"[a-z]+$", "", w))
         except ValueError:
             continue
-        eff_mm = wv * s * MM_PER_UNIT
+        eff_mm = wv * s * mm_per_unit
         L = lum(stroke) if stroke else None
         ko = L is not None and L > 0.55
         need = MIN_KO if ko else MIN_POS
         if eff_mm < need:
-            el.set("stroke-width", f"{need / (s * MM_PER_UNIT):.2f}")
+            el.set("stroke-width", f"{need / (s * mm_per_unit):.2f}")
             if el.get("style"):
                 el.set("style", re.sub(r"stroke-width\s*:[^;]+;?", "", el.get("style")))
             changes["widened"] += 1
@@ -140,6 +141,9 @@ def process(fn):
 
 
 if __name__ == "__main__":
+    import deck
+    scales = deck.plant_scales()          # mm per plant-canvas unit, smallest use in the deck
     for f in sorted(os.listdir(SRC)):
         if f.endswith(".svg"):
-            print(f"{f[:-4]:24}", process(os.path.join(SRC, f)))
+            k = scales[f[:-4]]
+            print(f"{f[:-4]:24} {k * 740:5.1f} mm/740u", process(os.path.join(SRC, f), k))
