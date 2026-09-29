@@ -30,6 +30,10 @@ BOTTOM = 752
 RX = 100
 R0 = 10.0      # bead symbol radius (scaled per bead)
 NANG = 16      # pre-rotated symbol angles
+SHOULDER = 0.85
+RXF = 1.08
+HT = 1.5       # crown height factor (dome shells' ry)
+SHOOT_UP = 55  # young shoots lifted by this much with the taller dome
 
 # tone sets: body, crescent, window, stem
 TONES = {
@@ -161,8 +165,12 @@ def shell_strand(x0, rx, ry, a0, a1, tail=None, jit=3.0, seed=0):
     n = 5
     for k in range(n + 1):
         a = math.radians(a0 + (a1 - a0) * k / n)
-        pts.append((CX + rx * math.sin(a) + rnd.uniform(-jit, jit),
-                    RIM_Y - ry * math.cos(a) + rnd.uniform(-jit, jit)))
+        sa, ca = math.sin(a), math.cos(a)
+        # superellipse (exponent < 1): full, rounded shoulders instead of a pointed dome
+        sx = math.copysign(abs(sa) ** SHOULDER, sa)
+        cy = math.copysign(abs(ca) ** SHOULDER, ca)
+        pts.append((CX + rx * sx + rnd.uniform(-jit, jit),
+                    RIM_Y - ry * cy + rnd.uniform(-jit, jit)))
     if tail:
         pts += tail
     return pts
@@ -178,16 +186,16 @@ def build():
     crown = [
         # back shell (tall, dark): defines the dome silhouette
         (CX - 6, 112, 150, -6, -84, "d",
-         [(CX - 148, 612), (CX - 156, 650)]),
+         [(CX - 136, 612), (CX - 140, 646)]),
         (CX + 8, 118, 146, 4, 92, "d",
-         [(CX + 138, 610), (CX + 152, 662), (CX + 144, 716), (CX + 158, 772)]),
+         [(CX + 128, 610), (CX + 136, 656), (CX + 128, 700), (CX + 134, 730)]),
         (CX - 2, 100, 162, 14, -30, "d", None),
         (CX + 4, 90, 158, -20, 34, "d", None),
         # back-mid shell, the outer ones spill over the rim sides and trail
         (CX - 14, 118, 104, -20, -96, "b",
-         [(CX - 124, 606), (CX - 134, 652), (CX - 126, 700), (CX - 136, 742)]),
+         [(CX - 120, 606), (CX - 128, 652), (CX - 120, 696), (CX - 126, 728)]),
         (CX + 16, 120, 100, 18, 98, "b",
-         [(CX + 124, 606), (CX + 118, 650), (CX + 126, 686)]),
+         [(CX + 118, 606), (CX + 114, 648), (CX + 120, 680)]),
         (CX + 2, 96, 126, -4, 44, "b", None),
         (CX - 4, 92, 122, 8, -52, "b", None),
         # mid shell
@@ -201,8 +209,8 @@ def build():
     ]
     # ---- front strands spilling over the front rim and down the pot face
     drapes = [
-        ([(CX - 62, 592), (CX - 84, 610), (CX - 96, 652), (CX - 88, 702), (CX - 100, 748),
-          (CX - 92, 774)], "p", 41, 9.2, 3.8, 1),
+        ([(CX - 62, 592), (CX - 84, 610), (CX - 96, 652), (CX - 88, 698), (CX - 96, 734)],
+         "p", 41, 9.2, 3.8, 1),
         ([(CX - 18, 598), (CX - 26, 632), (CX - 18, 672), (CX - 30, 712)], "p", 42, 9.0, 4.8, -1),
         ([(CX + 24, 600), (CX + 32, 640), (CX + 22, 690), (CX + 30, 716), (CX + 24, 738)],
          "p", 43, 9.2, 3.8, 1),
@@ -243,11 +251,12 @@ def build():
     for i, (x0, rx, ry, a0, a1, t, tail) in enumerate(crown):
         if i == 3:
             for c, t, sd, r0, r1, s0 in shoots:
+                c = [c[0]] + [(x, y - SHOOT_UP * min(1, (c[0][1] - y) / 60)) for x, y in c[1:]]
                 st, bs = strand(c, t, sd, r0, r1, start=40, side0=s0, lean=24, taper_from=0.5)
                 body += [st, B.many(bs)]
         if i == len(crown) - 3:
             body += lay(carpet_front)
-        pts = shell_strand(x0, rx, ry, a0, a1, tail, seed=60 + i)
+        pts = shell_strand(x0, rx * RXF, ry * HT, a0, a1, tail, seed=60 + i)
         st, bs = strand(pts, t, 100 + i, r0=9.8, r1=(4.0 if tail else 7.2),
                         start=14, side0=1 if i % 2 else -1, lean=26,
                         taper_from=(0.45 if tail else 0.0))

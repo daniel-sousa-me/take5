@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.dirname(HERE))
 from core import PAL, cr_sample, uid, reset_ids, pot, svg_doc  # noqa: E402
 
 try:
-    from shapely.geometry import Polygon
+    from shapely.geometry import Polygon, Point
     from shapely.ops import unary_union
 except Exception:  # culling is an optimisation only
     Polygon = None
@@ -25,6 +25,7 @@ except Exception:  # culling is an optimisation only
 P = PAL
 CX = 300
 RIM_Y = 598
+RIM_H = 28
 EL = math.radians(30)                      # camera elevation
 CE, SE = math.cos(EL), math.sin(EL)
 V = (0.0, -CE, SE)                          # towards the camera
@@ -184,7 +185,14 @@ class Leaf3:
         return dot(self.mid(0.6)[0], V)
 
 
-DROOP = [14, 16, 0, 0, 0, 0, 0]   # front leaves of the outer tiers flop forward over the rim
+DROOP = [6, 8, 0, 0, 0, 0, 0]   # front leaves of the outer tiers flop forward a little
+LIFT = 18            # rosette raised so only its lowest leaves go behind the rim band
+MSCALE = 1.56
+PUPS = [(420, 614, .96), (182, 618, .72)]   # offsets sitting on the rim: x, y, scale
+UNDER_BLUSH = False  # rose tip on leaves seen from below (they only peek out as slivers)
+TIP_R = 0.5          # drop a side blush whose leaf tip is hidden ...
+SLIVER = 1.2         # ... or whose visible part is thinner than this (mean half-width)
+FRONT_CAP = 0.35     # leaves pointing at the viewer get their side blush in the face blush
 
 
 def rosette(tiers, phase=0.0, twist=0.0, scale=1.0, tone_shift=0, jit=0.0, seed=1):
@@ -298,13 +306,13 @@ class Painter:
     def __init__(self):
         self.shapes = []     # dict(poly, svg, id, needs)
 
-    def add(self, svg, pts=None, pid=None, needs=(), clip_poly=None):
+    def add(self, svg, pts=None, pid=None, needs=(), clip_poly=None, tip=None):
         pg = None
         if pts is not None and Polygon is not None:
             pg = poly(pts)
             if clip_poly is not None:
                 pg = pg.intersection(clip_poly)
-        self.shapes.append(dict(poly=pg, svg=svg, id=pid, needs=needs, cover=clip_poly is None))
+        self.shapes.append(dict(poly=pg, svg=svg, id=pid, needs=needs, cover=clip_poly is None, tip=tip))
 
     def extra(self, svg):
         self.shapes.append(dict(poly=None, svg=svg, id=None, needs=(), cover=False))
@@ -343,9 +351,13 @@ class Painter:
                 return
             c1 = uid("k")
             tp, _ = tip_pts(lf, ox, oy, u0, top=False)
+            # leaves pointing at the viewer show their tip's thickness as a band *below*
+            # the face: paint it in the face's blush so the tip reads as one pink cap
+            # instead of a loose rose crescent under the leaf
+            col = TIP_TOP if -math.sin(lf.phi) > FRONT_CAP else TIP_SIDE
             self.add(f'<clipPath id="{c1}"><use href="#{sid}"/></clipPath>'
-                     f'<path clip-path="url(#{c1})" d="{Enc.path(tp)}" fill="{TIP_SIDE}"/>',
-                     tp, needs=(sid,), clip_poly=silp)
+                     f'<path clip-path="url(#{c1})" d="{Enc.path(tp)}" fill="{col}"/>',
+                     tp, needs=(sid,), clip_poly=silp, tip=proj(lf.mid(1.0)[0], ox, oy))
         if top_vis:
             side_tip(0.93)
             top_d = Enc.path(F["top"], sharp={0, 1, n + 2})
@@ -357,7 +369,8 @@ class Painter:
             for sd, c in ((lit, c_face), (-lit, c_lit)):
                 hp = half_pts(F, sd, under=True)
                 self.add(f'<path d="{Enc.path(hp, sharp=hs)}" fill="{c}"/>', hp)
-            side_tip(0.93)
+            if UNDER_BLUSH:
+                side_tip(0.93)
         if blush and top_vis:
             c2 = uid("k")
             tp, sh = tip_pts(lf, ox, oy, tipu, top=True)
@@ -374,8 +387,13 @@ class Painter:
             if pg is None:
                 continue
             vis = pg if cover is None else pg.difference(cover)
-            if vis.area < thr:
+            if vis.area < thr or (sh.get("tip") and cover is not None
+                                  and cover.contains(Point(sh["tip"]).buffer(TIP_R))):
+                # a rose tip whose leaf tip is hidden would only show as a loose crescent
                 keep[i] = False
+                continue
+            if sh.get("tip") and vis.length and 2 * vis.area / vis.length < SLIVER:
+                keep[i] = False      # ... and so would a thin visible band of one
                 continue
             if sh["cover"]:
                 cover = pg if cover is None else unary_union([cover, pg])
@@ -484,12 +502,9 @@ def bell(p, hang, s=1.0):
             at(1.0, -.78), at(.8, -.92), at(.45, -.98), at(.12, -.62)]
     sh = [at(0, 0), at(.45, 0.05), at(.8, 0.02), at(1, 0.0), at(1.0, -.78), at(.8, -.92),
           at(.45, -.98), at(.12, -.62)]
-    lobes = [at(.9, .86), at(1.07, .62), at(1.03, .3), at(1.09, 0), at(1.03, -.3), at(1.07, -.62),
-             at(.9, -.86)]
     sep = [at(-.05, 0), at(.1, .7), at(.3, .55), at(.16, 0), at(.3, -.55), at(.1, -.7)]
     return "".join([
         f'<path d="{ribbon_d([p, ((p[0] + b0[0]) / 2 + px * 1.2, (p[1] + b0[1]) / 2 + py * 1.2), b0], 2.2 * s, 1.6 * s)}" fill="{STALK}"/>',
-        f'<path d="{Enc.path(lobes, sharp={0, 6})}" fill="{BELL_TIP}"/>',
         f'<path d="{Enc.path(body, sharp={0, 4, 5})}" fill="{BELL}"/>',
         f'<path d="{Enc.path(sh, sharp={0, 3, 4})}" fill="{BELL_SH}"/>',
         f'<path d="{Enc.path(sep, sharp={0, 1, 2, 3, 4, 5})}" fill="{RAMP[4]}"/>',
@@ -520,14 +535,14 @@ def stalk_svg(pts, w0, w1, bracts, flowers, rise_side=1):
 # ------------------------------------------------------------------ build
 def build():
     reset_ids()
-    back, front = pot(kind="bowl", cx=CX, rim_y=RIM_Y, bottom=752, rx=138, rim_h=24, base_w=96)
+    back, front = pot(kind="bowl", cx=CX, rim_y=RIM_Y, bottom=752, rx=138, rim_h=RIM_H, base_w=96)
     pt = Painter()
 
     # short, tight arching stalks: they add the charm of the nodding coral
     # bells without setting the plant's height, so the rosette stays dominant
-    stalk1 = [(296, 548), (296, 470), (300, 400), (318, 336), (350, 292), (390, 274),
-              (424, 282), (446, 306), (452, 326)]
-    stalk2 = [(262, 552), (250, 492), (232, 446), (206, 414), (178, 404), (156, 414), (148, 428)]
+    stalk1 = [(x, y - LIFT) for x, y in [(296, 548), (296, 470), (300, 400), (318, 336), (350, 292), (390, 274),
+              (424, 282), (446, 306), (452, 326)]]
+    stalk2 = [(x, y - LIFT) for x, y in [(262, 552), (250, 492), (232, 446), (206, 414), (178, 404), (156, 414), (148, 428)]]
     # one-sided nodding raceme: flowers hang from the underside of the arch,
     # crowding towards the tip where they are still buds
     fl1 = [(0.60, (0.18, 1), 1.08), (0.68, (0.12, 1), 1.06), (0.76, (0.04, 1), 1.02),
@@ -540,18 +555,20 @@ def build():
         p.extra(stalk_svg(stalk2, 8.0, 4.0, [0.42], fl2, rise_side=-1))
         p.extra(stalk_svg(stalk1, 9.0, 4.2, [0.34, 0.46], fl1))
 
-    paint_rosette(pt, MAIN, 290, RIM_Y - 20, after_tier=1, hook=hook, phase=0.2, twist=0.09,
-                  scale=1.56)
+    paint_rosette(pt, MAIN, 290, RIM_Y - 20 - LIFT, after_tier=1, hook=hook, phase=0.2, twist=0.09,
+                  scale=MSCALE)
 
     # the offsets: one pup drawn once (at the origin) and placed twice
     pup = Painter()
     paint_rosette(pup, PUP, 0, 0, phase=1.1, twist=-0.1, scale=0.64)
     defs = (f'<defs><g id="bell">{bell((0, 0), (0, 1), 1.0)}</g>'
             f'<g id="pup">{pup.emit()}</g></defs>')
-    offsets = ('<use href="#pup" transform="translate(900 1236) scale(1.08)"/>'      # front-right
-               '<use href="#pup" transform="translate(318 1250) scale(.74)"/>')  # small, front-left
-    plant = f'<g transform="scale(.5)">{defs}{pt.emit()}{offsets}</g>'
-    return back + front + plant
+    offsets = ''.join(f'<use href="#pup" transform="translate({round(x * 2)} {round(y * 2)}) scale({s:g})"/>'
+                      for x, y, s in PUPS)
+    # the rim band is drawn over the rosette's lowest leaves, so the rosette sits down
+    # in the bowl like every other plant; the offsets sit on the rim, spilling over it
+    main = f'<g transform="scale(.5)">{defs}{pt.emit()}</g>'
+    return back + main + front + f'<g transform="scale(.5)">{offsets}</g>'
 
 
 if __name__ == "__main__":

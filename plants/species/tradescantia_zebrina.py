@@ -27,13 +27,14 @@ from core import PAL, cr_path, cr_sample, ribbon, f, pot, svg_doc, reset_ids  # 
 
 P = PAL
 SOIL_Y = 606
+SILVER_EDGE = {-1: 1.03, 1: 0.96}   # silver stripes run almost to the edge: margin is a seam
 
 # ---------------------------------------------------------------- tones
 # upper-surface tiers: margin lit/shade, centre band lit/shade, silver lit/shade
 TIERS = {
-    0: ("#3A4B3F", "#304036", "#4A3441", "#3E2C37", "#8E9A8B", "#7D897A"),
-    1: ("#46604A", "#3B523F", P["wine"], "#4E3036", "#BAC3AE", "#A3AD98"),
-    2: ("#55705A", "#48614C", "#6C4150", "#5A3743", "#E0E3D3", "#C8CFBB"),
+    0: ("#5B6B5C", "#4F5E50", "#4A3441", "#3E2C37", "#8E9A8B", "#7D897A"),
+    1: ("#788A72", "#6B7C65", P["wine"], "#4E3036", "#BAC3AE", "#A3AD98"),
+    2: ("#94A48B", "#86957D", "#6C4150", "#5A3743", "#E0E3D3", "#C8CFBB"),
 }
 # undersides: lit, shade, midrib
 UNDER = {
@@ -95,7 +96,7 @@ class Tmpl:
             env = min(1.0, (t - t0) / taper0, (t1 - t) / taper1) ** 0.6
             c, h = (lo + hi) / 2, (hi - lo) / 2 * env
             j = jit[i] if jit else 0
-            outer.append(self.p(t, side * min(0.975, c + h + j)))
+            outer.append(self.p(t, side * min(1.03, c + h + j)))
             inner.append(self.p(t, side * (c - h + j * 0.4)))
         a = self.p(t0, side * lo)
         b = self.p(t1, side * (lo + hi) / 2)
@@ -125,7 +126,7 @@ def tmpl_upper(tid, shape, tier, seed):
     # green seam, not an outline
     for side, col in ((-1, sv), (1, svs)):
         jit = [rnd.uniform(-0.03, 0.03) for _ in range(9)]
-        g.append(f'<path d="{lf.region(side, 0.0, 0.93, 0.27, 0.975 if side < 0 else 0.93, taper0=0.2, taper1=0.4, jit=jit)}" fill="{col}"/>')
+        g.append(f'<path d="{lf.region(side, 0.0, 0.93, 0.27, SILVER_EDGE[side], taper0=0.2, taper1=0.4, jit=jit)}" fill="{col}"/>')
     g.append(f'<path d="{lf.band(-1, 0.32)}" fill="{bd}"/><path d="{lf.band(1, 0.32)}" fill="{bds}"/>')
     # fine longitudinal venation inside the silver (low contrast)
     vl = "".join(lf.line(s * 0.56, 0.1, 0.8) for s in (-1, 1))
@@ -339,8 +340,8 @@ def build():
     # trailing strands, drawn over the pot. Leaves turn outward/up off the
     # hanging stems; some twist to show the plum underside.
     trails = [
-        # long left strand, all the way down past the pot foot
-        Shoot([(232, 600), (198, 594), (170, 610), (152, 648), (142, 696), (138, 734), (142, 760)], 5.4, 2.8, 2,
+        # long left strand: hangs down the pot side, tip turning out well above the ground line
+        Shoot([(232, 600), (198, 594), (170, 610), (150, 644), (134, 674), (116, 694), (98, 700)], 5.4, 2.8, 2,
               grow(8, 74, 34, 2, first=-1, f0=0.08, seed=11, ang0=78, ang1=44, up=0.9, under={2, 5},
                    utone=1, shapes="abcab", tier_tip=1, bracts=True),
               tip_flower=(15, 10, 10)),

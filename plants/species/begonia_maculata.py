@@ -110,6 +110,7 @@ class AngelLeaf:
         sr = ripple(sr, 1)
         sl = ripple(sl, -1)
         self.poly_local = sr + sl[::-1][1:-1]
+        self.sl = sl
         # decimated control points for the path
         kr = sr[::6] + ([sr[-1]] if (len(sr) - 1) % 6 else [])
         kl = sl[::6] + ([sl[-1]] if (len(sl) - 1) % 6 else [])
@@ -141,6 +142,19 @@ class AngelLeaf:
         pts = [(round(x), round(y)) for x, y in pts]
         return cr_path(pts, closed=True, sharp={0, len(mid) - 1, len(mid), len(pts) - 1})
 
+    def turned_edge_d(self, depth=0.05, t0=0.08, t1=0.97):
+        """Narrow crescent along the small-side margin: the edge curling over to show a
+        sliver of the burgundy underside (widest mid-leaf, tapering to nothing)."""
+        L = self.L
+        edge = [p for p in self.sl if t0 * L <= -p[1] <= t1 * L]
+        inner = []
+        for x, y in edge:
+            u = (-y / L - t0) / (t1 - t0)
+            d = depth * L * math.sin(math.pi * u) ** 0.9
+            inner.append((x + d, y))
+        ring = [self.B(p) for p in edge[::3]] + [self.B(p) for p in inner[::-1][::3]]
+        return cr_path(ring, closed=True, sharp={0, len(edge[::3]) - 1, len(edge[::3]), len(ring) - 1})
+
     def veins_d(self):
         """faint palmate basal veins + a few pinnate laterals."""
         L = self.L
@@ -158,7 +172,7 @@ class AngelLeaf:
             v.append(f"M{round(p0[0])} {round(p0[1])}Q{round(p1[0])} {round(p1[1])} {round(p2[0])} {round(p2[1])}")
         return "".join(v)
 
-    def dots(self, density=1.0, rmin=1.5, rmax=5.2, seed=1):
+    def dots(self, density=1.0, rmin=1.5, rmax=5.2, seed=1, small_margin=0.0):
         rnd = random.Random(seed)
         L = self.L
         pts = []
@@ -179,7 +193,7 @@ class AngelLeaf:
             u = rnd.random() ** 1.7
             r = (rmin + (rmax - rmin) * u) * (1 - 0.45 * max(0, t - 0.4)) * (L / 180) ** 0.5
             e = dist_to_poly((x, y), self.poly_local)
-            if e < r + 2.2:
+            if e < r + 2.2 or (x < 0 and e < r + 2.2 + small_margin):
                 continue
             if abs(x) < r + 1.8 and t > 0.02:  # keep midrib clear
                 continue
@@ -230,13 +244,17 @@ def leaf_svg(lf, x, y, rot, mirror=False, fill=None, face="top", dot_seed=1,
              f'stroke-linecap="round" opacity=".3"/>')
     o.append(f'<path d="{lf.midrib_d(0, 0.88)}" fill="none" stroke="{P["sage"]}" stroke-width="1.6" '
              f'stroke-linecap="round" opacity=".6"/>')
-    for dia, ds in sorted(lf.dots(density=density, seed=dot_seed).items()):
+    sm = 0.05 * lf.L + 1.5 if face == "edge" else 0.0     # keep dots off the turned-over band
+    for dia, ds in sorted(lf.dots(density=density, seed=dot_seed, small_margin=sm).items()):
         o.append(f'<path d="{"".join(ds)}" stroke="{P["spot"]}" stroke-width="{f(dia)}" stroke-linecap="round"/>')
     if face == "fold":
         # underside half gets a faint rose midrib edge only; hide the dots there
         o.append(f'<path d="{lf.half("l")}" fill="{P["burgundy"]}"/>')
         o.append(f'<path d="{lf.midrib_d(0, 0.9)}" fill="none" stroke="{P["rose"]}" stroke-width="2" '
                  f'stroke-linecap="round" opacity=".7"/>')
+    if face == "edge":
+        # small-side margin turned over: a narrow burgundy band of underside
+        o.append(f'<path d="{lf.turned_edge_d()}" fill="{P["burgundy"]}"/>')
     o.append("</g></g>")
     return "".join(o)
 
@@ -331,8 +349,8 @@ def build():
         ("C", "tip", -4, 88, False, "mid", "top", 0.1, 41, 2),
         ("C", 3, 110, 172, False, "mid", "top", 0.12, 42, 2),
         ("C", 2, -114, 200, True, "mid", "top", 0.12, 43, 2),
-        ("C", 1, 154, 200, False, "mid", "fold", 0.06, 44, 3),
-        ("C", 0, -152, 138, True, "forest", "top", 0.1, 45, 3),
+        ("C", 1, 170, 214, False, "mid", "edge", 0.06, 44, 3),
+        # ("C", 0, -152, 138, True, "forest", "top", 0.1, 45, 3),
     ]
 
     def node_of(c, i):
