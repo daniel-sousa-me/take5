@@ -14,8 +14,12 @@ P = PAL
 SOIL_Y = 612          # petioles start here, below the rim front (hidden by the pot)
 SPADIX = "#E4D493"    # cream-yellow (between PAL cream and yellow_edge)
 SPADIX_SH = "#CDBB6C"
-SPATHE_SH = "#E2DCC9"    # cupped half: one step below ivory (spot was too close to the paper)
-SPATHE_RIM = "#CDC7B1"   # rolled edge contour (dark-on-light, 3.3 visible)
+# The spathe must read WHITE on ivory card, but anything at/above the stock's lightness prints
+# as bare paper. So the lit half is a cool, very pale green-white just under the stock's L*
+# (it takes a trace of ink and looks cleaner/cooler than the warm paper), the cupped half a
+# cool pale grey-green; no outline -- the dark leaves placed behind carry the silhouette.
+SPATHE_LT = "#E8ECE0"    # L* 92.8 < stock 93.2: printable
+SPATHE_SH = "#D3D9CB"    # cupped half
 SPATHE_VEIN = "#C3C8B0"  # pale green midvein, pre-blended solid
 
 
@@ -138,7 +142,7 @@ def spathe_svg(bx, by, deg, H, bend=0.06, flip=False, open_=1.0):
     cid = uid("sp")
     g = [f'<g transform="{T(bx, by, deg, 1, sx)}">',
          f'<clipPath id="{cid}"><path d="{d}"/></clipPath>',
-         f'<path d="{d}" fill="{P["ivory"]}"/>',
+         f'<path d="{d}" fill="{SPATHE_LT}"/>',
          f'<g clip-path="url(#{cid})">']
     # cupped half: warm off-white shade on one side of the midvein
     g.append(f'<path d="{half(sp, "r")}" fill="{SPATHE_SH}"/>')
@@ -151,9 +155,6 @@ def spathe_svg(bx, by, deg, H, bend=0.06, flip=False, open_=1.0):
     g.append(f'<path d="{throat}" fill="{SPATHE_VEIN}"/>')
     # pale green midvein up the spathe
     g.append(f'<path d="{taper(sp.axis(0.02), sp.axis(0.42), sp.axis(0.82), 3.4, 1.0)}" fill="{SPATHE_VEIN}"/>')
-    # rolled rim: a darker warm edge inside the silhouette, so the white hood
-    # keeps its shape on ivory card stock (7 wide, half of it visible)
-    g.append(f'<path d="{d}" fill="none" stroke="{SPATHE_RIM}" stroke-width="6.6"/>')
     g.append("</g>")
     # spadix: upright capsule rising from the throat, slightly off-axis
     sl, sw = H * 0.36, H * 0.062
@@ -204,12 +205,12 @@ def build():
     # --- back: tall dark leaves, the backdrop for the spathes
     fan("back", -34, 222, 180, D, 0.07, lean=1.62, pet=F)
     fan("back", 44, 196, 160, D, 0.06, lean=1.45, pet=F)
-    add("back", pl.leaf(292, 252, 362, -29, 182, N, bend=-0.03, side="l", pet=F))
+    add("back", pl.leaf(292, 252, 362, -29, 196, N, bend=-0.03, side="l", pet=F))
     add("back", pl.leaf(310, 386, 366, 38, 196, N, bend=0.04, side="r", pet=F))
-    add("back", pl.leaf(300, 308, 334, 9, 228, D, bend=-0.03, side="r", pet=F, wide=0.92))
+    add("back", pl.leaf(300, 308, 334, 3, 228, D, bend=-0.03, side="r", pet=F, wide=0.92))
     # --- flowers (stalks behind the foliage, spathes on top of it)
-    add("flow", flower(296, [(288, 470), (280, 392), (254, 318), (234, 266)], 108, -17, bend=0.06, flip=True))
-    add("flow", flower(308, [(320, 470), (316, 340), (292, 218)], 126, -4, bend=-0.05))
+    add("flow", flower(296, [(290, 470), (268, 384), (240, 330), (227, 300)], 98, -25, bend=0.06, flip=True))
+    add("flow", flower(308, [(318, 470), (314, 350), (312, 262)], 114, -1, bend=-0.05))
     add("flow", flower(310, [(352, 500), (416, 414), (430, 336)], 90, 20, bend=0.07, open_=0.85))
     # --- mid: forest leaves filling the clump
     fan("mid", -25, 192, 164, M, 0.05, lean=1.3, pet=M)

@@ -275,7 +275,7 @@ def build():
     # long vine, left side; leaves alternate irregularly and shrink to the tip
     # it rises from the soil under the big low front leaf (stem drawn before that
     # leaf, so its start is hidden), crosses the lip and drapes over the left shoulder
-    Lv = [(250, 594), (230, 590), (210, 588), (184, 592), (160, 618), (144, 660), (134, 704), (122, 740), (104, 762)]
+    Lv = [(250, 594), (230, 590), (210, 588), (184, 592), (160, 618), (143, 656), (128, 688), (108, 708), (84, 716)]
     s1, b1 = vine(Lv, [
         (0.14, -1, 68, P["light"], 21, 50, 0.5, True),
         (0.33, 1, 60, P["forest"], 22, 60, 0.55, False),

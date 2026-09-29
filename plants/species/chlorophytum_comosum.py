@@ -27,6 +27,8 @@ RIM_Y = 586
 RX = 92
 CROWN = (300, 614)      # leaf bases converge here (hidden by the rim front)
 
+PUP_CREAM = "#E6E8D6"   # printable (not paper-white under print_prep's rule)
+
 # tiers: margin, margin shade, stripe, stripe shade
 TIER = {
     "back":  (P["deep"], P["night"], P["pale"], P["light"]),
@@ -34,9 +36,11 @@ TIER = {
     "front": (P["mid"], "#4B6349", P["spot"], P["pale"]),
     "fore":  (P["sage"], "#6A7E60", P["ivory"], P["spot"]),
     "top":   (P["light"], "#8E9E80", P["ivory"], P["spot"]),
-    "baby":  (P["mid"], "#4B6349", P["ivory"], P["spot"]),
-    "babyb": (P["forest"], "#34503A", P["spot"], P["pale"]),
-    "babyf": (P["sage"], "#6A7E60", P["ivory"], P["spot"]),
+    # plantlets: the stripe is most of a small leaf, so it must print: a cool pale
+    # cream (L* 91, just under the ivory stock, so it gets ink) with a pale-sage shade half
+    "baby":  (P["mid"], "#4B6349", PUP_CREAM, P["pale"]),
+    "babyb": (P["forest"], "#34503A", PUP_CREAM, P["pale"]),
+    "babyf": (P["sage"], "#6A7E60", PUP_CREAM, P["pale"]),
 }
 
 
@@ -151,8 +155,8 @@ LEAVES = {
         (2, (312, 530), (372, 460), (420, 540), 12.5, "fore"),
     ],
     "drape": [   # drawn over the pot front; bases clipped by the rim
-        (-3, (284, 540), (214, 484), (208, 730), 12.5, "top"),
-        (4, (320, 575), (385, 540), (418, 690), 12, "front"),
+        (-3, (282, 540), (204, 484), (200, 730), 12.5, "top"),
+        (4, (322, 575), (396, 540), (424, 690), 12, "front"),
     ],
 }
 
@@ -219,7 +223,11 @@ def plantlet(x, y, spec, roots):
         out.append(f'<path d="{ribbon([(x, y - 2), (x + dx * 0.4, y + rl * 0.55), (x + dx, y + rl)], 3.6, 1.4, per=4)}" '
                    f'fill="{P["light"]}"/>')
     for a0, a1, L, W, tier in spec:
-        out.append(arc_leaf((x, y + 3), a0, a1, L * 1.3, W * 1.35).svg(tier, 0.4, 0.86, stripe_shade=False))
+        # wider pup leaves get the main leaves' stripe build (cream + pale shade half);
+        # the narrowest get a plain cream stripe (a shade half there would be a sub-print sliver)
+        w = W * 1.35
+        big = w >= 8.3
+        out.append(arc_leaf((x, y + 3), a0, a1, L * 1.3, w).svg(tier, 0.36 if big else 0.38, 0.84, stripe_shade=big))
     return "".join(out)
 
 
