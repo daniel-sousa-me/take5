@@ -132,7 +132,7 @@ def build():
                  f'<g transform="translate({x:.3f} {yy:.3f}) translate({-deck.B} {-deck.B})">'
                  f'<g clip-path="url(#{cid})">{card_top(n)}</g></g>'
                  f'<rect x="{x:.3f}" y="{yy:.3f}" width="{NUM3_W}" height="{NUM3_H}" fill="none" stroke="#bbb" stroke-width="0.15"/>')
-        g.append(t(x, yy + NUM3_H + 2.8, f"card {n} · top-left {NUM3_W:g} × {NUM3_H:g} mm", 2.0))
+        g.append(t(x, yy + NUM3_H + 2.8, f"card {n} · {NUM3_W:g} × {NUM3_H:g} mm", 2.0))
     assert X3 + 2 * NUM3_W + 2 <= 196
     # 5 — neighbouring tiers as they really print: the top of real cards, drawn with the deck's own functions
     # (card_top below = the top half of deck.card: field + sprig top-right, number + marks top-left), without

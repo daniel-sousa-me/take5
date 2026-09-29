@@ -18,8 +18,8 @@ RAMP = ["#43292F", "#4F3036", P["wine"], P["burgundy"], P["plum"], "#A0646C",
         P["rose"], "#C88B8C", P["blush"]]
 # petioles: a light pinkish-green, clearly apart from every leaf tone so they
 # read where they cross the foliage (the real stems are paler than the blades)
-PET_BACK = "#B49C90"
-PET_FRONT = "#CBB3A5"
+PET_BACK = "#A08679"
+PET_FRONT = "#B39A8C"
 PEDUNCLE = "#B08A88"
 FL = ["#CD9A9B", "#DBAEAC", "#E6C0BC"]  # blush petal tones, deep enough to hold on ivory
 FL_EDGE = "#C38D8F"  # petal rim, one step darker
@@ -309,9 +309,9 @@ def build():
     late = []
     for i, (bx, tip, L, yaw, droop, fold, elev, lean, off, bow, var, folds) in enumerate(LEAVES):
         col = PET_BACK if off < 2.0 else PET_FRONT
-        w0 = 5.4 if off >= 2.0 else 4.8
+        w0 = 5.6 if off >= 2.0 else 5.2
         bx = 300 + (tip[0] - 300) * 0.24 + (bx - 300) * 0.5
-        body.append(petiole((bx, 602), tip, bow, w0, 3.0, col))
+        body.append(petiole((bx, 602), tip, bow, w0, 4.0, col))
         t = trio(tip, L, yaw, droop, fold, elev, lean, off, var, folds)
         (late if tip[1] > 540 else body).append(t)
     body.append(front)

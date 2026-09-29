@@ -275,8 +275,10 @@ class Shoot:
 
 
 def grow(n, L0, L1, tier, first=1, f0=0.2, ang0=58, ang1=26, up=0.25, under=(), utone=1,
-         shapes="acbab", seed=0, tier_tip=None, bracts=False):
-    """Alternating nodes, leaves shrinking toward the tip, internodes shortening."""
+         shapes="acbab", seed=0, tier_tip=None, bracts=False, drop=()):
+    """Alternating nodes, leaves shrinking toward the tip, internodes shortening.
+    drop: node indices left bare (leaf shed) -- thins the dense centre without
+    disturbing the rest of the shoot's sequence."""
     rnd = random.Random(seed)
     out = []
     side = first
@@ -291,7 +293,8 @@ def grow(n, L0, L1, tier, first=1, f0=0.2, ang0=58, ang1=26, up=0.25, under=(), 
         shp = shapes[i % len(shapes)]
         tr = tier if (tier_tip is None or u < 0.6) else tier_tip
         tid = f"u{utone}{'a' if shp == 'c' else shp}" if i in under else f"z{tr}{shp}"
-        out.append((min(fr, 1.0), side, L, tid, a, uu))
+        if i not in drop:
+            out.append((min(fr, 1.0), side, L, tid, a, uu))
         side = -side
     if bracts:  # terminal pair of small folded leaves cupping the flower
         tr = tier if tier_tip is None else tier_tip
@@ -313,9 +316,10 @@ def build():
         Shoot([(297, Y), (292, 530), (282, 450), (278, 370), (286, 296), (304, 236)], 7.0, 3.8, 0,
               grow(7, 96, 44, 0, first=1, f0=0.26, seed=1, ang0=56, up=0.1, tier_tip=1)),
         Shoot([(308, Y), (320, 540), (346, 468), (388, 408), (436, 374), (484, 368)], 6.8, 3.6, 0,
-              grow(7, 94, 42, 0, first=-1, f0=0.26, seed=2, up=0.35, tier_tip=1, under={2}, utone=0)),
+              grow(7, 94, 42, 0, first=-1, f0=0.26, seed=2, up=0.35, tier_tip=1, under={2}, utone=0,
+                   drop={0})),
         Shoot([(290, Y), (278, 544), (250, 476), (206, 424), (158, 404), (116, 412)], 6.8, 3.6, 0,
-              grow(7, 92, 40, 0, first=1, f0=0.28, seed=3, up=0.35, tier_tip=1)),
+              grow(7, 92, 40, 0, first=1, f0=0.28, seed=3, up=0.35, tier_tip=1, drop={0})),
         # --- middle tier
         Shoot([(313, Y), (340, 562), (392, 522), (446, 506), (494, 516), (524, 546)], 6.2, 3.4, 1,
               grow(6, 90, 44, 1, first=1, f0=0.28, seed=4, up=0.55, ang0=64)),
@@ -327,13 +331,16 @@ def build():
         Shoot([(305, Y), (314, 550), (340, 494), (374, 452), (404, 430)], 6.0, 3.4, 1,
               grow(4, 96, 52, 1, first=1, f0=0.4, seed=7, up=0.2, tier_tip=2, bracts=True),
               tip_flower=(19, 13, 14)),
-        # --- front tier (bright): low leaves covering the stem bases
+        # --- front tier (bright): low leaves covering the stem bases. The lowest leaf of
+        # the centre shoot and the two back-tier leaves behind it are shed (drop=): opens
+        # the densest part of the crown onto the stems, with no same-tier leaves meeting.
         Shoot([(293, Y), (272, 590), (240, 578), (212, 576)], 5.8, 3.6, 2,
               grow(3, 100, 72, 2, first=1, f0=0.42, seed=8, ang0=50, ang1=34, up=0.4, shapes="cab")),
         Shoot([(309, Y), (334, 588), (366, 578), (396, 576)], 5.8, 3.6, 2,
               grow(3, 98, 70, 2, first=-1, f0=0.42, seed=9, ang0=50, ang1=34, up=0.4, shapes="acb")),
         Shoot([(301, Y), (304, 570), (314, 530), (330, 498)], 5.6, 3.6, 2,
-              grow(3, 104, 66, 2, first=-1, f0=0.45, seed=10, ang0=56, ang1=30, up=0.1, shapes="bca")),
+              grow(3, 104, 66, 2, first=-1, f0=0.45, seed=10, ang0=56, ang1=30, up=0.1, shapes="bca",
+                   drop={0})),
     ]
     for sh in crown:
         out += [sh.stem(), sh.leaves()]

@@ -93,7 +93,11 @@ def petiole(p0, a, length, w, leaf_rot, L):
     ld = dir_of(leaf_rot)
     mid = (p0[0] + d[0] * length * 0.55, p0[1] + d[1] * length * 0.55)
     inside = (q[0] + ld[0] * L * 0.07, q[1] + ld[1] * L * 0.07)
-    back = (p0[0] - d[0] * 4, p0[1] - d[1] * 4)  # start inside the stem
+    # start inside the stem, but on the leaf's side of the stem's centre line: a petiole
+    # heading left must not reach back across the stem's shaded right half (its square
+    # butt would show there); drawn in the stem colour, the join is then seamless
+    k = 2.5 if d[0] < 0 else -4
+    back = (p0[0] + d[0] * k, p0[1] + d[1] * k)
     return f'<path d="{ribbon([back, mid, q, inside], w, w * 0.8)}" fill="{STEM}"/>', q
 
 

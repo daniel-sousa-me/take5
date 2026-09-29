@@ -131,9 +131,9 @@ def build_body():
     # ---------------------------------------------------------------- top-right spray: one sweep from the corner toward the title
     # kept a step lighter and thinner than the bottom arrangement so the wordmark stays the focal point
     tr = [(700, -60), (618, 30), (538, 100), (460, 148), (380, 178)]
-    o.append(branch(tr, [(0.22, 138), (0.36, 132), (0.50, 124), (0.64, 108), (0.78, 90)], sides=[1, -1, 1, -1, 1], w0=6.5,
+    o.append(branch(tr, [(0.22, 138), (0.36, 132), (0.50, 124), (0.64, 90), (0.78, 90)], sides=[1, -1, 1, -1, 1], w0=6.5,
                     w1=2.8, back_cols=[G["mid"], G["sage"]], front_cols=[G["sage"], G["sage"], G["light"]], tip=(66, G["light"])))
-    o.append(sprig((470, 144), [((440, 206), -5), ((474, 222), 5), ((506, 204), 6)], STEM_G, 11, MUSTARD, MUSTARD_S, w=2.8))
+    o.append(sprig((462, 147), [((412, 200), -7), ((440, 229), 1), ((472, 223), 5)], STEM_G, 11, MUSTARD, MUSTARD_S, w=2.8))
 
     # ---------------------------------------------------------------- bottom-left arrangement
     # One bunch: every stem springs from the bottom-left corner (the only place, with the top-right,

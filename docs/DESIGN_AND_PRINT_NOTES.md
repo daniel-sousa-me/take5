@@ -105,7 +105,8 @@ for history; where it disagrees with this file, this file wins (card size and pr
 
 ## Card back
 
-- Asymmetric spray: one sweep in from the top-right corner (five leaves and three mustard berries), and one
+- Asymmetric spray: one sweep in from the top-right corner (five leaves, and three mustard berries fanned
+  on stalks into open space below the stem, clear of the hanging leaves), and one
   bunch rising from the bottom-left corner: an upright stem with a mustard sprig, burgundy berries on stalks that
   branch off it, a lily stem forking off it low down, and a low sweep arcing out to the right. Every stem of the
   bunch springs from the corner, so nothing floats and nothing crosses the bottom cut mid-width. Leaves are
