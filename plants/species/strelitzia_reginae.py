@@ -153,6 +153,12 @@ def leaf_unit(base, joint, rot, L, fill, pet_col, bend=0.0, tears=(), pw=(9, 6),
 
 # ------------------------------------------------------------------ flower
 SEPAL_SH = P["terra_dark"]
+# sepals, back -> front: a clear bird-of-paradise orange ramp (warmer/yellower and more saturated
+# than the terracotta pot, so the flower out-shouts the card's orange corner field); same
+# terra/amber family, same dark -> light order as before (L* ~42 / 58 / 65 / 71)
+SEPAL_1 = "#CF733C"   # was terra  #B96E4A
+SEPAL_2 = "#E48943"   # was terra2 #CB825D
+SEPAL_3 = "#EC9A4A"   # was amber  #D48A4C (lifted one step to stay the lightest, front sepal)
 TONGUE, TONGUE_SH = P["sky"], "#56707E"
 
 
@@ -166,8 +172,9 @@ def sepal(bx, by, ang, Ls, hw, col, lean=0.0):
     return (f'<g transform="{T(bx, by, ang)}"><clipPath id="{cl}"><path d="{d}"/></clipPath>'
             f'<path d="{d}" fill="{col}"/><g clip-path="url(#{cl})">'
             f'<path d="{keel}L{f(hw * 2)} {f(-Ls)}L{f(hw * 2)} 10Z" fill="{mix(col, SEPAL_SH, 0.2)}"/>'
-            # keel line: opaque, 2.0 local = 3.0 units at the flower's 1.5 scale (print minimum)
-            f'<path d="{keel}" fill="none" stroke="{mix(col, SEPAL_SH, 0.32)}" stroke-width="2"/>'
+            # keel line: opaque, 2.0 local = 3.0 units at the flower's 1.5 scale (print minimum); 40 % toward
+            # the sepal shade so even the brightest (front) sepal's keel stays a dark-on-light line
+            f'<path d="{keel}" fill="none" stroke="{mix(col, SEPAL_SH, 0.40)}" stroke-width="2"/>'
             f"</g></g>")
 
 
@@ -186,9 +193,9 @@ def flower(x, y, rot, s=1.0):
     parts = []
     # sepals: back to front, fanning up and forward out of the spathe mouth
     parts.append(sepal(14, -17, -30, 68, 10, P["terra_dark"], lean=-3))
-    parts.append(sepal(22, -18, -9, 92, 12.5, P["terra"], lean=-2))
-    parts.append(sepal(32, -18, 13, 90, 12, P["terra2"], lean=2))
-    parts.append(sepal(42, -17, 34, 76, 11, P["amber"], lean=3))
+    parts.append(sepal(22, -18, -9, 92, 12.5, SEPAL_1, lean=-2))
+    parts.append(sepal(32, -18, 13, 90, 12, SEPAL_2, lean=2))
+    parts.append(sepal(42, -17, 34, 76, 11, SEPAL_3, lean=3))
     # blue petal tongue in front of the sepals, arrow-headed, pointing forward
     # softly spear-shaped (no barbs): swells gently toward the upper third and
     # narrows to a blunt point, curving a little forward like the real petal

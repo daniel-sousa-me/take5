@@ -190,16 +190,16 @@ def place(tid, x, y, rot, L):
 
 # ---------------------------------------------------------------- flower
 def flower(x, y, r, rot=0):
-    """Three broad blush petals, rose eye, ivory centre."""
+    """Three broad blush petals, rose eye, paper-white centre."""
     out = [f'<g transform="translate({f(x)} {f(y)}) rotate({f(rot)})">']
     tones = ("#EBC3BE", P["blush"], "#E2B1AD")
     pd = cr_path([(0, 0), (r * 0.52, -r * 0.3), (r * 0.6, -r * 0.72), (r * 0.3, -r * 1.02), (0, -r * 1.1),
                   (-r * 0.3, -r * 1.02), (-r * 0.6, -r * 0.72), (-r * 0.52, -r * 0.3)], closed=True, sharp={0})
     for i in range(3):
         out.append(f'<path d="{pd}" fill="{tones[i]}" transform="rotate({i * 120})"/>')
-    # rose eye with a single ivory centre (>= 4.8 units across: print-safe dot)
+    # rose eye with a single paper-white centre (>= 4.8 units across: print-safe knockout dot)
     out.append(f'<circle r="{f(max(4.2, r * 0.32))}" fill="{P["rose"]}"/>')
-    out.append(f'<circle r="{f(max(2.4, r * 0.15))}" fill="{P["ivory"]}"/>')
+    out.append(f'<circle r="{f(max(2.4, r * 0.15))}" fill="#FFFFFF"/>')
     out.append("</g>")
     return "".join(out)
 
@@ -382,8 +382,8 @@ def trail_shoots():
               grow(8, 74, 34, 2, first=-1, f0=0.08, seed=11, ang0=78, ang1=44, up=0.9, under={2, 5},
                    utone=1, shapes="abcab", tier_tip=1, bracts=True),
               tip_flower=(15, 10, 10), lead=[(272, 614), (268, 597), (254, 592)]),
-        # medium right strand
-        Shoot([(363, 600), (396, 594), (432, 612), (454, 652), (462, 700), (462, 730)], 5.2, 2.8, 2,
+        # medium right strand: tip lifted ~26 units so its last leaves clear the card's bottom-right marks
+        Shoot([(363, 600), (396, 594), (432, 610), (453, 644), (461, 680), (463, 704)], 5.2, 2.8, 2,
               grow(7, 72, 34, 2, first=1, f0=0.08, seed=12, ang0=78, ang1=44, up=0.9, under={3},
                    utone=0, shapes="cabca", tier_tip=1), lead=[(318, 614), (325, 596), (345, 592)]),
         # short front drape

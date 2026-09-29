@@ -51,9 +51,9 @@ ULOW = 1 + len(LOW) / (len(PROFILE) - 1) - 0.02
 TONES = {
     "d": (P["deep"], P["night"], P["mid"], P["night"]),
     "m": (P["mid"], "#4B6349", P["light"], P["night"]),
-    # front highlight: a pale green-cream a few L* below the ivory stock, so it prints as ink (a paper-white
-    # dot would print as bare paper and make the mass read as foam)
-    "f": (P["light"], "#8E9E80", "#E4E6D2", P["forest"]),
+    # front highlight: a pale green-cream tint at L* 89 (white stock: a visible tint must sit <= L* 90,
+    # below the speckle band; a paper-white dot would make the mass read as foam)
+    "f": (P["light"], "#8E9E80", "#DFE1CD", P["forest"]),
 }
 HL_MIN = 2.4    # highlight radius floor: 4.8-unit dot, above the 4.5-unit print minimum
 HL_FRAC = 0.25  # highlight radius as a fraction of the bead radius (~1/4 of the diameter across)

@@ -73,6 +73,7 @@ def mix(a, b, t):
     return "#" + "".join(f"{round(int(a[i:i + 2], 16) * (1 - t) + int(b[i:i + 2], 16) * t):02X}" for i in (1, 3, 5))
 
 
+DOT = "#FFFFFF"  # silvery-white polka dots = bare white paper (a beige tint read as cream on white stock)
 DOT_MIN = 4.6    # light dot diameter floor (print policy: >= 4.5 units)
 LINE_W = 3.0     # midrib / node-ring width (print policy: dark line >= 3.0 units)
 EDGE_DEPTH = 0.068  # turned-over margin band, fraction of L at its widest (~14.5 units on the front leaf)
@@ -265,7 +266,7 @@ def leaf_svg(lf, x, y, rot, mirror=False, fill=None, face="top", dot_seed=1,
              f'stroke-width="{LINE_W}" stroke-linecap="round"/>')
     sm = EDGE_DEPTH * lf.L + 1.5 if face == "edge" else 0.0     # keep dots off the turned-over band
     for dia, ds in sorted(lf.dots(density=density, seed=dot_seed, small_margin=sm).items()):
-        o.append(f'<path d="{"".join(ds)}" stroke="{P["spot"]}" stroke-width="{f(dia)}" stroke-linecap="round"/>')
+        o.append(f'<path d="{"".join(ds)}" stroke="{DOT}" stroke-width="{f(dia)}" stroke-linecap="round"/>')
     if face == "fold":
         # underside half gets a faint rose midrib edge only; hide the dots there
         o.append(f'<path d="{lf.half("l")}" fill="{P["burgundy"]}"/>')

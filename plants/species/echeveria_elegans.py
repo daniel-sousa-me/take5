@@ -30,7 +30,7 @@ SE, CE = math.sin(EL), math.cos(EL)
 
 # powdery blue-green ramp (bluer extension of PAL sage / light / pale), dark -> light
 RAMP = ["#4A6155", "#5A7165", "#6B8377", "#7F968A", "#94AB9F", "#AABFB4", "#C0D1C7", "#D5E1D8",
-        "#E4ECE4"]
+        "#DCE4DC"]  # heart tint held at L* 89.8 (white stock: keep pale tints out of the 90-95 speckle band)
 BLUSH = "#DCA29E"      # tip cap (between PAL blush and its lighter tint)
 CAP_K = 0.15           # blush cap = leaf outline scaled by this about its tip
 BAND_K = 1.6           # mid-pink band under the cap: the outline scaled by CAP_K * BAND_K

@@ -27,20 +27,23 @@ RIM_Y = 586
 RX = 92
 CROWN = (300, 614)      # leaf bases converge here (hidden by the rim front)
 
-PUP_CREAM = "#E6E8D6"   # printable (not paper-white under print_prep's rule)
+# White card stock: the cream stripe IS the paper (#FFFFFF, no ink) on every tier that has one,
+# so front, middle and plantlet stripes all print the same clean white; the channel (shade) half
+# carries the form as a visible pale green tint (L* <= 90, clear of the 90-95 speckle band).
+PAPER = "#FFFFFF"
+STRIPE_SH_FRONT = "#D3DCC6"   # L* 86.6: pale-sage shade half for the lightest (front) tiers
 
 # tiers: margin, margin shade, stripe, stripe shade
 TIER = {
     "back":  (P["deep"], P["night"], P["pale"], P["light"]),
-    "midd":  (P["forest"], "#34503A", P["spot"], P["pale"]),
-    "front": (P["mid"], "#4B6349", P["spot"], P["pale"]),
-    "fore":  (P["sage"], "#6A7E60", P["ivory"], P["spot"]),
-    "top":   (P["light"], "#8E9E80", P["ivory"], P["spot"]),
-    # plantlets: the stripe is most of a small leaf, so it must print: a cool pale
-    # cream (L* 91, just under the ivory stock, so it gets ink) with a pale-sage shade half
-    "baby":  (P["mid"], "#4B6349", PUP_CREAM, P["pale"]),
-    "babyb": (P["forest"], "#34503A", PUP_CREAM, P["pale"]),
-    "babyf": (P["sage"], "#6A7E60", PUP_CREAM, P["pale"]),
+    "midd":  (P["forest"], "#34503A", PAPER, P["pale"]),
+    "front": (P["mid"], "#4B6349", PAPER, P["pale"]),
+    "fore":  (P["sage"], "#6A7E60", PAPER, STRIPE_SH_FRONT),
+    "top":   (P["light"], "#8E9E80", PAPER, STRIPE_SH_FRONT),
+    # plantlets: same paper-white stripe as the main leaves, pale-sage shade half
+    "baby":  (P["mid"], "#4B6349", PAPER, P["pale"]),
+    "babyb": (P["forest"], "#34503A", PAPER, P["pale"]),
+    "babyf": (P["sage"], "#6A7E60", PAPER, P["pale"]),
 }
 
 

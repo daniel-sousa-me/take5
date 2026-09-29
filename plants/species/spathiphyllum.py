@@ -14,11 +14,10 @@ P = PAL
 SOIL_Y = 612          # petioles start here, below the rim front (hidden by the pot)
 SPADIX = "#E4D493"    # cream-yellow (between PAL cream and yellow_edge)
 SPADIX_SH = "#CDBB6C"
-# The spathe must read WHITE on ivory card, but anything at/above the stock's lightness prints
-# as bare paper. So the lit half is a cool, very pale green-white just under the stock's L*
-# (it takes a trace of ink and looks cleaner/cooler than the warm paper), the cupped half a
-# cool pale grey-green; no outline -- the dark leaves placed behind carry the silhouette.
-SPATHE_LT = "#E8ECE0"    # L* 92.8 < stock 93.2: printable
+# White card stock: the spathe's lit half IS the paper (#FFFFFF, no ink) -- a white flower on
+# white paper. Its form is carried by the cupped half (a cool pale grey-green, L* <= 90) and by
+# the dark leaves placed behind every spathe; no outline.
+SPATHE_LT = "#FFFFFF"    # paper white
 SPATHE_SH = "#D3D9CB"    # cupped half
 SPATHE_VEIN = "#C3C8B0"  # pale green midvein, pre-blended solid
 
@@ -209,7 +208,7 @@ def build():
     add("back", pl.leaf(310, 386, 366, 38, 196, N, bend=0.04, side="r", pet=F))
     add("back", pl.leaf(300, 308, 334, 3, 228, D, bend=-0.03, side="r", pet=F, wide=0.92))
     # --- flowers (stalks behind the foliage, spathes on top of it)
-    add("flow", flower(296, [(290, 470), (268, 384), (240, 330), (227, 300)], 98, -25, bend=0.06, flip=True))
+    add("flow", flower(296, [(290, 470), (268, 384), (238, 332), (224, 303)], 98, -31, bend=0.06, flip=True))
     add("flow", flower(314, [(330, 470), (330, 360), (325, 270)], 114, -5, bend=-0.05, open_=0.9))
     add("flow", flower(310, [(352, 500), (416, 414), (430, 336)], 90, 20, bend=0.07, open_=0.85))
     # --- mid: forest leaves filling the clump
