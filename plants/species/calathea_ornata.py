@@ -25,6 +25,7 @@ TONE = {
     "front": ("#405D43", "#37523B"),     # forest
 }
 STRIPE = P["blush"]
+MIDRIB = "#6F8566"   # sage pulled one step toward the dark leaf, opaque
 # petiole / pulvinus tones per layer so crossing petioles stay separable
 PET = {
     "back": ("#4B6349", P["mid"]),
@@ -46,40 +47,66 @@ def leaf_shape(L, seed, narrow=1.0):
     return Leaf(L, right, left, bend=rnd.uniform(-0.05, 0.05), base_sharp=False, tip_t=1.0)
 
 
+def pinstripe(p0, p1, p2, w):
+    """Quadratic centre line p0-p1-p2 drawn as a filled stripe: two cubics with
+    offset handles, so it is ~w wide over its middle and pointed at both ends.
+    Opaque; widest point = w units."""
+    c1 = (p0[0] + (p1[0] - p0[0]) * 2 / 3, p0[1] + (p1[1] - p0[1]) * 2 / 3)
+    c2 = (p2[0] + (p1[0] - p2[0]) * 2 / 3, p2[1] + (p1[1] - p2[1]) * 2 / 3)
+
+    def nrm(a, b):
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        m = math.hypot(dx, dy) or 1
+        return -dy / m * w / 1.5, dx / m * w / 1.5
+    n1, n2 = nrm(p0, p1), nrm(p1, p2)
+    return (f"M{f(p0[0])} {f(p0[1])}C{f(c1[0] + n1[0])} {f(c1[1] + n1[1])} {f(c2[0] + n2[0])} "
+            f"{f(c2[1] + n2[1])} {f(p2[0])} {f(p2[1])}C{f(c2[0] - n2[0])} {f(c2[1] - n2[1])} "
+            f"{f(c1[0] - n1[0])} {f(c1[1] - n1[1])} {f(p0[0])} {f(p0[1])}Z")
+
+
+STRIPE_W = 4.4      # widest point, units (knockout minimum is 4.0)
+PAIR_SEP = 11.0     # axial distance between the two lines of a pair, units
+PAIR_STEP = 34.0    # minimum axial distance between successive pairs, units
+
+
 def stripes(leaf, seed):
-    """Paired pinstripes from midrib toward margin, curving tipward."""
+    """Paired pinstripes from beside the midrib toward the margin, curving
+    tipward. Few, well-spaced pairs of filled tapered strokes so the dark
+    ground stays dominant."""
     rnd = random.Random(seed + 99)
+    L = leaf.L
+    step = max(0.17, PAIR_STEP / L)
+    sep = PAIR_SEP / L
     d = []
-    t = 0.09
-    while t < 0.78:
+    t = 0.12
+    while t + sep < 0.76:
         for s, sg in (("r", 1), ("l", -1)):
-            to = t + rnd.uniform(-0.008, 0.008)
+            to = t + rnd.uniform(-0.01, 0.01) + (0.03 if s == "l" else 0.0)
             for k in (0, 1):  # the pair
-                t0 = to + k * 0.021
-                dt = 0.15 - 0.05 * t0
-                w_end = leaf.width(t0 + dt, s) * 0.78
-                p0 = leaf.pt(t0, sg * 0.018)
+                t0 = to + k * sep
+                dt = 0.16 - 0.06 * t0
+                w_end = leaf.width(t0 + dt, s) * 0.84
+                p0 = leaf.pt(t0, sg * 0.016)
                 p1 = leaf.pt(t0 + dt * 0.36, sg * leaf.width(t0 + dt * 0.36, s) * 0.46)
                 p2 = leaf.pt(t0 + dt, sg * w_end)
-                d.append(f"M{f(p0[0])} {f(p0[1])}Q{f(p1[0])} {f(p1[1])} {f(p2[0])} {f(p2[1])}")
-        t += 0.112 + rnd.uniform(-0.006, 0.006)
-    return (f'<path d="{"".join(d)}" fill="none" stroke="{STRIPE}" stroke-width="1.7" '
-            f'stroke-linecap="round" opacity=".92"/>')
+                d.append(pinstripe(p0, p1, p2, STRIPE_W))
+        t += step + rnd.uniform(-0.01, 0.01)
+    return f'<path d="{"".join(d)}" fill="{STRIPE}"/>'
 
 
-def under_veins(leaf):
-    d = []
-    t = 0.10
-    while t < 0.84:
-        for s, sg in (("r", 1), ("l", -1)):
-            dt = 0.15 - 0.05 * t
-            p0 = leaf.pt(t, sg * 0.015)
-            p1 = leaf.pt(t + dt * 0.22, sg * leaf.width(t + dt * 0.22, s) * 0.52)
-            p2 = leaf.pt(t + dt, sg * leaf.width(t + dt, s) * 0.85)
-            d.append(f"M{f(p0[0])} {f(p0[1])}Q{f(p1[0])} {f(p1[1])} {f(p2[0])} {f(p2[1])}")
-        t += 0.11
-    return (f'<path d="{"".join(d)}" fill="none" stroke="{P["plum"]}" stroke-width="1.3" '
-            f'stroke-linecap="round" opacity=".75"/>')
+def midrib(leaf, col, w0=4.6, w1=1.8, t1=0.9):
+    """Opaque tapered midrib (filled), >= 4 units at the base."""
+    pts = [leaf.axis(t1 * i / 10) for i in range(11)]
+    n = len(pts)
+    Lp, Rp = [], []
+    for i, p in enumerate(pts):
+        a, b = pts[max(i - 1, 0)], pts[min(i + 1, n - 1)]
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        m = math.hypot(dx, dy) or 1
+        w = (w0 + (w1 - w0) * i / (n - 1)) / 2
+        Lp.append((p[0] - dy / m * w, p[1] + dx / m * w))
+        Rp.append((p[0] + dy / m * w, p[1] - dx / m * w))
+    return f'<path d="{cr_path(Lp + Rp[::-1], closed=True, sharp={0, n - 1, n, 2 * n - 1})}" fill="{col}"/>'
 
 
 def unit(deg):
@@ -118,15 +145,14 @@ def plant_leaf(spec):
     pb = (bx + ux * 2, by + uy * 2)
     out.append(line([pa, pb], w1 + 1.8, pv))
     if under:
+        # burgundy underside: flat halves + rose midrib only
         fill, shade = UNDER
-        midrib = (P["rose"], 2.2, 0.9, 0.0, 0.93)
-        extra = under_veins
+        extra = lambda lf: midrib(lf, P["rose"])  # noqa: E731
     else:
         fill, shade = TONE[layer]
-        midrib = (P["sage"], 1.9, 0.95, 0.0, 0.92)
-        extra = lambda lf: stripes(lf, seed)  # noqa: E731
+        extra = lambda lf: stripes(lf, seed) + midrib(lf, MIDRIB)  # noqa: E731
     side = "l" if ang > 0 else "r"
-    g = leaf_g(leaf, fill, shade=shade, side=side, midrib=midrib, extra=extra,
+    g = leaf_g(leaf, fill, shade=shade, side=side, extra=extra,
                transform=T(bx, by, ang))
     out.append(g)
     return "".join(out), plen

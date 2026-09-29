@@ -89,7 +89,7 @@ class Tmpl:
 
     def region(self, side, t0, t1, lo, hi, taper0=0.12, taper1=0.25, jit=None):
         """strip between fractions lo..hi of the half-width, tapering at both ends."""
-        n = 8
+        n = 6
         outer, inner = [], []
         for i in range(1, n):
             t = t0 + (t1 - t0) * i / n
@@ -115,38 +115,43 @@ class Tmpl:
         return "M" + "L".join(f"{f(a)} {f(b)}" for a, b in pts)
 
 
-def tmpl_upper(tid, shape, tier, seed):
+# pattern proportions as fractions of the local half-width. Two size classes so the
+# green margin and plum band stay print-safe on the small tip leaves too
+# (large: L >= 60 world units, small: below that).
+PATTERN = {  # size: (band, silver_lo, silver_hi lit side, silver_hi shade side)
+    "": (0.37, 0.28, 0.84, 0.81),
+    "s": (0.34, 0.26, 0.72, 0.70),
+    "t": (0.44, 0.30, 1.03, 1.03),   # tiny tip leaves / bracts: no margin sliver
+}
+SMALL_L, TINY_L = 60, 40
+
+
+def tmpl_upper(tid, shape, tier, seed, size=""):
+    """All opaque fills, no strokes: green margin -> two broad silver stripes ->
+    plum centre band. Widths are chosen so every band is >= ~3 world units on
+    the leaves that use this template (print minimum at ~0.055 mm/unit)."""
     wide, curl = SHAPES[shape]
     lf = Tmpl(wide, curl)
     mg, mgs, bd, bds, sv, svs = TIERS[tier]
+    band, lo, hi_l, hi_s = PATTERN[size]
     rnd = random.Random(seed)
     g = [f'<g id="{tid}"><path d="{lf.outline()}" fill="{mg}"/>',
          f'<path d="{lf.half(1)}" fill="{mgs}"/>']
-    # broad silver stripes reaching close to the edge: the margin is a narrow
-    # green seam, not an outline
-    for side, col in ((-1, sv), (1, svs)):
-        jit = [rnd.uniform(-0.03, 0.03) for _ in range(9)]
-        g.append(f'<path d="{lf.region(side, 0.0, 0.93, 0.27, SILVER_EDGE[side], taper0=0.2, taper1=0.4, jit=jit)}" fill="{col}"/>')
-    g.append(f'<path d="{lf.band(-1, 0.32)}" fill="{bd}"/><path d="{lf.band(1, 0.32)}" fill="{bds}"/>')
-    # fine longitudinal venation inside the silver (low contrast)
-    vl = "".join(lf.line(s * 0.56, 0.1, 0.8) for s in (-1, 1))
-    g.append(f'<path d="{vl}" fill="none" stroke="{bds}" stroke-width="1.6" '
-             f'stroke-linecap="round" opacity=".2"/>')
-    g.append(f'<path d="{lf.line(0, 0.0, 0.9)}" fill="none" stroke="{sv}" stroke-width="2" '
-             f'stroke-linecap="round" opacity=".35"/></g>')
+    for side, col, hi in ((-1, sv, hi_l), (1, svs, hi_s)):
+        jit = [rnd.uniform(-0.05, 0.04) for _ in range(9)]
+        g.append(f'<path d="{lf.region(side, 0.0, 0.93, lo, hi, taper0=0.2, taper1=0.4, jit=jit)}" fill="{col}"/>')
+    g.append(f'<path d="{lf.band(-1, band)}" fill="{bd}"/><path d="{lf.band(1, band)}" fill="{bds}"/></g>')
     return "".join(g)
 
 
 def tmpl_under(tid, shape, tone):
+    """Plum underside: flat lit / shaded halves only (the tonal split reads as
+    the midrib; no hairline strokes)."""
     wide, curl = SHAPES[shape]
     lf = Tmpl(wide, curl)
-    lit, shd, mid = UNDER[tone]
-    vl = "".join(lf.line(s * 0.5, 0.08, 0.82) for s in (-1, 1))
+    lit, shd, _ = UNDER[tone]
     return (f'<g id="{tid}"><path d="{lf.outline()}" fill="{lit}"/>'
-            f'<path d="{lf.half(1)}" fill="{shd}"/>'
-            f'<path d="{vl}" fill="none" stroke="{shd}" stroke-width="1.5" stroke-linecap="round" opacity=".35"/>'
-            f'<path d="{lf.line(0, 0.0, 0.9)}" fill="none" stroke="{mid}" stroke-width="2.2" '
-            f'stroke-linecap="round" opacity=".55"/></g>')
+            f'<path d="{lf.half(1)}" fill="{shd}"/></g>')
 
 
 def _ints(svg):
@@ -160,8 +165,9 @@ def defs():
     k = 0
     for tier in TIERS:
         for s in SHAPES:
-            k += 1
-            out.append(tmpl_upper(f"z{tier}{s}", s, tier, k))
+            for size in PATTERN:
+                k += 1
+                out.append(tmpl_upper(f"z{tier}{s}{size}", s, tier, k, size))
     for tone in UNDER:
         for s in ("a", "b"):
             out.append(tmpl_under(f"u{tone}{s}", s, tone))
@@ -172,6 +178,11 @@ def defs():
 def place(tid, x, y, rot, L):
     """shaded half (+x local) must face world right; flip when it would not."""
     flip = math.cos(math.radians(rot)) < 0
+    if tid.startswith("z") and L < SMALL_L:
+        if L < TINY_L:  # tiny leaves: two outline variants are plenty
+            tid = tid.replace("c", "a") + "t"
+        else:
+            tid += "s"
     sx = (-1 if flip else 1) * L / 100
     return (f'<use href="#{tid}" transform="translate({f(x)} {f(y)}) rotate({f(rot)}) '
             f'scale({sx:.3f} {L / 100:.3f})"/>')
@@ -179,23 +190,16 @@ def place(tid, x, y, rot, L):
 
 # ---------------------------------------------------------------- flower
 def flower(x, y, r, rot=0):
-    """Three broad blush petals, rose eye, cream anthers."""
+    """Three broad blush petals, rose eye, ivory centre."""
     out = [f'<g transform="translate({f(x)} {f(y)}) rotate({f(rot)})">']
     tones = ("#EBC3BE", P["blush"], "#E2B1AD")
     pd = cr_path([(0, 0), (r * 0.52, -r * 0.3), (r * 0.6, -r * 0.72), (r * 0.3, -r * 1.02), (0, -r * 1.1),
                   (-r * 0.3, -r * 1.02), (-r * 0.6, -r * 0.72), (-r * 0.52, -r * 0.3)], closed=True, sharp={0})
     for i in range(3):
         out.append(f'<path d="{pd}" fill="{tones[i]}" transform="rotate({i * 120})"/>')
-    # a faint crease down each petal
-    out.append(f'<path d="' + "".join(
-        f"M{f(math.sin(math.radians(i * 120)) * r * 0.3)} {f(-math.cos(math.radians(i * 120)) * r * 0.3)}"
-        f"L{f(math.sin(math.radians(i * 120)) * r * 0.85)} {f(-math.cos(math.radians(i * 120)) * r * 0.85)}"
-        for i in range(3)) + f'" stroke="{P["rose"]}" stroke-width="1.3" stroke-linecap="round" opacity=".45"/>')
-    out.append(f'<circle r="{f(r * 0.3)}" fill="{P["rose"]}"/>')
-    for i in range(3):
-        a = math.radians(i * 120 + 60)
-        out.append(f'<circle cx="{f(math.sin(a) * r * 0.32)}" cy="{f(-math.cos(a) * r * 0.32)}" '
-                   f'r="{f(r * 0.12)}" fill="{P["ivory"]}"/>')
+    # rose eye with a single ivory centre (>= 4.8 units across: print-safe dot)
+    out.append(f'<circle r="{f(max(4.2, r * 0.32))}" fill="{P["rose"]}"/>')
+    out.append(f'<circle r="{f(max(2.4, r * 0.15))}" fill="{P["ivory"]}"/>')
     out.append("</g>")
     return "".join(out)
 
@@ -291,8 +295,8 @@ def grow(n, L0, L1, tier, first=1, f0=0.2, ang0=58, ang1=26, up=0.25, under=(), 
         side = -side
     if bracts:  # terminal pair of small folded leaves cupping the flower
         tr = tier if tier_tip is None else tier_tip
-        out.append((1.0, side, L1 * 0.72, f"z{tr}b", 34, up))
-        out.append((1.0, -side, L1 * 0.62, f"z{tr}a", 30, up))
+        out.append((1.0, side, L1 * 0.86, f"z{tr}b", 34, up))
+        out.append((1.0, -side, L1 * 0.76, f"z{tr}a", 30, up))
     return out
 
 
@@ -313,7 +317,7 @@ def build():
         Shoot([(290, Y), (278, 544), (250, 476), (206, 424), (158, 404), (116, 412)], 6.8, 3.6, 0,
               grow(7, 92, 40, 0, first=1, f0=0.28, seed=3, up=0.35, tier_tip=1)),
         # --- middle tier
-        Shoot([(313, Y), (340, 562), (392, 522), (446, 506), (496, 516), (530, 546)], 6.2, 3.4, 1,
+        Shoot([(313, Y), (340, 562), (392, 522), (446, 506), (494, 516), (524, 546)], 6.2, 3.4, 1,
               grow(6, 90, 44, 1, first=1, f0=0.28, seed=4, up=0.55, ang0=64)),
         Shoot([(286, Y), (262, 566), (214, 534), (160, 520), (112, 534), (76, 562)], 6.2, 3.4, 1,
               grow(6, 88, 42, 1, first=-1, f0=0.3, seed=5, up=0.55, ang0=64, under={4}, utone=1)),
@@ -357,7 +361,10 @@ def build():
     out += [sh.stem() for sh in trails]
     out += [sh.leaves() for sh in trails]
     out += [sh.flower() for sh in trails]
-    return "".join(out)
+    body = "".join(out)
+    # drop templates no <use> references (keeps the file small)
+    used = set(re.findall(r'href="#(\w+)"', body))
+    return re.sub(r'<g id="(\w+)">.*?</g>', lambda m: m.group(0) if m.group(1) in used else "", body)
 
 
 if __name__ == "__main__":

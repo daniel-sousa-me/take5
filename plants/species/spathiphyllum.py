@@ -14,6 +14,9 @@ P = PAL
 SOIL_Y = 612          # petioles start here, below the rim front (hidden by the pot)
 SPADIX = "#E4D493"    # cream-yellow (between PAL cream and yellow_edge)
 SPADIX_SH = "#CDBB6C"
+SPATHE_SH = "#E2DCC9"    # cupped half: one step below ivory (spot was too close to the paper)
+SPATHE_RIM = "#CDC7B1"   # rolled edge contour (dark-on-light, 3.3 visible)
+SPATHE_VEIN = "#C3C8B0"  # pale green midvein, pre-blended solid
 
 
 def rot_pt(x, y, deg):
@@ -47,16 +50,58 @@ def half(lf, side, reach=3.0):
     return cr_path(pts, closed=True, sharp={0, len(mid) - 1, len(mid), len(pts) - 1})
 
 
+def mix(a, b, k):
+    """pre-blend hex a toward b by k (flat opaque colour)."""
+    ca = [int(a[i:i + 2], 16) for i in (1, 3, 5)]
+    cb = [int(b[i:i + 2], 16) for i in (1, 3, 5)]
+    return "#" + "".join(f"{round(x + (y - x) * k):02X}" for x, y in zip(ca, cb))
+
+
+SHADE_X = dict(SHADE, **{P["night"]: "#1F3024"})
+VEIN_T = (0.2, 0.4, 0.6)      # three laterals per side on every leaf
+VEIN_W = 3.4                  # widest point (at the midrib), dark-on-light min is 3.0
+MIDRIB_W = (4.6, 1.4)         # light (knockout) midrib: >= 4 at the base
+
+
+def taper(p0, p1, p2, w0, w1):
+    """Quadratic centre line drawn as a filled taper, w0 at p0 -> w1 at p2."""
+    def nrm(a, b, h):
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        m = math.hypot(dx, dy) or 1
+        return -dy / m * h, dx / m * h
+    n0, n2 = nrm(p0, p1, w0 / 2), nrm(p1, p2, w1 / 2)
+    nm = nrm(p0, p2, (w0 + w1) / 2)
+    return (f"M{f(p0[0] + n0[0])} {f(p0[1] + n0[1])}Q{f(p1[0] + nm[0])} {f(p1[1] + nm[1])} "
+            f"{f(p2[0] + n2[0])} {f(p2[1] + n2[1])}L{f(p2[0] - n2[0])} {f(p2[1] - n2[1])}"
+            f"Q{f(p1[0] - nm[0])} {f(p1[1] - nm[1])} {f(p0[0] - n0[0])} {f(p0[1] - n0[1])}Z")
+
+
+def veins(lf, fill, side):
+    """Opaque vein system, identical on every leaf: three curved laterals per side,
+    one tone step darker than the half they sit on, plus a light midrib."""
+    sh = SHADE_X.get(fill, "#1F3024")
+    tone = {side: mix(sh, "#000000", 0.16), ("l" if side == "r" else "r"): sh}
+    out = []
+    for s, sg in (("r", 1), ("l", -1)):
+        d = []
+        for t in VEIN_T:
+            dt = 0.17
+            t2 = min(t + dt, 0.98)
+            p0 = lf.axis(t)
+            p1 = lf.pt(t + dt * 0.45, sg * lf.width(t + dt * 0.45, s) * 0.5)
+            p2 = lf.pt(t2, sg * lf.width(t2, s) * 0.86)
+            d.append(taper(p0, p1, p2, VEIN_W, 1.0))
+        out.append(f'<path d="{"".join(d)}" fill="{tone[s]}"/>')
+    rib = mix(fill, P["pale"], 0.45)
+    a, b, c = lf.axis(0.0), lf.axis(0.45), lf.axis(0.9)
+    out.append(f'<path d="{taper(a, b, c, *MIDRIB_W)}" fill="{rib}"/>')
+    return "".join(out)
+
+
 def leaf_svg(lf, bx, by, deg, fill, side, sx=1.0):
-    sh = SHADE.get(fill, "#1F3024")
-    rib = P["pale"] if fill in (P["deep"], P["forest"], P["night"]) else P["pale"]
-    vcol = P["night"] if fill != P["night"] else "#1E2D22"
+    sh = SHADE_X.get(fill, "#1F3024")
     return leaf_g(
-        lf, fill, extra=lambda l: f'<path d="{half(l, side)}" fill="{sh}"/>',
-        # curved laterals running up toward the margin; opacity kept >= .34 and a
-        # 1.3 u width so print_prep widens them instead of dropping them
-        veins=(vcol, 1.2, 0.35, [0.15, 0.30, 0.45, 0.60], 0.9, 0.17),
-        midrib=(rib, max(1.6, lf.L * 0.011), 0.45, 0.03, 0.9),
+        lf, fill, extra=lambda l: f'<path d="{half(l, side)}" fill="{sh}"/>' + veins(l, fill, side),
         transform=T(bx, by, deg, 1, sx))
 
 
@@ -96,7 +141,7 @@ def spathe_svg(bx, by, deg, H, bend=0.06, flip=False, open_=1.0):
          f'<path d="{d}" fill="{P["ivory"]}"/>',
          f'<g clip-path="url(#{cid})">']
     # cupped half: warm off-white shade on one side of the midvein
-    g.append(f'<path d="{half(sp, "r")}" fill="{P["spot"]}"/>')
+    g.append(f'<path d="{half(sp, "r")}" fill="{SPATHE_SH}"/>')
     # sage-green throat: a tint rising from the base and fading up the midvein
     tw = lambda t: sp.width(t, "r") * 0.9
     throat = cr_path([sp.axis(-0.05), sp.pt(0.06, 0.1), sp.pt(0.18, 0.1), sp.axis(0.38),
@@ -106,8 +151,10 @@ def spathe_svg(bx, by, deg, H, bend=0.06, flip=False, open_=1.0):
                       closed=True, sharp={0, 2})
     g.append(f'<path d="{throat2}" fill="#ACB89E"/>')  # light over pale, pre-blended
     # pale green midvein up the spathe
-    mv = [sp.axis(0.02 + 0.8 * i / 6) for i in range(7)]
-    g.append(line(mv, 1.6, "#BCC3AC"))  # sage over ivory, pre-blended solid
+    g.append(f'<path d="{taper(sp.axis(0.02), sp.axis(0.42), sp.axis(0.82), 3.4, 1.0)}" fill="{SPATHE_VEIN}"/>')
+    # rolled rim: a darker warm edge inside the silhouette, so the white hood
+    # keeps its shape on ivory card stock (7 wide, half of it visible)
+    g.append(f'<path d="{d}" fill="none" stroke="{SPATHE_RIM}" stroke-width="6.6"/>')
     g.append("</g>")
     # spadix: upright capsule rising from the throat, slightly off-axis
     sl, sw = H * 0.36, H * 0.062
