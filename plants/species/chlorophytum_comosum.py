@@ -195,14 +195,16 @@ def rim_hide_clip():
 
 
 # ------------------------------------------------------------------ runners
-RUN_COL = P["sage"]
+RUN_COL = "#B3AF74"     # pale straw-green stolon, apart from every leaf green
+RUN_SH = "#8F8C57"      # its shaded underside
 
 
 def runner(pts, w0=6.2, w1=4.4):
     """Wiry stolon: a solid filled ribbon (not a hairline stroke) so it keeps
     ~0.2-0.3 mm on the printed card, with a darker underside strip so it still
     separates from the pale cream ground and from the leaves it crosses."""
-    return (f'<path d="{ribbon(pts, w0, w1, per=6)}" fill="{RUN_COL}"/>')
+    return (f'<path d="{ribbon(pts, w0, w1, per=8)}" fill="{RUN_SH}"/>'
+            f'<path d="{ribbon([(x - 0.9, y - 0.9) for x, y in pts], w0 * 0.62, w1 * 0.55, per=8)}" fill="{RUN_COL}"/>')
 
 
 def plantlet(x, y, spec, roots):
@@ -212,7 +214,7 @@ def plantlet(x, y, spec, roots):
         out.append(f'<path d="{ribbon([(x, y - 2), (x + dx * 0.4, y + rl * 0.55), (x + dx, y + rl)], 3.0, 1.0, per=4)}" '
                    f'fill="{P["light"]}"/>')
     for a0, a1, L, W, tier in spec:
-        out.append(arc_leaf((x, y + 3), a0, a1, L * 1.15, W * 1.25).svg(tier, 0.4, 0.86, stripe_shade=False))
+        out.append(arc_leaf((x, y + 3), a0, a1, L * 1.3, W * 1.35).svg(tier, 0.4, 0.86, stripe_shade=False))
     return "".join(out)
 
 
@@ -229,11 +231,13 @@ def build(report=False):
             svgs.append(s.svg(tier))
         layers[k] = "".join(svgs)
 
-    # runners: crown -> arch -> plantlet
-    LB = (96, 634)
-    RB = (512, 650)
-    runL = [(296, 620), (272, 520), (224, 424), (166, 390), (116, 410), (96, 490), (95, 574), LB]
-    runR = [(304, 620), (330, 520), (398, 440), (458, 416), (500, 450), (512, 530), (513, 600), RB]
+    # runners: leave the crown at the rim, arch up and out, then hang
+    LB = (104, 668)
+    RB = (506, 640)
+    runL = [(262, 614), (250, 586), (236, 556), (214, 526), (186, 504), (156, 496), (132, 506),
+            (116, 530), (107, 564), (104, 604), (104, 640), LB]
+    runR = [(338, 614), (350, 588), (368, 562), (396, 540), (430, 530), (462, 536), (484, 556),
+            (498, 584), (504, 612), RB]
     babyL = plantlet(*LB, [
         (-52, -124, 46, 6.0, "babyb"), (50, 140, 42, 5.6, "babyb"),
         (-24, -100, 64, 6.6, "baby"), (18, 92, 58, 6.4, "baby"),
@@ -249,9 +253,11 @@ def build(report=False):
     # the right runner leaves the crown behind all foliage and only shows
     # where it drops clear of the leaves; the left one arches over the back
     # leaves and under the middle ones.
-    body = [back, runner(runR, 5.8, 4.2), layers["back"], runner(runL),
-            layers["midd"], layers["front"], front,
-            clip, f'<g clip-path="url(#{cid})">{layers["drape"]}</g>',
+    # both runners sit on the top layer, in front of every leaf; the same rim
+    # clip hides their bases so they visibly rise out of the soil at the rim.
+    body = [back, layers["back"], layers["midd"], layers["front"], front,
+            clip, f'<g clip-path="url(#{cid})">{layers["drape"]}',
+            runner(runL, 5.6, 4.0), runner(runR, 5.6, 4.0), "</g>",
             babyL, babyR]
     return "".join(body)
 

@@ -20,14 +20,14 @@ from core import PAL, Leaf, cr_path, cr_sample, ribbon, f, pot, svg_doc, reset_i
 
 P = PAL
 # fill, turned-away half, sheen, midrib, speckle -- the last three are pre-blended
-# solids (cream @17 %, pale @42 %, spot @70 % over the fill): the card face allows no
+# solids (cream @17 %, pale @42 %, spot @36 % over the fill): the card face allows no
 # transparency and faint overlays vanish in pigment print.
 TONES = {
-    "deep": ("#314B37", "#27392C", "#526753", "#71846F", "#B1B5A3"),
-    "forest": ("#405D43", "#34503A", "#5F755D", "#7A8E76", "#B6BAA6"),
-    "mid": ("#5B7458", "#4B6349", "#75896F", "#899B82", "#BEC1AD"),
-    "sage": ("#7F9273", "#6A7E60", "#93A185", "#9EAD92", "#C8CAB5"),
-    "light": ("#A5B296", "#8E9E80", "#B3BCA2", "#B4BFA6", "#D4D4BF"),
+    "deep": ("#314B37", "#27392C", "#526753", "#71846F", "#73816E"),
+    "forest": ("#405D43", "#34503A", "#5F755D", "#7A8E76", "#7C8D76"),
+    "mid": ("#5B7458", "#4B6349", "#75896F", "#899B82", "#8E9C84"),
+    "sage": ("#7F9273", "#6A7E60", "#93A185", "#9EAD92", "#A5AF95"),
+    "light": ("#A5B296", "#8E9E80", "#B3BCA2", "#B4BFA6", "#BDC3AB"),
 }
 STEM = "#8E9E80"
 HOOP = P["terra_dark"]
@@ -100,8 +100,7 @@ def outward(p, t):
 def hoop_svg():
     d = cr_path(HOOP_PTS, closed=False)
     return (f'<path d="{d}" fill="none" stroke="{HOOP}" stroke-width="7.5" stroke-linecap="round"/>'
-            f'<path d="{d}" fill="none" stroke="{HOOP_WRAP}" stroke-width="7.5" stroke-dasharray="1.8 4.4"/>'
-            f'<path d="{d}" fill="none" stroke="#A96445" stroke-width="1.4" transform="translate(-1.2 -.8)"/>')
+            f'<path d="{d}" fill="none" stroke="{HOOP_WRAP}" stroke-width="7.5" stroke-dasharray="3 4.5"/>')
 
 
 # ------------------------------------------------------------------ stems
@@ -143,12 +142,27 @@ class Stem:
         return self.path.at(s)
 
     def width(self, s):
-        return self.w0 + (self.w1 - self.w0) * min(1, s / self.L)
+        # linear taper, but never under 3 units (print minimum) until the last
+        # 30 units, where it runs out to a fine growing tip
+        lin = self.w0 + (self.w1 - self.w0) * min(1, s / self.L)
+        tip = self.w1 + (3.0 - self.w1) * min(1.0, max(0.0, (self.L - s) / 30.0))
+        return max(lin, min(3.0, tip)) if self.w0 >= 3.0 else lin
+
+    def ribbon_ab(self, a, b):
+        """filled ribbon between arclengths a..b with the stem's own width profile"""
+        k = max(3, int((b - a) / 11))
+        ss = [a + (b - a) * i / k for i in range(k + 1)]
+        L, R = [], []
+        for s_ in ss:
+            p, t = self.at(s_)
+            w = self.width(s_) / 2
+            L.append((p[0] - t[1] * w, p[1] + t[0] * w))
+            R.append((p[0] + t[1] * w, p[1] - t[0] * w))
+        ring = L + R[::-1]
+        return cr_path(ring, closed=True, sharp={0, len(L) - 1, len(L), len(ring) - 1})
 
     def part(self, a, b):
-        k = max(2, int((b - a) / 16))
-        pts = [self.at(a + (b - a) * i / k)[0] for i in range(k + 1)]
-        return f'<path d="{ribbon(pts, self.width(a), self.width(b), per=4)}" fill="{STEM}"/>'
+        return f'<path d="{self.ribbon_ab(a, b)}" fill="{STEM}"/>'
 
     def pieces(self, front):
         step = 3.0
@@ -170,9 +184,7 @@ class Stem:
             b = min(self.L, r[-1] + 3)
             if b - a < 3:
                 continue
-            k = max(2, int((b - a) / 16))
-            pts = [self.at(a + (b - a) * i / k)[0] for i in range(k + 1)]
-            svg.append(ribbon(pts, self.width(a), self.width(b), per=4))
+            svg.append(self.ribbon_ab(a, b))
         if not svg:
             return ""
         return f'<path d="{"".join(svg)}" fill="{STEM}"/>'
@@ -197,8 +209,8 @@ def half(lf, side):
     return "M" + "L".join(f"{f(x)} {f(y)}" for x, y in pts) + "Z"
 
 
-def leaf_def(var, tone, shade_side, speck):
-    key = (var, tone, shade_side, speck)
+def leaf_def(var, tone, shade_side, speck, ribw=0.0):
+    key = (var, tone, shade_side, speck, ribw)
     if key in DEFS:
         return DEFS[key][0]
     lid = f"hl{len(DEFS)}"
@@ -217,22 +229,34 @@ def leaf_def(var, tone, shade_side, speck):
     a = [lf.pt(t, sg * lf.width(t, lit) * 0.68) for t in (0.2, 0.36, 0.54, 0.70)]
     b = [lf.pt(t, sg * lf.width(t, lit) * 0.42) for t in (0.62, 0.46, 0.30)]
     o.append(f'<path d="{cr_path(a + b, closed=True, sharp={0, 3})}" fill="{sheen}"/>')
-    if speck:
+    if speck and ribw:
         rnd = random.Random(speck * 31 + var)
         dd = []
-        for _ in range(11):
-            t = rnd.uniform(0.12, 0.84)
+        # a few bold silver flecks, loosely scattered (>= 4.6 units across on the
+        # card whatever the leaf scale); low-contrast so they read as texture
+        pts = []
+        tries = 0
+        while len(pts) < 4 and tries < 200:
+            tries += 1
+            t = rnd.uniform(0.16, 0.8)
             side = rnd.choice(("r", "l"))
             g = 1 if side == "r" else -1
-            p = lf.pt(t, g * lf.width(t, side) * rnd.uniform(0.18, 0.82))
-            r = rnd.uniform(0.6, 1.05)
+            p = lf.pt(t, g * lf.width(t, side) * rnd.uniform(0.3, 0.7))
+            if all(math.hypot(p[0] - q[0], p[1] - q[1]) > 11 for q in pts):
+                pts.append(p)
+        for p in pts:
+            r = ribw * rnd.uniform(1.1, 1.35)
             dd.append(f"M{f(p[0] - r)} {f(p[1])}a{f(r)} {f(r)} 0 1 0 {f(2 * r)} 0a{f(r)} {f(r)} 0 1 0 {f(-2 * r)} 0")
         o.append(f'<path d="{"".join(dd)}" fill="{spk}"/>')
     # midrib as a filled taper (not a hairline stroke) so the print pass keeps it
     # exactly as drawn instead of fattening it into a heavy pale bar
-    a0, a1, a2 = lf.axis(0.0), lf.axis(0.45), lf.axis(0.88)
-    o.append(f'<path d="M{f(a0[0] - .85)} {f(a0[1])}Q{f(a1[0] - .6)} {f(a1[1])} {f(a2[0])} {f(a2[1])}'
-             f'Q{f(a1[0] + .6)} {f(a1[1])} {f(a0[0] + .85)} {f(a0[1])}Z" fill="{rib}"/>')
+    # ribw = half-width at the base in def units, chosen per leaf so the rib is
+    # >= 4 units wide on the card (0 = small tip leaf, no rib)
+    if ribw:
+        a0, a1, a2 = lf.axis(0.0), lf.axis(0.45), lf.axis(0.86)
+        h = ribw
+        o.append(f'<path d="M{f(a0[0] - h)} {f(a0[1])}Q{f(a1[0] - h * .75)} {f(a1[1])} {f(a2[0])} {f(a2[1])}'
+                 f'Q{f(a1[0] + h * .75)} {f(a1[1])} {f(a0[0] + h)} {f(a0[1])}Z" fill="{rib}"/>')
     o.append("</g></g>")
     DEFS[key] = (lid, "".join(o))
     return lid
@@ -251,12 +275,13 @@ def place_leaf(node, ang, L, tone, var=0, speck=0, pl=None):
     tuck = (q[0] + dv[0] * L * 0.1, q[1] + dv[1] * L * 0.1)
     edge = (q[0] + dv[0] * 1.2, q[1] + dv[1] * 1.2)
     back = (node[0] - dv[0] * 1.5, node[1] - dv[1] * 1.5)
-    w = max(2.6, L * 0.05)
+    w = max(3.0, L * 0.05)
     pet = (f'<path d="M{f(back[0])} {f(back[1])}L{f(tuck[0])} {f(tuck[1])}" stroke-width="{f(w)}"/>')
     stub = (f'<path d="M{f(back[0])} {f(back[1])}L{f(edge[0])} {f(edge[1])}" stroke-width="{f(w)}"/>')
     shade_side = "r" if math.cos(rad(ang)) > 0 else "l"
-    lid = leaf_def(var, tone, shade_side, speck)
     s = L / UL
+    ribw = round(2.1 / s * 4) / 4 if L >= 44 else 0.0
+    lid = leaf_def(var, tone, shade_side, speck, ribw)
     use = f'<use href="#{lid}" transform="translate({f(q[0])} {f(q[1])}) rotate({f(ang)}) scale({s:.3f})"/>'
     return pet, use, stub
 
@@ -277,18 +302,18 @@ def star_d(r_out, r_in, rot=-90, soft=0.35):
     return d + "Z"
 
 
-def flower_defs(R=11.0):
+def flower_defs(R=13.0):
     petals = star_d(R, R * 0.5)
-    corona = star_d(R * 0.42, R * 0.2, rot=-54, soft=0.1)
+    corona = star_d(R * 0.5, R * 0.24, rot=-54, soft=0.1)
     return (f'<clipPath id="hfc"><path d="{petals}"/></clipPath>'
             f'<g id="hf"><path d="{petals}" fill="{PETAL}"/>'
             f'<path d="M0 -14L14 -14L14 14L0 14Z" transform="rotate(-20)" fill="{PETAL_SH}" clip-path="url(#hfc)"/>'
-            f'<path d="{corona}" fill="{CORONA}"/><circle r="{f(R * 0.11)}" fill="{CORONA_C}"/></g>'
+            f'<path d="{corona}" fill="{CORONA}"/><circle r="2.2" fill="{CORONA_C}"/></g>'
             f'<g id="hfb"><path d="{petals}" fill="{PETAL_BK}"/>'
             f'<path d="{corona}" fill="{P["burgundy"]}"/></g>')
 
 
-def umbel(anchor, R=32, n=64, seed=1, tilt=0.0):
+def umbel(anchor, R=32, n=40, seed=1, tilt=0.0):
     """hanging hemispherical umbel; anchor = top of the ball (peduncle end)."""
     rnd = random.Random(seed)
     c = (anchor[0], anchor[1] + R * 0.62)
@@ -310,7 +335,7 @@ def umbel(anchor, R=32, n=64, seed=1, tilt=0.0):
         p = (c[0] + v[0] * R, c[1] + v[1] * R * 0.9)
         if v[1] < -0.2 and v[2] < 0.6:
             ped.append(f"M{f(anchor[0])} {f(anchor[1])}L{f(p[0])} {f(p[1])}")
-        fore = max(0.35, math.sqrt(max(0.0, v[2])) if v[2] > 0 else 0.35)
+        fore = max(0.5, math.sqrt(max(0.0, v[2])) if v[2] > 0 else 0.5)
         a = math.degrees(math.atan2(v[1], v[0]))
         spin = rnd.uniform(0, 72)
         use = "hf" if v[2] > 0.2 else "hfb"
@@ -319,7 +344,7 @@ def umbel(anchor, R=32, n=64, seed=1, tilt=0.0):
                   f'scale({fore * s:.2f} {s:.2f}) rotate({f(spin - a)})"/>')
     core_ = (f'<ellipse cx="{f(c[0])}" cy="{f(c[1] + R * 0.12)}" rx="{f(R * 0.78)}" ry="{f(R * 0.6)}" '
              f'fill="{P["rose"]}"/>')
-    return (f'<path d="{"".join(ped)}" stroke="{PEDICEL}" stroke-width="1.3" fill="none" stroke-linecap="round"/>'
+    return (f'<path d="{"".join(ped)}" stroke="{PEDICEL}" stroke-width="3" fill="none" stroke-linecap="round"/>'
             + core_ + "".join(fl))
 
 
@@ -342,12 +367,12 @@ A_NODES = [
     (700, [(-62, 58, "forest", 1, 3, 0), (46, 46, "mid", 0, 2, 0)]),
     (782, [(-50, 44, "light", 1, 1, 0), (40, 36, "deep", 0, 2, 0)]),
     (846, [(-64, 40, "mid", 1, 2, 0), (54, 32, "forest", 0, 1, 0)]),
-    (888, [(-48, 22, "sage", 1, 0, 0), (58, 19, "mid", 0, 0, 0)]),
+    (922, [(-58, 17, "sage", 1, 0, 0), (62, 15, "mid", 1, 0, 0)]),  # growing tip
 ]
 B_NODES = [
     (70, [(62, 48, "forest", 1, 2, 0), (-58, 40, "deep", 0, 1, 0)]),
     (165, [(58, 60, "sage", 1, 1, 5), (-66, 46, "forest", 0, 2, 0)]),
-    (262, [(-70, 54, "mid", 1, 3, 0), (76, 50, "deep", 1, 0, 0)]),
+    (262, [(-70, 54, "mid", 1, 3, 0), (76, 44, "light", 1, 0, 0)]),  # pale leaf behind umbel 2
     (352, [(-60, 48, "light", 1, 2, 6), (68, 44, "forest", 1, 1, 0)]),
     (420, [(-40, 30, "sage", 1, 0, 0), (40, 26, "mid", 1, 0, 0)]),
 ]
@@ -414,7 +439,8 @@ def build():
     back, front = pot("classic", rx=98, rim_y=588, base_w=70, band=True)
     rnd = random.Random(7)
     HL = HP.L
-    A = Stem(0, 900, phase=0.4, w0=6, w1=1.8)
+    # A leaves the hoop on the right and ends in a free, tapering growing tip
+    A = Stem(0, 840, tail=[(433, 352), (443, 367), (455, 377), (468, 380)], phase=0.4, w0=6, w1=0.9)
     B = Stem(HL, HL - 190, tail=[(424, 446), (462, 468), (488, 506), (498, 552), (494, 596), (484, 628)],
              phase=2.3, w0=5.6, w1=2.2)
     C = Stem(0, 0, w0=4.2, w1=1.8)

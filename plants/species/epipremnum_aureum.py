@@ -18,6 +18,20 @@ CS = 1.08  # crown scale
 HID = 0.13  # the petiole ends this far (x L) inside the blade, hidden under it
 
 
+def _mix(a, b, t):
+    a = [int(a[i:i + 2], 16) for i in (1, 3, 5)]
+    b = [int(b[i:i + 2], 16) for i in (1, 3, 5)]
+    return "#%02X%02X%02X" % tuple(round(x + (y - x) * t) for x, y in zip(a, b))
+
+
+_TONES = (P["deep"], P["forest"], P["mid"], P["sage"], P["light"], P["pale"])
+# opaque golden streak per leaf tone (yellow_edge on dark leaves, mustard on pale ones)
+STREAK = {c: _mix(c, P["mustard"] if c in (P["sage"], P["light"], P["pale"]) else P["yellow_edge"], 0.78)
+          for c in _TONES}
+# opaque midrib tone per leaf tone (pale @45 %)
+RIB = {c: _mix(c, P["pale"], 0.45) for c in _TONES}
+
+
 # ------------------------------------------------------------------ leaf
 class PLeaf:
     """Pothos leaf in local coords, unit length. Origin = hidden petiole end;
@@ -116,36 +130,31 @@ def leaf_svg(x, y, rot, L, fill, seed, flip=False, curl=None, asym=None, streak=
     shade = SHADE.get(fill, fill)
     cid = uid("pl")
     inner = [f'<path d="{lf.half(side)}" fill="{shade}"/>']
-    # golden variegation: a few thin spindle streaks lying along lateral veins
-    n_st = rnd.choice([2, 2, 3]) if streak is None else streak
-    slots = [0.1, 0.2, 0.3, 0.4, 0.5]
-    rnd.shuffle(slots)
-    pale_leaf = fill in (P["light"], P["pale"], P["sage"])
-    col = P["mustard"] if pale_leaf else P["yellow_edge"]
+    # golden variegation: few, bold spindle streaks lying along lateral veins.
+    # Opaque, pre-blended into each leaf tone, >= 5 units at the widest so
+    # they survive print. Lateral veins are not drawn (the streaks carry the
+    # vein rhythm); every leaf gets a print-safe tapered midrib instead.
+    if streak is None:
+        n_st = 3 if L >= 100 else (2 if L >= 58 else (1 if L >= 40 else 0))
+    else:
+        n_st = streak
+    slots = {3: [0.1, 0.29, 0.48], 2: [0.16, 0.4], 1: [0.28], 0: []}[n_st]
+    col = STREAK.get(fill, P["yellow_edge"])
     sd = rnd.choice((1, -1))
-    for t in slots[:n_st]:
-        sd = -sd if rnd.random() < 0.6 else sd
-        p0, p1, p2 = vein_curve(lf, t + rnd.uniform(0.01, 0.04), sd, reach=rnd.uniform(0.7, 0.88))
-        p0 = (p0[0] * 0.55 + p1[0] * 0.45, p0[1] * 0.55 + p1[1] * 0.45)
-        inner.append(f'<path d="{spindle(p0, p1, p2, L * rnd.uniform(0.022, 0.032))}" fill="{col}" opacity=".72"/>')
-        if rnd.random() < 0.45:  # hair-thin cream companion streak
-            q0, q1, q2 = vein_curve(lf, t + 0.06, sd, reach=0.7)
-            q0 = (q0[0] * 0.4 + q1[0] * 0.6, q0[1] * 0.4 + q1[1] * 0.6)
-            inner.append(f'<path d="{spindle(q0, q1, q2, L * 0.011)}" fill="{P["cream"]}" opacity=".5"/>')
-    # veins
-    vc = vein_col or P["pale"]
-    vv = []
-    vts = (0.1, 0.23, 0.36, 0.48, 0.59) if L >= 60 else (0.13, 0.32, 0.5)
-    for t in vts:
-        for s in (1, -1):
-            p0, p1, p2 = vein_curve(lf, t, s, rise=min(0.26, 0.8 - t))
-            vv.append(f"M{f(p0[0])} {f(p0[1])}Q{f(p1[0])} {f(p1[1])} {f(p2[0])} {f(p2[1])}")
-    inner.append(f'<path d="{"".join(vv)}" fill="none" stroke="{vc}" stroke-width="{f(max(0.7, L * 0.011))}" '
-                 f'stroke-linecap="round" opacity=".32"/>')
-    mp = [lf.mid(-0.02 + i * 0.16) for i in range(7)]
-    inner.append(f'<path d="M{f(mp[0][0])} {f(mp[0][1])}' + "".join(
-        f"L{f(px)} {f(py)}" for px, py in mp[1:]) + f'" fill="none" stroke="{vc}" '
-        f'stroke-width="{f(max(1.0, L * 0.019))}" stroke-linecap="round" stroke-linejoin="round" opacity=".5"/>')
+    for t in slots:
+        sd = -sd if rnd.random() < 0.75 else sd
+        p0, p1, p2 = vein_curve(lf, t + rnd.uniform(0.0, 0.03), sd, reach=rnd.uniform(0.8, 0.92),
+                                rise=min(0.26, 0.86 - t))
+        p0 = (p0[0] * 0.9 + p1[0] * 0.1, p0[1] * 0.9 + p1[1] * 0.1)
+        inner.append(f'<path d="{spindle(p0, p1, p2, max(5.0, L * 0.042))}" fill="{col}"/>')
+    # midrib: filled taper, widest (>= 4 units) at the sinus, low-contrast solid
+    vc = vein_col or RIB.get(fill, P["pale"])
+    hw = max(2.1, L * 0.02)
+    ts = [0.0, 0.2, 0.4, 0.6, 0.8, 0.93]
+    rr = [lf.warp(hw / L * (1 - 0.8 * t), -t) for t in ts]
+    ll = [lf.warp(-hw / L * (1 - 0.8 * t), -t) for t in ts]
+    ring = rr + ll[::-1]
+    inner.append(f'<path d="{cr_path(ring, closed=True, sharp={0, len(rr) - 1, len(rr), len(ring) - 1})}" fill="{vc}"/>')
     tr = f"translate({f(x)} {f(y)}) rotate({f(rot)})" + (" scale(-1 1)" if flip else "")
     pid = cid + "p"
     return (f'<g transform="{tr}"><path id="{pid}" d="{d}" fill="{fill}"/>'
@@ -199,7 +208,7 @@ def vine(pts, leaves, w0, w1, col, pcol=None):
         pl = L * 0.26
         base = (n[0] + d[0] * pl, n[1] + d[1] * pl)
         u = unit((d[0] * (1 - droop), d[1] * (1 - droop) + droop))  # gravity pulls the blade down
-        tip_w = max(1.6, L * 0.045)
+        tip_w = max(2.8, L * 0.045)
         stems.append(petiole(n, base, u, tip_w * 1.15, tip_w * 0.9, pcol))
         blades.append(leaf_svg(base[0], base[1], rot_of(u), L, fill, seed, flip=flip))
     return "".join(stems), "".join(blades)

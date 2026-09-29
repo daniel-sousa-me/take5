@@ -16,9 +16,13 @@ P = PAL
 # leaf ramp, dark -> light (burgundy family); blotch uses the same ramp + 2
 RAMP = ["#43292F", "#4F3036", P["wine"], P["burgundy"], P["plum"], "#A0646C",
         P["rose"], "#C88B8C", P["blush"]]
-PET_BACK = "#9A636A"
-PET_FRONT = P["rose"]
-FL = ["#E2B8B3", "#ECCBC5", "#F5E0DA"]  # pale blush petal tones
+# petioles: a light pinkish-green, clearly apart from every leaf tone so they
+# read where they cross the foliage (the real stems are paler than the blades)
+PET_BACK = "#B49C90"
+PET_FRONT = "#CBB3A5"
+PEDUNCLE = "#B08A88"
+FL = ["#CD9A9B", "#DBAEAC", "#E6C0BC"]  # blush petal tones, deep enough to hold on ivory
+FL_EDGE = "#C38D8F"  # petal rim, one step darker
 LIGHT = (-0.45, -0.45, 0.77)
 
 
@@ -167,11 +171,6 @@ def leaflet(frame, L, W, off, asym=1.0, notch=0.87):
         b = blotch_segs(L, W * (asym if sg < 0 else 1), sg)
         bd = bez(frame, b, base) + f"L{f(base[0])} {f(base[1])}Z"
         inner.append(f'<path d="{bd}" fill="{col(t + 1.1)}"/>')
-    m0, m1 = frame.pt(0.05 * L, 0), frame.pt(0.80 * L, 0)
-    mc = frame.pt(0.45 * L, 0)
-    inner.append(f'<path d="M{f(m0[0])} {f(m0[1])}Q{f(mc[0])} {f(mc[1])} {f(m1[0])} {f(m1[1])}" '
-                 f'fill="none" stroke="{col(max(tr, tl) + 2)}" stroke-width="1.1" '
-                 f'stroke-linecap="round" opacity=".45"/>')
     out.append(f'<g clip-path="url(#{cid})">' + "".join(inner) + "</g>")
     return "".join(out)
 
@@ -229,10 +228,11 @@ def flower(c, L, elev, lean, yaw, cup=-0.55):
         d = bez(fr, R + rev(Lh, (0, 0)), base) + "Z"
         v, under = fr.light(1)
         t = 0 if under else (2 if v > 0.55 else 1)
-        out.append(f'<path d="{d}" fill="{FL[t]}"/>')
-        m1 = fr.pt(0.55 * L, 0)
-        out.append(f'<path d="M{f(base[0])} {f(base[1])}L{f(m1[0])} {f(m1[1])}" stroke="{P["rose"]}" '
-                   f'stroke-width=".9" opacity=".35" stroke-linecap="round"/>')
+        # darker rim = the full petal in FL_EDGE, the face inset inside it
+        Ri = petal_segs(L * 0.9, L * 0.42 * 0.84, 1)
+        Li = petal_segs(L * 0.9, L * 0.42 * 0.84, -1)
+        di = bez(fr, Ri + rev(Li, (0, 0)), base) + "Z"
+        out.append(f'<path d="{d}" fill="{FL_EDGE if t else "#BE8889"}"/><path d="{di}" fill="{FL[t]}"/>')
     out.append(f'<circle cx="{f(c[0])}" cy="{f(c[1])}" r="{f(L * 0.16)}" fill="{P["yellow_edge"]}"/>')
     return "".join(out)
 
@@ -248,17 +248,17 @@ def bud(tip, L, ang):
            P2(L * 0.8, -L * 0.15), P2(L * 0.35, -L * 0.2)]
     d = cr_path(pts, closed=True, sharp={0, 3})
     s1, s2, s3 = P2(L * 0.1, L * 0.05), P2(L * 0.55, L * 0.12), P2(L * 0.95, 0)
-    return (f'<path d="{d}" fill="{FL[1]}"/>'
-            f'<path d="M{f(s1[0])} {f(s1[1])}Q{f(s2[0])} {f(s2[1])} {f(s3[0])} {f(s3[1])}" fill="none" '
-            f'stroke="{P["rose"]}" stroke-width="1.4" opacity=".55"/>')
+    half = cr_path([P2(0, 0), s2, s3, P2(L * 0.8, -L * 0.15), P2(L * 0.35, -L * 0.2)], closed=True,
+                   sharp={0, 2})
+    return f'<path d="{d}" fill="{FL[1]}"/><path d="{half}" fill="{FL_EDGE}"/>'
 
 
 def umbel(base, top, bow, heads):
     """Peduncle from soil to `top`, then short pedicels to flowers/buds."""
-    out = [petiole(base, top, bow, 3.6, 2.2, "#A7777A")]
+    out = [petiole(base, top, bow, 4.0, 3.0, PEDUNCLE)]
     for kind, (hx, hy), prm in heads:
         pts = [top, ((top[0] + hx) / 2 + prm.get("pb", 0), (top[1] + hy) / 2 - 3), (hx, hy)]
-        out.append(f'<path d="{ribbon(pts, 2.0, 1.6)}" fill="#A7777A"/>')
+        out.append(f'<path d="{ribbon(pts, 3.0, 2.6)}" fill="{PEDUNCLE}"/>')
     for kind, (hx, hy), prm in heads:
         if kind == "bud":
             out.append(bud((hx, hy), prm["L"], prm["ang"]))
@@ -277,7 +277,6 @@ LEAVES = [
     (268, (88, 312), 62, -30, 0.45, 0.20, 0.75, -20, -0.2, -18, (1, 1, .9), (0.2, 0.2, 0.6)),
     (334, (508, 338), 60, 32, 0.40, 0.45, 0.80, 18, -0.5, 18, (1, .9, 1), None),
     # middle layer
-    (310, (372, 300), 70, 14, 0.28, 0.25, 1.00, 7, 0.45, 6, (.95, 1, 1.05), (0.1, 0.1, 0.55)),
     (276, (138, 400), 64, -22, 0.42, 0.15, 0.80, -16, 0.4, -14, (1, 1.05, 1), None),
     # front layer (lighter / warmer)
     (302, (300, 382), 72, -2, 0.30, 0.10, 0.80, 2, 1.3, 4, (1, 1.05, 1), (0.15, 0.1, 0.45)),
@@ -285,7 +284,8 @@ LEAVES = [
     (320, (392, 474), 64, 18, 0.42, 0.15, 0.75, 10, 1.8, 10, (.95, 1, 1), (0.45, 0.1, 0.15)),
     (270, (110, 518), 50, -34, 0.50, 0.30, 0.62, -22, 1.9, -16, (1, .95, 1), None),
     (330, (490, 516), 52, 30, 0.50, 0.20, 0.62, 20, 1.4, 16, (1, 1, .95), None),
-    (288, (232, 552), 58, -10, 0.45, 0.25, 0.60, -6, 1.7, -4, (1, 1, 1), (0.3, 0.2, 0.2)),
+    # drapes over the rim: deep plum so it parts clearly from the terracotta
+    (288, (232, 552), 58, -10, 0.45, 0.25, 0.60, -6, 0.25, -4, (1, 1, 1), (0.3, 0.2, 0.2)),
 ]
 
 

@@ -118,54 +118,46 @@ class Pad:
         return "".join(out)
 
     def tufts(self):
-        """Poisson-disc scatter of glochid tufts (distance measured in world
-        units, so edge-on pads don't get a squashed, denser pattern). Each
-        tuft is counter-scaled so it stays round on foreshortened pads."""
-        rnd = random.Random(self.seed)
+        """Areoles in a regular quincunx (diagonal) lattice, as on the real
+        plant. Spacing is measured in world units so edge-on pads keep the
+        same density; each areole is counter-scaled so it stays round.
+        Areoles are single opaque discs >= 4.5 units across at print scale."""
         sx = self.sx
-        gap = 15.0  # min world distance between tufts
-        pts = []
-        tries = 0
-        while tries < 2600:
-            tries += 1
-            t = rnd.uniform(0.04, 0.975)
-            side = 1 if rnd.random() < 0.5 else -1
-            lim = self.hw(t, side) - 3.2 / max(sx, 0.3)
-            if lim <= 0:
-                continue
-            px = side * rnd.uniform(0, lim)
-            py = -self.L * t
-            ok = True
-            for qx, qy in pts:
-                if ((px - qx) * sx) ** 2 + (py - qy) ** 2 < gap * gap:
-                    ok = False
-                    break
-            if ok:
-                pts.append((px, py))
+        gy = 19.0            # row spacing (world units, pre plant-scale)
+        gx = 23.0            # spacing along a row
+        rnd = random.Random(self.seed)
+        ox = rnd.uniform(-gx / 2, gx / 2)
+        v = "a" if self.fill in (P["pale"], P["light"]) else "b"
         uses = []
         inv = 1 / sx
-        for px, py in pts:
-            v = rnd.randrange(3)
-            if abs(inv - 1) < 1e-3:
-                uses.append(f'<use href="#gl{v}" x="{f(px)}" y="{f(py)}"/>')
-            else:
-                uses.append(f'<use href="#gl{v}" transform="translate({f(px)} {f(py)}) scale({inv:.2f} 1)"/>')
+        j = 0
+        y = -self.L * 0.06
+        while y > -self.L * 0.97:
+            t = -y / self.L
+            shift = (gx / 2 if j % 2 else 0) + ox
+            for i in range(-8, 9):
+                wx = i * gx + shift          # world-ish x before foreshortening
+                px = wx / sx if sx < 0.99 else wx
+                side = 1 if px >= 0 else -1
+                if abs(px) * min(sx, 1) > (self.hw(t, side)) * min(sx, 1) - 5.5:
+                    continue
+                if abs(inv - 1) < 1e-3:
+                    uses.append(f'<use href="#ar{v}" x="{f(px)}" y="{f(y)}"/>')
+                else:
+                    uses.append(f'<use href="#ar{v}" transform="translate({f(px)} {f(y)}) scale({inv:.2f} 1)"/>')
+            y -= gy
+            j += 1
         return "".join(uses)
 
 
 def glochid_defs():
-    """Three tuft variants: a tiny cream triad around a mustard core."""
-    cr, mu = P["cream"], P["mustard"]
-    out = ["<defs>"]
-    for i, a in enumerate((0, 40, -35)):
-        dots = []
-        for k in range(3):
-            ang = math.radians(a + k * 120 - 90)
-            dots.append(f'<circle cx="{f(math.cos(ang) * 1.3)}" cy="{f(math.sin(ang) * 1.3)}" r="1.05" fill="{cr}"/>')
-        dots.append(f'<circle cx="0.2" cy="0.3" r="0.95" fill="{mu}"/>')
-        out.append(f'<g id="gl{i}">' + "".join(dots) + "</g>")
-    out.append("</defs>")
-    return "".join(out)
+    """Areole discs: warm cream-gold on the darker pads (light knockout),
+    mustard on the pale young pads (dark-on-light). r=2.6 -> 5.6 units wide
+    after the plant scale, above the 4.5-unit knockout minimum."""
+    return ('<defs>'
+            f'<circle id="arb" r="2.6" fill="#E9D59A"/>'
+            f'<circle id="ara" r="2.4" fill="{P["mustard"]}"/>'
+            '</defs>')
 
 
 # ------------------------------------------------------------------ flower
@@ -179,7 +171,7 @@ def flower(x, y, deg, s=1.0, bud=False):
     g.append(f'<path d="{per}" fill="{P["sage"]}" transform="translate(3 2)"/>')
     g.append(f'<clipPath id="{cid}"><path d="{per}"/></clipPath><path d="{per}" fill="{P["light"]}"/>')
     g.append(f'<g clip-path="url(#{cid})"><rect x="4" y="-30" width="12" height="36" fill="{SHADE[P["light"]]}"/>'
-             '<use href="#gl0" x="-4" y="-9"/><use href="#gl1" x="4" y="-16"/><use href="#gl2" x="-2" y="-20"/></g>')
+             '<use href="#ara" x="-4" y="-8"/><use href="#ara" x="4" y="-15"/><use href="#ara" x="-3" y="-20"/></g>')
     if bud:
         b = cr_path([(-8, -21), (-10, -31), (-6, -43), (0, -49), (6, -43), (10, -31), (8, -21)], closed=True,
                     sharp={3})
