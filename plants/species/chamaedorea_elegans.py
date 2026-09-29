@@ -95,7 +95,7 @@ def use(kind, x, y, ang, L, wscale, flip):
 
 # ------------------------------------------------------------------ frond
 def frond_parts(pts, tone, n_pairs, lmax, seed, bare=0.2, near="upper", spread=(52, 30),
-                droop=(0.42, 0.16), rach_col=None, rach_w=(4.2, 1.1)):
+                droop=(0.42, 0.16), rach_col=None, rach_w=(4.2, 1.1), lead=None):
     """Returns (leaflets_svg, rachis_svg). pts: rachis control points, first =
     the crown. near: which row is the near/lighter one ('upper', 'lower',
     'right', 'left')."""
@@ -137,7 +137,45 @@ def frond_parts(pts, tone, n_pairs, lmax, seed, bare=0.2, near="upper", spread=(
             rows[side].append(use(kind, x0, y0, ang, L, rnd.uniform(0.92, 1.08), flip))
     nr, fr_ = rows[near_side], rows[-near_side]
     rc = rach_col or P["light"]
-    rach = ribbon(s[::3] + [s[-1]], rach_w[0], rach_w[1], per=4)
+    if lead:
+        # the leaf sheath: the rachis starts a little way down the cane, wrapping it
+        # (flat collar, cane width), and bends smoothly out into the frond -- no
+        # notch or wedge where the frond leaves the cane
+        pts_l, w_l = lead
+        # one smooth cubic from the collar (down the cane, along its axis) to a
+        # point 14 % out along the rachis (along the rachis) -> a monotone bend
+        (l0, l1), fb = pts_l, 0.14
+        tc = (l1[0] - l0[0], l1[1] - l0[1])
+        m = math.hypot(*tc) or 1
+        tc = (tc[0] / m, tc[1] / m)
+        q, tq = at(s, acc, fb)
+        # control = where the cane axis meets the rachis tangent at q (quadratic
+        # bezier -> a single, monotone bend of the petiole out of the cane)
+        den = tc[0] * tq[1] - tc[1] * tq[0]
+        X = l1
+        if abs(den) > 1e-3:
+            t_ = ((q[0] - l0[0]) * tq[1] - (q[1] - l0[1]) * tq[0]) / den
+            if 0 < t_ < 3 * m:
+                X = (l0[0] + tc[0] * t_, l0[1] + tc[1] * t_)
+        bz = [tuple((1 - u) ** 2 * l0[j] + 2 * (1 - u) * u * X[j] + u * u * q[j] for j in (0, 1))
+              for u in (i / 10 for i in range(11))]
+        k = next(i for i in range(len(acc)) if acc[i] > fb * acc[-1])
+        raw = bz + s[k:]
+        # uniform ~7 px spacing so the spline through it has no overshoot kinks
+        cum = [0.0]
+        for a_, b_ in zip(raw, raw[1:]):
+            cum.append(cum[-1] + math.dist(a_, b_))
+        n = max(4, int(cum[-1] / 7))
+        sr, j = [], 0
+        for i in range(n + 1):
+            tgt = cum[-1] * i / n
+            while j < len(cum) - 2 and cum[j + 1] < tgt:
+                j += 1
+            u = (tgt - cum[j]) / ((cum[j + 1] - cum[j]) or 1)
+            sr.append((raw[j][0] + (raw[j + 1][0] - raw[j][0]) * u, raw[j][1] + (raw[j + 1][1] - raw[j][1]) * u))
+        rach = ribbon(sr, w_l, rach_w[1], per=2)
+    else:
+        rach = ribbon(s[::3] + [s[-1]], rach_w[0], rach_w[1], per=4)
     leaf = (f'<g fill="{far_tone}" color="{SH[far_tone]}">{"".join(fr_)}</g>'
             f'<g fill="{tone}" color="{SH[tone]}">{"".join(nr)}</g>')
     return leaf, f'<path d="{rach}" fill="{rc}"/>'
@@ -164,6 +202,21 @@ def cane(pts, w0, w1, col, ring_col, rings):
     out.append(f'<path d="{"".join(dd)}" fill="none" stroke="{ring_col}" stroke-width="1.5" '
                f'stroke-linecap="round" opacity=".6"/>')
     return "".join(out)
+
+
+def lead_from(cane_pts, w_top, back=(28, 0.5)):
+    """Two points down the cane below its top, for a frond whose sheath wraps it."""
+    s, acc = resample(cane_pts)
+    L = acc[-1]
+    return ([at(s, acc, (L - b) / L)[0] for b in back], w_top + 1.0)
+
+
+def trunc(cane_pts, back):
+    """Cane control points ending `back` px below the crown (the rest is hidden
+    inside the sheath of the frond that wraps it)."""
+    s, acc = resample(cane_pts)
+    L = acc[-1]
+    return list(cane_pts[:-1]) + [at(s, acc, (L - back) / L)[0]]
 
 
 def sheath(pts, w, col, lift=7.0):
@@ -194,40 +247,44 @@ def build():
     back, front = pot("classic", cx=CX, rim_y=RIM_Y, rx=100, base_w=70, band=True)
     Y0 = RIM_Y + 10
     CA, CB, CC = (293, 340), (345, 439), (251, 470.5)   # crowns
+    caneA = [(298, Y0), (297, 520), (295, 430), CA]
+    caneB = [(311, Y0), (318, 532), (332, 478), CB]
+    caneC = [(287, Y0), (281, 546), (264, 504), CC]
     G = []
     # ---- back fronds: deep leaflets, sage rachis
     G.append(frond([(293, 346), (262, 262), (205, 212), (145, 200), (98, 222)], P["deep"], 11, 80, 1,
                    near="lower", rach_col=P["sage"], rach_w=(4.6, 1.1)))
-    G.append(frond([(346, 444), (392, 378), (446, 336), (500, 322), (546, 334)], P["deep"], 10, 74, 2,
-                   near="lower", rach_col=P["sage"], rach_w=(4.4, 1.1)))
+    G.append(frond([CB, (392, 378), (446, 336), (500, 322), (546, 334)], P["deep"], 10, 74, 2,
+                   near="lower", rach_col=P["sage"], rach_w=(4.4, 1.1), lead=lead_from(caneB, 4.6)))
     # ---- plant C second frond (behind its cane): up-left, forest
-    G.append(frond([(250, 476), (218, 420), (180, 380), (140, 360), (108, 366)], P["forest"], 9, 66, 5,
-                   bare=0.24, near="upper", rach_col=P["light"], rach_w=(4.2, 1.0)))
+    G.append(frond([CC, (218, 420), (180, 380), (140, 360), (108, 366)], P["forest"], 9, 66, 5,
+                   bare=0.24, near="upper", rach_col=P["light"], rach_w=(4.2, 1.0), lead=lead_from(caneC, 4.4)))
     # ---- cane A + upright leader frond (mid)
-    G.append(cane([(298, Y0), (297, 520), (295, 430), CA], 9.5, 6.8, P["sage"], P["pale"],
+    G.append(cane(caneA, 9.5, 6.8, P["sage"], P["pale"],
                   [0.14, 0.28, 0.42, 0.56, 0.70, 0.83]))
-    lA, rA = frond_parts([(293, 338), (298, 250), (312, 170), (332, 112), (356, 76)], P["mid"], 12, 76, 3,
+    lA, rA = frond_parts([CA, (298, 250), (312, 170), (332, 112), (356, 76)], P["mid"], 12, 76, 3,
                          bare=0.12, near="left", spread=(50, 28), droop=(0.5, 0.2),
                          rach_col=P["light"], rach_w=(5.4, 1.1))
     G += [lA, rA]
-    # ---- front: plant A arching right frond (sage)
-    G.append(frond([(296, 332), (334, 290), (388, 246), (442, 226), (494, 232)], P["light"], 10, 70, 7,
-                   bare=0.24, near="upper", droop=(0.45, 0.16), rach_col=P["pale"], rach_w=(5, 1.0)))
-    G.append(sheath([(293.6, 366), (293.2, 348), (293, 330)], 7.2, P["light"]))
+    # ---- front: plant A arching right frond (light); its first leaflets start
+    # further out and lean forward so they don't stand up across the leader
+    G.append(frond([CA, (334, 290), (388, 246), (442, 226), (494, 232)], P["light"], 9, 70, 7,
+                   bare=0.36, near="lower", spread=(42, 28), droop=(0.45, 0.16), rach_col=P["pale"],
+                   rach_w=(5, 1.0), lead=lead_from(caneA, 6.8)))
     # ---- cane B + arching right frond (mid)
-    G.append(cane([(311, Y0), (318, 532), (332, 478), CB], 9, 6.4, P["mid"], P["light"],
+    G.append(cane(trunc(caneB, 24), 9, 6.4, P["mid"], P["light"],
                   [0.16, 0.34, 0.52, 0.70, 0.86]))
-    lB, rB = frond_parts([(346, 440), (400, 440), (456, 458), (506, 492), (542, 536)], P["mid"], 9, 74, 4,
-                         near="upper", spread=(52, 38), droop=(0.4, 0.16), rach_col=P["light"], rach_w=(5, 1.1))
+    lB, rB = frond_parts([CB, (400, 440), (456, 458), (506, 492), (542, 536)], P["mid"], 9, 74, 4,
+                         near="upper", spread=(52, 38), droop=(0.4, 0.16), rach_col=P["light"], rach_w=(5, 1.1),
+                         lead=lead_from(caneB, 6.4))
     G += [lB, rB]
-    G.append(sheath([(337.8, 460.7), (342.2, 447.4), (347.9, 430.3)], 6.8, P["light"]))
     # ---- cane C + low arching left frond (sage)
-    G.append(cane([(287, Y0), (281, 546), (264, 504), CC], 8.5, 6.2, P["light"], P["pale"],
+    G.append(cane(trunc(caneC, 24), 8.5, 6.2, P["light"], P["pale"],
                   [0.2, 0.42, 0.64, 0.84]))
-    lC, rC = frond_parts([(250, 470), (206, 470), (152, 482), (104, 510), (66, 552)], P["sage"], 9, 70, 6,
-                         near="upper", spread=(52, 36), droop=(0.45, 0.18), rach_col=P["pale"], rach_w=(5, 1.0))
+    lC, rC = frond_parts([CC, (206, 470), (152, 482), (104, 510), (66, 552)], P["sage"], 9, 70, 6,
+                         near="upper", spread=(52, 36), droop=(0.45, 0.18), rach_col=P["pale"], rach_w=(5, 1.0),
+                         lead=lead_from(caneC, 6.2))
     G += [lC, rC]
-    G.append(sheath([(259.4, 492.2), (255.1, 481.2), (247.8, 462.4)], 6.6, P["pale"]))
     return defs() + back + "".join(G) + front
 
 

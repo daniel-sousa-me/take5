@@ -180,9 +180,11 @@ def flower(x, y, rot, s=1.0):
     parts.append(sepal(32, -18, 13, 90, 12, P["terra2"], lean=2))
     parts.append(sepal(42, -17, 34, 76, 11, P["amber"], lean=3))
     # blue petal tongue in front of the sepals, arrow-headed, pointing forward
-    arrow = [(0, 6), (3.6, -20), (4.4, -42), (6.6, -45), (2.2, -63), (0, -70), (-2.2, -63), (-6.6, -45),
-             (-4.4, -42), (-3.6, -20)]
-    ad = cr_path(arrow, closed=True, sharp={0, 3, 5, 7})
+    # softly spear-shaped (no barbs): swells gently toward the upper third and
+    # narrows to a blunt point, curving a little forward like the real petal
+    arrow = [(0, 6), (3.2, -14), (4.6, -34), (5.4, -50), (3.6, -62), (0.8, -70), (-2.6, -62),
+             (-4.4, -48), (-3.8, -30), (-2.8, -12)]
+    ad = cr_path(arrow, closed=True, sharp={0, 5})
     half = "M0 6L0 -70L10 -70L10 6Z"
     aid = uid("ac")
     parts.append(f'<g transform="{T(50, -16, 50)}"><clipPath id="{aid}"><path d="{ad}"/></clipPath>'
@@ -202,14 +204,27 @@ def flower(x, y, rot, s=1.0):
 def build():
     reset_ids()
     back, front = pot("classic", cx=CX, rim_y=RIM_Y, rx=100, base_w=70, band=True)
-    Y0 = RIM_Y + 8  # petioles start inside the soil opening
+    Y0 = RIM_Y + 18  # petioles start below the rim front edge (ends never show)
     G = []
+
+    # clasping leaf bases at soil level: each one is its own petiole swelling
+    # toward the soil (same colour, same centre line), so it tapers seamlessly
+    # into the petiole instead of standing up as a separate pale "tooth"
+    def sheath(base, joint, rot, a0, col, w_soil, w_top, y_top):
+        pts = [p for p in arc_pts(base, joint, rot, a0)[:-1]]
+        dense = cr_sample(pts, 12)
+        run = [q for q in dense if q[1] >= y_top]
+        run = [(run[0][0] - (run[1][0] - run[0][0]) * 2.5, base[1] + 14)] + run
+        return f'<path d="{ribbon(run[::8] + [run[-1]], w_soil, w_top, per=3)}" fill="{col}"/>'
     # --- back layer (dark): the tall leaf fills the upper left; the upper right
     # is kept open for the flower
     G.append(leaf_unit((292, Y0), (262, 322), -12, 254, P["deep"], P["forest"], bend=-0.04,
                        tears=(("r", 0.46, 0.62, 5), ("r", 0.63, 0.5, 4)), pw=(10, 7), a0=-2))
     G.append(leaf_unit((310, Y0), (392, 452), 50, 196, P["forest"], P["mid"], bend=-0.05, pw=(10, 7),
                        flip=True, a0=8, tears=(("l", 0.55, 0.55, 5),)))
+    # swollen bases of the two back leaves (same depth as their petioles)
+    G.append(sheath((292, Y0), (262, 322), -12, -2, P["forest"], 30, 7, 540))
+    G.append(sheath((310, Y0), (392, 452), 50, 8, P["mid"], 26, 7, 552))
     # --- mid layer
     G.append(leaf_unit((284, Y0), (200, 432), -52, 200, P["deep"], P["mid"], bend=-0.07, pw=(9, 6),
                        a0=-10))
@@ -234,13 +249,7 @@ def build():
     plant = "".join(G)
     head = flower(HX, HY, -10, 1.5)
 
-    # clasping leaf-base sheaths at soil level (lanceolate, pointed)
-    def sheath(x0, x1, tipx, tipy, col):
-        d = cr_path([(x0, 604), (x0 + (tipx - x0) * 0.6 - 2, 560), (tipx, tipy), (x1 - (x1 - tipx) * 0.45 + 1, 562), (x1, 604)],
-                    closed=True, sharp={0, 2, 4})
-        return f'<path d="{d}" fill="{col}"/>'
-    sheaths = (sheath(278, 302, 285, 544, P["light"]) + sheath(298, 328, 317, 552, P["pale"]))
-    body = back + plant + head + sheaths + front
+    body = back + plant + head + front
     return body
 
 

@@ -91,7 +91,7 @@ def pinna_def(tone, shade_right):
     return gid
 
 
-def pinna_use(x, y, rot, L, tone, mirror):
+def pinna_use(x, y, rot, L, tone, mirror, wf=1.0):
     """base at (x,y), pointing along rot (deg, 0 = up, clockwise +).
     mirror=-1 flips the falcate curve (so it always bends toward the frond tip)."""
     a = math.radians(rot)
@@ -102,7 +102,7 @@ def pinna_use(x, y, rot, L, tone, mirror):
     # shade the half that faces away from the light
     shade_right = (rx * LIGHT[0] + ry * LIGHT[1]) < 0
     gid = pinna_def(tone, shade_right)
-    m = (c * k * mirror, s * k * mirror, -s * k, c * k, x, y)
+    m = (c * k * mirror * wf, s * k * mirror * wf, -s * k, c * k, x, y)
     return (f'<use href="#{gid}" transform="matrix({g2(m[0])} {g2(m[1])} {g2(m[2])} {g2(m[3])} '
             f'{f(m[4])} {f(m[5])})"/>')
 
@@ -193,7 +193,8 @@ def hidden_by_pot(x, y):
 
 
 def frond(ctrl, tone, rachis_col, pmax, bare=0.05, seed=0, w0=4.2,
-          dev0=64, dev1=46, gap=1.5, cull=True, prof0=0.40, scale=1.22):
+          dev0=64, dev1=46, gap=1.5, cull=True, prof0=0.30, scale=1.22,
+          peak=0.42, tipf=0.16, wf=1.0):
     """One pinnate frond.  pmax = longest pinna length (px).  cull: drop pinnae
     completely hidden behind the pot front (only for fronds drawn before it)."""
     r = random.Random(seed)
@@ -208,12 +209,13 @@ def frond(ctrl, tone, rachis_col, pmax, bare=0.05, seed=0, w0=4.2,
         u = (pos - s0) / (length - s0)
         if u >= 0.965:
             break
-        # lanceolate outline: short at the base, full by ~28%, long taper to tip
-        if u < 0.28:
-            prof = prof0 + (1 - prof0) * math.sin(u / 0.28 * math.pi / 2)
+        # lanceolate outline: short at the base, longest around `peak`
+        # (varies per frond), long taper to a short tip
+        if u < peak:
+            prof = prof0 + (1 - prof0) * math.sin(u / peak * math.pi / 2)
         else:
-            prof = 1 - 0.80 * ((u - 0.28) / 0.72) ** 1.35
-        pl = pmax * prof * r.uniform(0.95, 1.05)
+            prof = 1 - (1 - tipf) * ((u - peak) / (1 - peak)) ** 1.25
+        pl = pmax * prof * r.uniform(0.9, 1.08)
         dev = dev0 + (dev1 - dev0) * u
         x, y, th = at(pts, pos / length)
         rot = th + side * (dev + r.uniform(-3, 3))
@@ -221,7 +223,7 @@ def frond(ctrl, tone, rachis_col, pmax, bare=0.05, seed=0, w0=4.2,
         tx, ty = x + math.sin(a) * pl, y - math.cos(a) * pl
         if not (cull and hidden_by_pot(x, y) and hidden_by_pot(tx, ty + 4)):
             # right-side pinna must curve back toward the tip (counter-clockwise)
-            uses.append(pinna_use(x, y, rot, pl, tone, -side))
+            uses.append(pinna_use(x, y, rot, pl, tone, -side, wf))
             if not hidden_by_pot(tx, ty):
                 _grow(tx, ty)
         last = pos
@@ -231,7 +233,7 @@ def frond(ctrl, tone, rachis_col, pmax, bare=0.05, seed=0, w0=4.2,
     # terminal pinna along the rachis
     end = (last + 1.5) / length
     x, y, th = at(pts, end)
-    uses.append(pinna_use(x, y, th + r.uniform(-4, 4), pmax * 0.22, tone, 1))
+    uses.append(pinna_use(x, y, th + r.uniform(-4, 4), pmax * 0.22, tone, 1, wf))
     _grow(x, y)
     rp = rachis_path(pts, w0, 1.0, end + 0.004)
     return f'<path d="{rp}" fill="{rachis_col}"/>' + "".join(uses), pts
@@ -296,30 +298,30 @@ LIGHTT = (P["light"], SHADE[P["light"]])
 
 # Each frond: x0, a0 (start heading, deg, 0 = up, + = right), length, bend
 # (total change of heading along the frond), pmax, seed.  Listed back -> front.
-BACK = [  # upright, darkest; bare lower stipes hide behind the centre frond
-    dict(ctrl=[(292, 600), (287, 520), (274, 430), (250, 322), (216, 212), (176, 126), (150, 104)], pmax=31, seed=3, bare=0.2),
-    dict(ctrl=[(308, 600), (320, 520), (342, 440), (374, 336), (414, 236), (456, 162), (478, 146)], pmax=30, seed=8, bare=0.2),
+BACK = [  # upright, darkest; they open into a V so the centre frond has its own space
+    dict(ctrl=[(292, 600), (282, 530), (258, 446), (222, 350), (182, 254), (144, 170), (116, 140)], pmax=32, seed=3, bare=0.2, peak=0.46, wf=1.1, dev0=62, dev1=44),
+    dict(ctrl=[(308, 600), (320, 526), (348, 446), (390, 352), (438, 262), (484, 196), (508, 182)], pmax=29, seed=8, bare=0.2, peak=0.38, wf=0.95, dev0=66, dev1=50, gap=1.6),
 ]
-CENTRE = [  # younger, more upright frond in front of the two back ones: mid
-    dict(ctrl=[(300, 600), (298, 500), (296, 400), (302, 300), (318, 214), (334, 164)], pmax=27, seed=15, bare=0.05, prof0=0.7),
+CENTRE = [  # young upright frond standing in the gap of the V: sage, narrow
+    dict(ctrl=[(300, 600), (299, 510), (300, 420), (305, 330), (314, 256), (322, 222)], pmax=20, seed=15, bare=0.24, wf=0.88, prof0=0.4, peak=0.5, dev0=58, dev1=42, gap=1.7),
 ]
 RING2 = [  # leaning out, forest
-    dict(ctrl=[(288, 600), (262, 550), (222, 478), (176, 398), (128, 334), (86, 298), (58, 294)], pmax=29, seed=5, bare=0.1),
-    dict(ctrl=[(312, 600), (342, 548), (386, 480), (438, 420), (492, 384), (532, 384), (552, 400)], pmax=29, seed=12, bare=0.1),
+    dict(ctrl=[(288, 600), (262, 550), (222, 478), (176, 398), (128, 334), (86, 298), (58, 294)], pmax=30, seed=5, bare=0.1, peak=0.36, wf=1.05, dev0=68),
+    dict(ctrl=[(312, 600), (342, 548), (386, 480), (438, 420), (492, 384), (532, 384), (552, 400)], pmax=27, seed=12, bare=0.1, peak=0.48, wf=0.92, dev1=40, gap=1.45),
 ]
 RING3 = [  # arching over, mid
-    dict(ctrl=[(286, 600), (254, 556), (200, 516), (142, 500), (94, 516), (66, 556), (56, 606)], pmax=28, seed=7),
-    dict(ctrl=[(316, 600), (354, 568), (410, 546), (464, 548), (506, 574), (528, 616), (534, 656)], pmax=27, seed=10),
+    dict(ctrl=[(286, 600), (254, 556), (200, 516), (142, 500), (94, 516), (66, 556), (56, 606)], pmax=29, seed=7, peak=0.40, wf=0.95, gap=1.55),
+    dict(ctrl=[(316, 600), (354, 568), (410, 546), (464, 548), (506, 574), (528, 616), (534, 656)], pmax=25, seed=10, peak=0.34, wf=1.08, dev0=60),
 ]
 DRAPE = [  # right side, behind the pot, draping past the rim: sage
-    dict(ctrl=[(318, 603), (342, 580), (386, 570), (428, 592), (454, 634), (464, 684), (466, 718)], pmax=24, seed=2, bare=0.18),
+    dict(ctrl=[(318, 603), (342, 580), (386, 570), (428, 592), (454, 634), (464, 684), (466, 718)], pmax=24, seed=2, bare=0.18, peak=0.45),
 ]
 TUFT = [  # short young fronds screening the crown: sage, in front of the rings
-    dict(ctrl=[(296, 602), (286, 560), (267, 526), (242, 504), (220, 496)], pmax=20, seed=31, bare=0.1, prof0=0.6),
-    dict(ctrl=[(304, 602), (318, 570), (344, 544), (372, 530), (392, 530)], pmax=19, seed=34, bare=0.1, prof0=0.6),
+    dict(ctrl=[(296, 602), (286, 560), (267, 526), (242, 504), (220, 496)], pmax=20, seed=31, bare=0.1, prof0=0.5, peak=0.5),
+    dict(ctrl=[(304, 602), (318, 570), (344, 544), (372, 530), (392, 530)], pmax=18, seed=34, bare=0.1, prof0=0.5, peak=0.45),
 ]
 FRONT = [  # left side, over the rim in front of the pot: lightest, freshest
-    dict(ctrl=[(282, 598), (248, 580), (200, 572), (152, 590), (116, 632), (98, 682), (94, 728)], pmax=25, seed=9, bare=0.16),
+    dict(ctrl=[(282, 598), (248, 580), (200, 572), (152, 590), (116, 632), (98, 682), (94, 728)], pmax=26, seed=9, bare=0.16, peak=0.4, gap=1.5),
 ]
 
 
@@ -330,7 +332,7 @@ def build():
     BBOX[:] = [1e9, 1e9, -1e9, -1e9]
     back, front = pot(kind="classic", cx=CX, rim_y=RIM, rx=RX, base_w=68, band=True)
     body = [back]
-    for group, tone, rc in ((BACK, DEEP, P["mid"]), (CENTRE, MID, P["light"]),
+    for group, tone, rc in ((BACK, DEEP, P["mid"]), (CENTRE, SAGE, P["light"]),
                             (RING2, FOREST, P["sage"]),
                             (RING3, MID, P["forest"]), (DRAPE, SAGE, P["mid"]),
                             (TUFT, LIGHTT, P["sage"])):
