@@ -229,6 +229,29 @@ class PathFont:
 
 
 LABEL_FONT = PathFont(str(paths.FRAUNCES_MEDIUM))
+FRAUNCES_TEXT = paths.STATIC_FONTS / "Fraunces-Regular-opsz9-static.ttf"
+
+
+@__import__("functools").lru_cache(None)
+def text_font():
+    """Fraunces Regular at the 9 pt optical size (made once into build/fonts): the proof's body text and the
+    sheet headers, drawn as paths like every other label."""
+    if not FRAUNCES_TEXT.exists():
+        from fontTools.varLib import instancer
+        paths.STATIC_FONTS.mkdir(parents=True, exist_ok=True)
+        inst = instancer.instantiateVariableFont(TTFont(str(paths.FRAUNCES_VAR)),
+                                                 {"wght": 400, "opsz": 9, "SOFT": 0, "WONK": 0})
+        inst.save(str(FRAUNCES_TEXT))
+    return PathFont(str(FRAUNCES_TEXT))
+
+
+def sheet_header(s, size=2.0, col="#777"):
+    """One line of sheet header, in Fraunces as paths, left-aligned 5.2 mm above the card block (inside the
+    recommended area: top of the caps ~46.6 mm > REC_TOP 45.8 mm) and ending inside the block's right edge."""
+    f = text_font()
+    assert MX + f.width(s, size) <= PW - MX, f"sheet header overruns: {s!r}"
+    assert MY - 5.2 - size * 0.75 >= REC_TOP
+    return f'<g fill="{col}">' + f.path(s, size, MX, MY - 5.2, anchor="start") + "</g>"
 LATIN_COL = "#625444"    # botanical name: warm grey-brown, a step darker than the old #7A6A58 for uncoated ivory
 LATIN_FONT = PathFont(str(paths.FRAUNCES_ITALIC))
 
@@ -678,8 +701,8 @@ def page(cards, idx, total):
         # rotate 90 deg: card-local (u, v) -> page (x + CH - v, y + u)
         g.append(f'<g transform="translate({x + CH:.3f} {y:.3f}) rotate(90)"><g clip-path="url(#cc)">{card(n, sp)}</g></g>')
     g.append(crop_marks(gap=1.5, length=3.0))
-    g.append(f'<text x="{MX}" y="{MY - 5.2:.2f}" font-family="DejaVu Sans" font-size="2.0" fill="#777">'
-             f'Take 5 · Botanical · sheet {idx}/{total} · cards {cards[0][0]}–{cards[-1][0]} · 63.5 × 88 mm · print at 100%, borderless off</text>')
+    g.append(sheet_header(f'Take 5 · Botanical · sheet {idx}/{total} · cards {cards[0][0]}–{cards[-1][0]} · '
+                          '63.5 × 88 mm · print at 100%, borderless off'))
     g.append("</svg>")
     return "".join(g)
 

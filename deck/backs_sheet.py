@@ -15,8 +15,8 @@ def page():
         # mirror the column for a long-edge flip (the layout is symmetric left/right, so this is exact)
         x = deck.PW - x - deck.CH
         g.append(f'<g transform="translate({x + deck.CH:.3f} {y:.3f}) rotate(90)"><g clip-path="url(#bc)"><use href="#backart"/></g></g>')
-    g.append(f'<text x="{deck.MX}" y="{deck.MY - 5.2:.2f}" font-family="DejaVu Sans" font-size="2.0" fill="#777">'
-             f'Take 5 · Botanical · card backs · print on the reverse of each deck sheet · flip on the long edge · 100%, borderless off</text>')
+    g.append(deck.sheet_header('Take 5 · Botanical · card backs · print on the reverse of each deck sheet · '
+                               'flip on the long edge · 100%, borderless off'))
     g.append("</svg>")
     return "".join(g)
 

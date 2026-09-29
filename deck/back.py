@@ -7,7 +7,7 @@ Design rules for hand cutting + manual duplex:
     so a 1-2 mm cut/registration drift just crops a leaf a little differently (check() asserts this and the
     berries' >= 1.2 mm clearance on every build)
   * paper is left unprinted (use ivory stock for the cream look) -> no big flat tint to band
-  * lines >= 0.25 mm, light-on-dark lines >= 0.25 mm
+  * lines >= 0.25 mm, light-on-dark lines >= 0.25 mm (the midribs taper below that only in their last few mm)
 """
 import os, sys, math, random
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -62,12 +62,23 @@ def vein_col(col):
     return mix(col, VEIN_PALE, hi)
 
 
+MIDRIB_W0, MIDRIB_W1, MIDRIB_T1 = 4.0, 1.6, 0.86   # 0.40 mm at the leaf base -> 0.16 mm, ending short of the tip
+
+
+def midrib(lf, col):
+    """Tapered pale midrib, as on the card faces: it starts at the leaf base, where the leaf meets the stem (the
+    leaf clip trims it to the leaf there, so it runs into the stalk with no end cap), and narrows to a point-like
+    end at MIDRIB_T1 of the length. A plain round-capped stroke stopping at both ends read as a floating dash."""
+    pts = [lf.axis(-0.04 + (MIDRIB_T1 + 0.04) * i / 8) for i in range(9)]
+    return f'<path d="{ribbon(pts, MIDRIB_W0, MIDRIB_W1)}" fill="{col}"/>'
+
+
 def leaf(x, y, rot, L, col, width=0.26, bend=0.08, side="r", flip=False, vein=True):
-    """Leaf with a darker turned-away half (as on the card faces) and an opaque midrib 0.3 mm wide."""
+    """Leaf with a darker turned-away half (as on the card faces) and a pale tapered midrib (midrib() above)."""
     lf = leaf_shape(L, width, bend)
     vcol = vein_col(col) if vein else None
     return leaf_g(lf, col, shade=SHADE.get(col), side=side,
-                  midrib=(vcol, 3.0, None, 0.08, 0.8) if vein else None,
+                  extra=(lambda l: midrib(l, vcol)) if vein else None,
                   transform=T(x, y, rot, 1, -1 if flip else 1))
 
 
@@ -183,7 +194,8 @@ def build_parts():
     tr = [(700, -60), (618, 30), (538, 100), (460, 148), (380, 178)]
     o.append(branch(tr, [(0.22, 138), (0.36, 132), (0.50, 124), (0.64, 90), (0.78, 90)], sides=[1, -1, 1, -1, 1], w0=6.5,
                     w1=2.8, back_cols=[G["mid"], G["sage"]], front_cols=[G["sage"], G["sage"], G["light"]], tip=(66, G["light"])), "tr")
-    o.append(sprig((462, 147), [((412, 200), -7), ((440, 229), 1), ((472, 223), 5)], STEM_G, 11, MUSTARD, MUSTARD_S, w=2.8), "tr_sprig")
+    # two berries here (the bottom-left mustard sprig and the burgundy cluster have three each), splayed unevenly
+    o.append(sprig((462, 147), [((420, 204), -8), ((470, 226), 5)], STEM_G, 11, MUSTARD, MUSTARD_S, w=2.8), "tr_sprig")
 
     # ---------------------------------------------------------------- bottom-left arrangement
     # One bunch: every stem springs from the bottom-left corner (the only place, with the top-right,

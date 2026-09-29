@@ -27,21 +27,10 @@ CROP = 30.5       # section 5: card shown from the top cut down to this depth (m
 # Text is set in the deck's own fonts, drawn as paths (like the card labels, deck.PathFont): DM Serif Display for
 # the title and headings, Fraunces for the rest -- a regular-weight instance at the 9 pt optical size, made once
 # into build/fonts beside the deck's Medium one. Paths need no installed font and measure exactly (fits() below).
-FRAUNCES_TEXT = paths.STATIC_FONTS / "Fraunces-Regular-opsz9-static.ttf"
+# (deck.text_font(), shared with the sheet headers).
 
 
-def _text_font():
-    if not FRAUNCES_TEXT.exists():
-        from fontTools.ttLib import TTFont
-        from fontTools.varLib import instancer
-        paths.STATIC_FONTS.mkdir(parents=True, exist_ok=True)
-        inst = instancer.instantiateVariableFont(TTFont(str(paths.FRAUNCES_VAR)),
-                                                 {"wght": 400, "opsz": 9, "SOFT": 0, "WONK": 0})
-        inst.save(str(FRAUNCES_TEXT))
-    return deck.PathFont(str(FRAUNCES_TEXT))
-
-
-BODY, BOLD, HEAD = _text_font(), deck.LABEL_FONT, deck.PathFont(str(paths.DM_SERIF))
+BODY, BOLD, HEAD = deck.text_font(), deck.LABEL_FONT, deck.PathFont(str(paths.DM_SERIF))
 
 
 def t(x, y, s, size=2.4, font=None):
@@ -150,22 +139,24 @@ def build():
     # as a stripe down a leaf-green bar (chlorophytum's cream stripe, the spathe's light half). Tints marked * are
     # at or lighter than the stock: print_prep.py sends those as no ink (#FFFFFF) in the plant print copies.
     # (2.5+ mm of paper between the solid labels and the tick marks above the tints)
-    ty, th, tp = y + 35, 4.5, 28.3
+    # patch 7 wide, green bar 6 wide, label, then >= 1.5 mm of paper before the next patch's corner ticks (the
+    # labels used to run into them); the legend ends ~8 mm inside x 196
+    ty, th, tp, pw, lx, fs = y + 35, 4.5, 27.6, 7.0, 15.6, 1.9
     for i, c in enumerate(TINTS):
         x = X0 + i * tp
         k6, e = 0.6, 1.2
         ticks = "".join(f'M{cx + sx * k6} {cy + sy * k6 - sy * e}v{sy * e}h{-sx * e}'
-                        for cx, cy, sx, sy in ((x, ty, -1, -1), (x + 9, ty, 1, -1), (x, ty + th, -1, 1), (x + 9, ty + th, 1, 1)))
+                        for cx, cy, sx, sy in ((x, ty, -1, -1), (x + pw, ty, 1, -1), (x, ty + th, -1, 1), (x + pw, ty + th, 1, 1)))
         g.append(f'<path d="{ticks}" fill="none" stroke="#999" stroke-width="0.12"/>'
-                 f'<rect x="{x}" y="{ty}" width="9" height="{th}" fill="{c}"/>'
-                 f'<rect x="{x + 10.2}" y="{ty}" width="7" height="{th}" fill="{PAL["mid"]}"/>'
-                 f'<rect x="{x + 12.9}" y="{ty}" width="1.6" height="{th}" fill="{c}"/>')
+                 f'<rect x="{x}" y="{ty}" width="{pw}" height="{th}" fill="{c}"/>'
+                 f'<rect x="{x + 8.4}" y="{ty}" width="6" height="{th}" fill="{PAL["mid"]}"/>'
+                 f'<rect x="{x + 10.6}" y="{ty}" width="1.6" height="{th}" fill="{c}"/>')
         lab = c + ("*" if paper_white(c) else "")
-        g.append(t(x + 18.0, ty + 3.1, lab, 1.9))
-        fits(lab, x + 18.0, x + tp - 0.6, 1.9)
+        g.append(t(x + lx, ty + 3.1, lab, fs))
+        fits(lab, x + lx, x + tp - 0.6 - 1.5, fs)      # next patch's ticks start 0.6 mm left of it
     for i, s in enumerate(("Near-paper tints: on paper · on green", f"* ≥ {STOCK} stock: no ink on cards")):
-        g.append(t(X0 + 5 * tp + 1, ty + 1.7 + i * 2.9, s, 2.2))
-        fits(s, X0 + 5 * tp + 1, 196, 2.2)
+        g.append(t(X0 + 5 * tp + 1.4, ty + 1.7 + i * 2.9, s, 2.0))
+        fits(s, X0 + 5 * tp + 1.4, 190, 2.0)
 
     # 4 — scale + setting log  (heading ~3 mm below the tints' lower tick marks)
     y += 46

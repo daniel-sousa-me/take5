@@ -10,6 +10,9 @@ for history; where it disagrees with this file, this file wins (card size and pr
 - Canon's GX5000-series A4 figures: printable area 200 × 287 mm (5 mm margin all round). **Recommended**
   area leaves 45.8 mm at the top and 36.8 mm at the bottom, where "feeding precision or print quality may
   be affected". Everything in these files (cards, crop marks, sheet labels) sits inside the recommended area.
+- Sheet header lines (deck and backs sheets, `deck.sheet_header()`) are set in Fraunces Regular (opsz 9, the proof's
+  body font, `deck.text_font()`) drawn as paths, 2.0 mm, grey, 5.2 mm above the card block; no installed font is
+  needed and the header asserts it stays inside the recommended area and ends within the block width.
 - Stock: 250 gsm uncoated, loaded one sheet at a time in the rear tray.
 
 ## Card size and sheet layout
@@ -67,8 +70,9 @@ for history; where it disagrees with this file, this file wins (card size and pr
   own fonts, drawn as paths (DM Serif Display for the title and headings, Fraunces for the rest — Medium for the
   bold labels, a Regular opsz-9 instance made once into `build/fonts`), so it needs no installed font and every line's
   width is exact: `proof.fits()` asserts that each label and note ends inside its column. Sections have ≥ 2.5 mm of
-  paper between a caption and the next heading, and around the near-paper tint row (whose note is 2.2 mm text, the
-  same as the other labels). If a green
+  paper between a caption and the next heading, and around the near-paper tint row. In that row each paper patch is 7 mm wide and its hex label
+  (1.9 mm text) is asserted to end ≥ 1.5 mm before the next patch's corner ticks; the legend (2.0 mm text) ends
+  ≥ 6 mm inside the 196 mm column edge. If a green
   pair merges on the real card (most likely night/deep or deep/forest), lift the darks in `plants/core.py`
   `PAL`/`SHADE` and rebuild.
 
@@ -131,14 +135,18 @@ for history; where it disagrees with this file, this file wins (card size and pr
 
 ## Card back
 
-- Asymmetric spray: one sweep in from the top-right corner (five leaves, and three mustard berries fanned
-  on stalks into open space below the stem, clear of the hanging leaves), and one
+- Asymmetric spray: one sweep in from the top-right corner (five leaves, and two mustard berries splayed
+  unevenly on stalks into open space below the stem, clear of the hanging leaves — two rather than three so the
+  berries-on-stalks motif isn't repeated identically by the bottom-left mustard sprig and burgundy cluster), and one
   bunch rising from the bottom-left corner: an upright stem with a mustard sprig, burgundy berries on stalks that
   branch off it, a lily stem forking off it low down, and a low sweep arcing out to the right. Every stem of the
   bunch springs from the corner, so nothing floats and nothing crosses the bottom cut mid-width. Leaves are
   placed along their stems at a constant angle, alternating sides and shrinking to the tip. Like the card-face
   plants, each leaf has a darker turned-away half (a solid, about the same step as `plants/core.py` `SHADE`) and an
-  opaque pre-blended midrib 0.3 mm wide; no opacity anywhere on the back. Every midrib is a pale line 20 L* above its
+  opaque pre-blended midrib; no opacity anywhere on the back. As on the card faces, each midrib runs from the leaf
+  base, where it meets the stem, and tapers toward the tip (`midrib()`: a filled ribbon 0.40 → 0.16 mm ending at
+  0.86 of the leaf length, clipped to the leaf so it has no end cap at the base); it replaced a 0.3 mm round-capped
+  stroke that stopped inside the leaf at both ends and read as a floating dash. Every midrib is a pale line 20 L* above its
   leaf (`vein_col()`: a solid mix toward `VEIN_PALE` `#E1E6D6`, still darker than the stock). Before, the lighter
   top-right leaves had dark midribs and the bottom-left bunch pale ones; the pale line reads crisper at card size.
 - The lily (`LILY` = base (268, 810), −8°, 0.72 in 0.1 mm units) sits a little higher and turned slightly left of its

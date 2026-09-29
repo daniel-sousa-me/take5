@@ -32,7 +32,7 @@ A clean rebuild reproduces the files in `dist/` exactly.
 | `deck/proof.py` | One-page printer / paper proof |
 | `deck/paths.py` | All paths (package-relative) and font instancing |
 | `deck/preview.py`, `deck/coverage.py` | Dev tools: PNG preview of chosen cards; rough ink-coverage estimate |
-| `fonts/` | DM Serif Display (numbers, title, proof headings) and Fraunces (plant names, proof text), SIL Open Font License |
+| `fonts/` | DM Serif Display (numbers, title, proof headings) and Fraunces (plant names, proof text, sheet headers), SIL Open Font License |
 | `docs/` | Design + print notes, and the original 24 Sep handoff for history |
 | `dist/` | Current finished outputs |
 
