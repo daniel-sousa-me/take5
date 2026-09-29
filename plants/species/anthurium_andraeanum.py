@@ -19,6 +19,13 @@ SPADIX = "#EFE3BC"        # ivory-cream spadix
 SPADIX_SH = P["mustard"]
 
 
+def mix(a, b, t):
+    """Opaque pre-blend of hex colours a -> b (t = 0..1)."""
+    ca = [int(a[i:i + 2], 16) for i in (1, 3, 5)]
+    cb = [int(b[i:i + 2], 16) for i in (1, 3, 5)]
+    return "#" + "".join(f"{round(x + (y - x) * t):02X}" for x, y in zip(ca, cb))
+
+
 def world(x, y, rot, sx, s, lx, ly):
     """Local leaf coords -> world, matching T(x, y, rot, s, sx)."""
     lx, ly = lx * sx, ly * s
@@ -51,30 +58,16 @@ def draw_leaf(spec):
     sx = spec.get("sx", 1.0)
     lf = anth_leaf(L, spec.get("bend", 0.0))
     shade = SHADE[col]
-    vein_col = P["pale"] if col in (P["night"], P["deep"], P["forest"]) else P["pale"]
+    # vein system for this plant = one opaque, print-safe tapered midrib on every
+    # leaf (the faint laterals could not survive print and were dropped)
+    rib_col = mix(col, P["pale"], 0.4)
+    from core import ribbon
 
     def extra(leaf):
-        # arching lateral veins that run up toward the tip + a submarginal collector
-        out = []
-        for t in (0.24, 0.42, 0.60):
-            for sg, side in ((1, "r"), (-1, "l")):
-                p0 = leaf.axis(t)
-                w1 = leaf.width(t + 0.08, side) * 0.55
-                w2 = leaf.width(t + 0.32, side) * 0.80
-                p1 = leaf.pt(t + 0.08, sg * w1)
-                p2 = leaf.pt(min(t + 0.32, 0.95), sg * w2)
-                out.append(f"M{f(p0[0])} {f(p0[1])}Q{f(p1[0])} {f(p1[1])} {f(p2[0])} {f(p2[1])}")
-        # basal veins curving into the lobes
-        for sg, side in ((1, "r"), (-1, "l")):
-            p0 = leaf.axis(0.15)
-            p1 = leaf.pt(0.04, sg * 0.20)
-            p2 = leaf.pt(0.02, sg * 0.31)
-            out.append(f"M{f(p0[0])} {f(p0[1])}Q{f(p1[0])} {f(p1[1])} {f(p2[0])} {f(p2[1])}")
-        return (f'<path d="{"".join(out)}" fill="none" stroke="{vein_col}" stroke-width="{f(1.5 / sx)}" '
-                f'stroke-linecap="round" opacity=".17"/>')
+        pts = [leaf.axis(0.12 + 0.8 * i / 5) for i in range(6)]
+        return f'<path d="{ribbon(pts, 4.6 / sx, 1.8 / sx, per=4)}" fill="{rib_col}"/>'
 
-    return leaf_g(lf, col, shade=shade, side=spec.get("side", "r"),
-                  midrib=(vein_col, 2.4, 0.42, 0.14, 0.96), extra=extra,
+    return leaf_g(lf, col, shade=shade, side=spec.get("side", "r"), extra=extra,
                   transform=T(x, y, rot, 1.0, sx)), lf
 
 
@@ -101,19 +94,19 @@ def draw_flower(spec):
         # puckered veins: fan from the sinus, curving out and up toward the margin
         vv = []
         for sg, s in ((1, "r"), (-1, "l")):
-            for k, t in enumerate((0.16, 0.26, 0.38, 0.52, 0.67, 0.80)):
+            for k, t in enumerate((0.24, 0.46, 0.68)):
                 p0 = leaf.axis(0.11 + 0.012 * k)
                 wt = leaf.width(t, s)
                 p1 = leaf.pt(t - 0.06, sg * wt * 0.45)
                 p2 = leaf.pt(t + 0.06, sg * wt * 0.93)
                 vv.append(f"M{f(p0[0])} {f(p0[1])}Q{f(p1[0])} {f(p1[1])} {f(p2[0])} {f(p2[1])}")
-        out.append(f'<path d="{"".join(vv)}" fill="none" stroke="{RED_DK}" stroke-width="{f(1.3 / sx)}" '
-                   f'stroke-linecap="round" opacity=".55"/>')
+        out.append(f'<path d="{"".join(vv)}" fill="none" stroke="{mix(RED, RED_DK, 0.75)}" '
+                   f'stroke-width="{f(3.1 / sx)}" stroke-linecap="round"/>')
         # glossy highlight: a soft lens on the lit lobe
         hs = -1 if side == "r" else 1
         h = [leaf.pt(0.20, hs * 0.13), leaf.pt(0.30, hs * 0.25), leaf.pt(0.48, hs * 0.27),
              leaf.pt(0.62, hs * 0.19), leaf.pt(0.50, hs * 0.19), leaf.pt(0.33, hs * 0.18)]
-        out.append(f'<path d="{cr_path(h, sharp={0, 3})}" fill="{RED_HI}" opacity=".85"/>')
+        out.append(f'<path d="{cr_path(h, sharp={0, 3})}" fill="{mix(RED, RED_HI, 0.85)}"/>')
         return "".join(out)
 
     body = leaf_g(sp, RED, shade=RED_DK, side=side, extra=extra, transform=T(x, y, rot, 1.0, sx))
@@ -137,18 +130,18 @@ def draw_flower(spec):
     # shaded flank + a few tiny floret dots
     sh = [(p[0] + nx * w0 * 0.30, p[1] + ny * w0 * 0.30) for p in pts]
     dots = []
-    for i, u in enumerate([0.14 + 0.085 * k for k in range(10)]):
-        for j, o in enumerate((-0.22, 0.12)):
+    for i, u in enumerate([0.16 + 0.11 * k for k in range(7)]):
+        for j, o in enumerate((-0.14 if i % 2 else 0.1,)):
             c = curl * Ls * u * u
-            off = o + (0.08 if i % 2 else 0)
+            off = o
             px = base[0] + ux * Ls * u + nx * (c + off * w0)
             py = base[1] + uy * Ls * u + ny * (c + off * w0)
             dots.append(f"M{f(px)} {f(py)}h.01")
     cap = f'<circle cx="{f(base[0])}" cy="{f(base[1])}" r="{f(w0 * 0.5)}" fill="{SPADIX}"/>'
     spad = (cap + sd + f'<clipPath id="{sid}"><path d="{rd}"/></clipPath><g clip-path="url(#{sid})">'
-            + line(sh, w0 * 0.55, SPADIX_SH, 0.55)
-            + f'<path d="{"".join(dots)}" stroke="{P["mustard"]}" stroke-width="{f(w0 * 0.2)}" '
-              f'stroke-linecap="round" opacity=".45"/>' + "</g>")
+            + line(sh, w0 * 0.55, mix(SPADIX, SPADIX_SH, 0.55))
+            + f'<path d="{"".join(dots)}" stroke="{mix(SPADIX, P["mustard"], 0.7)}" stroke-width="4" '
+              f'stroke-linecap="round"/>' + "</g>")
     return body + spad, sp
 
 
@@ -191,12 +184,12 @@ def build():
         # face-on, highest
         dict(x=300, y=210, rot=4, L=144, side="r", spadix_rot=22, curl=0.16,
              base=(298, 592), via=[(292, 420), (298, 290)], z=1),
-        # tilted, left
-        dict(x=164, y=300, rot=-44, L=124, sx=0.7, side="l", spadix_rot=28, curl=0.32,
-             base=(292, 592), via=[(258, 440), (180, 330)], z=2),
-        # low, right, turned
-        dict(x=458, y=322, rot=40, L=112, sx=0.62, side="r", spadix_rot=-36, curl=-0.32,
-             base=(306, 594), via=[(326, 490), (372, 404), (432, 352)], z=3),
+        # tilted, left: higher and larger, only half turned
+        dict(x=168, y=262, rot=-30, L=132, sx=0.8, side="l", spadix_rot=30, curl=0.28,
+             base=(292, 592), via=[(262, 430), (188, 300)], z=2),
+        # low, right: smaller, more turned away and leaning further out
+        dict(x=468, y=372, rot=58, L=98, sx=0.55, side="r", spadix_rot=-24, curl=-0.34,
+             base=(306, 594), via=[(330, 500), (390, 426), (446, 394)], z=3),
     ]
 
     def leaf_item(s):

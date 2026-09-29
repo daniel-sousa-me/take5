@@ -54,12 +54,14 @@ def g2(v):
 def pinna_leaf(L=U):
     # narrow oblong, slightly broader and auricled on the upper (acroscopic)
     # side at the base, bluntly acute tip; gentle falcate curve (bend)
-    right = [(0.0, 0.09), (0.10, 0.155), (0.35, 0.15), (0.65, 0.135), (0.86, 0.09), (0.97, 0.03)]
-    left = [(0.0, 0.07), (0.10, 0.125), (0.35, 0.135), (0.65, 0.125), (0.86, 0.085), (0.97, 0.03)]
-    wf = 1.12  # breadth factor (fuller foliage mass)
+    # widest near the base, then a long, gentle taper to a fine acute tip that
+    # curves forward (falcate) -- a fern pinna, not a blunt capsule
+    right = [(0.0, 0.09), (0.10, 0.165), (0.30, 0.158), (0.52, 0.132), (0.72, 0.092), (0.88, 0.045)]
+    left = [(0.0, 0.07), (0.10, 0.13), (0.30, 0.14), (0.52, 0.118), (0.72, 0.082), (0.88, 0.04)]
+    wf = 1.14  # breadth factor (fuller foliage mass)
     right = [(t, w * wf) for t, w in right]
     left = [(t, w * wf) for t, w in left]
-    return Leaf(L, right, left, bend=0.10, base_sharp=False)
+    return Leaf(L, right, left, bend=0.16, base_sharp=False)
 
 
 def _shapes():
@@ -281,12 +283,8 @@ def fiddlehead(x0, pts_ctrl, coil_r, turns, fill, dark, w0=4.2, left=True):
     L, R = L[::3] + [L[-1]], R[::3] + [R[-1]]
     ring = L + R[::-1]
     d = cr_path(ring, closed=True, sharp={0, len(L) - 1, len(L), len(ring) - 1})
-    cid = uid("fc")
-    # one thin groove along the coil: the rolled-up edge of the young frond
-    groove = [path[i] for i in range(len(s) - 2, n - 3, 2)]
-    return (f'<clipPath id="{cid}"><path d="{d}"/></clipPath><path d="{d}" fill="{fill}"/>'
-            f'<path d="{cr_path(groove, closed=False)}" clip-path="url(#{cid})" fill="none" '
-            f'stroke="{dark}" stroke-width="1.2" stroke-linecap="round" opacity=".55"/>')
+    # (the old hairline groove on the coil is dropped: below print minimum)
+    return f'<path d="{d}" fill="{fill}"/>'
 
 
 # ------------------------------------------------------------------ build

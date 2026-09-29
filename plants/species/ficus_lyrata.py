@@ -17,6 +17,16 @@ BARK = "#6A5943"
 BARK_DK = P["soil"]
 BARK_HI = "#8A7659"
 
+
+def mix(a, b, t):
+    """Opaque pre-blend of hex colours a -> b (t = 0..1)."""
+    ca = [int(a[i:i + 2], 16) for i in (1, 3, 5)]
+    cb = [int(b[i:i + 2], 16) for i in (1, 3, 5)]
+    return "#" + "".join(f"{round(x + (y - x) * t):02X}" for x, y in zip(ca, cb))
+
+
+VEIN_W = 4.2     # light-on-dark lateral veins: print-safe knockout weight
+
 # half-width profile of the violin-shaped blade (t along midrib, w as fraction of L)
 # Few, evenly spread nodes -> smooth margin: narrow base, one gentle waist (~0.42),
 # broadest at ~0.8, broad rounded apex with only a tiny point.
@@ -100,14 +110,14 @@ class Fig:
             for side, sg in (("r", 1), ("l", -1)):
                 t2 = min(t + dt, 0.95)
                 p0 = self.M(*self.ax(t))
-                p1 = self.M(*self.lp(t + dt * 0.35, sg * self.wid(t + dt * 0.35, side) * reach * 0.62))
+                p1 = self.M(*self.lp(t + dt * 0.3, sg * self.wid(t + dt * 0.3, side) * reach * 0.62))
                 p2 = self.M(*self.lp(t2, sg * self.wid(t2, side) * reach))
                 d.append(f"M{f(p0[0])} {f(p0[1])}Q{f(p1[0])} {f(p1[1])} {f(p2[0])} {f(p2[1])}")
         return "".join(d)
 
     def rib_shape(self, w):
         ts = [-0.03, 0.3, 0.6, 0.9]
-        ws = [w / 2, w * 0.36, w * 0.24, 0.35]
+        ws = [w / 2, w * 0.45, w * 0.38, w * 0.3]
         R, Lf = [], []
         for t, hw in zip(ts, ws):
             a, n = self.M(*self.ax(t)), self.M(*self.lp(t, 1)),
@@ -123,19 +133,21 @@ class Fig:
         pts = [self.M(*self.ax(t0 + (t1 - t0) * i / 6)) for i in range(7)]
         return pts
 
-    def svg(self, fill, vein_col=None, vein_op=0.42, rib_op=0.8, rib_w=3.2, under=False):
+    def svg(self, fill, vein_col, rib_col, rib_w=6.0):
+        """Every leaf carries the same bold, opaque vein system: a tapered
+        midrib + three pairs of pale laterals (the fiddle-leaf pattern), all
+        at print-safe weight."""
         d = self.path()
         cid = uid("fl")
         shade = SHADE.get(fill, fill)
         sg = 1 if self.right_is_away() else -1
-        vc = vein_col or P["pale"]
         o = [f'<clipPath id="{cid}"><path d="{d}"/></clipPath>',
              f'<path d="{d}" fill="{fill}"/>',
              f'<g clip-path="url(#{cid})">',
              f'<path d="{self.half(sg)}" fill="{shade}"/>',
-             f'<path d="{self.veins([0.15, 0.30, 0.45, 0.59, 0.72])}" fill="none" stroke="{vc}" '
-             f'stroke-width="1.4" stroke-linecap="round" opacity="{vein_op}"/>',
-             f'<path d="{self.rib_shape(rib_w)}" fill="{vc}" opacity="{rib_op}"/>',
+             f'<path d="{self.veins([0.16, 0.36, 0.56], reach=0.74, dt=0.2)}" fill="none" stroke="{vein_col}" '
+             f'stroke-width="{VEIN_W}" stroke-linecap="round"/>',
+             f'<path d="{self.rib_shape(rib_w)}" fill="{rib_col}"/>',
              "</g>"]
         return "".join(o)
 
@@ -182,8 +194,8 @@ def on(pts, fr):
 # steps and the crown reads as layers even at thumbnail size.
 LEAVES = [
     # ---- back ring (darkest), behind the trunk
-    (0, "T", 0.68, -80, 8, 150, 0.92, 1.0, -0.06, "deep", 3),     # left
-    (0, "T", 0.74, 86, 8, 150, 0.90, 1.0, 0.08, "deep", 4),       # right
+    (0, "T", 0.60, -96, 8, 152, 0.92, 1.0, -0.07, "deep", 3),     # left, lower and drooping
+    (0, "T", 0.80, 76, 8, 138, 0.90, 1.0, 0.07, "deep", 4),       # right, higher and smaller
     (0, "T", 0.95, -22, 7, 136, 0.90, 1.0, -0.04, "deep", 5),     # upper left
     (0, "T", 0.92, 30, 7, 140, 0.88, 1.0, 0.04, "deep", 6),       # upper right
     (0, "T", 0.56, 118, 8, 128, 0.86, 1.0, 0.10, "deep", 15),     # low right, drooping
@@ -209,11 +221,12 @@ def build():
         base = offset(sp, rot, pl)
         fig = Fig(base, rot, L, sx, sy, bend, seed)
         dark = tone in ("deep", "forest")
-        vein = P["light"] if dark else P["ivory"]
+        # opaque pre-blended vein tones: pale tint of the blade colour
+        vein = mix(P[tone], P["light"] if dark else P["ivory"], 0.3 if dark else 0.34)
+        rib = mix(P[tone], P["light"] if dark else P["ivory"], 0.5 if dark else 0.6)
         pw = 5.5 if L > 150 else 4.6
         s = petiole(sp, fig, w0=pw, w1=pw * 0.7)
-        s += fig.svg(P[tone], vein_col=vein, vein_op=0.3 if dark else 0.32,
-                     rib_op=0.6 if dark else 0.72)
+        s += fig.svg(P[tone], vein, rib)
         if os.environ.get("DBG"):
             c = fig.M(0, -0.5)
             s += f'<text x="{f(c[0])}" y="{f(c[1])}" font-size="22" fill="red">{len(layers[0]) + len(layers[1])}</text>'
@@ -223,18 +236,13 @@ def build():
     # trunk + branch
     out.append(f'<path d="{ribbon(BRANCH, 8, 4.5)}" fill="{BARK}"/>')
     out.append(f'<path d="{ribbon(TRUNK, 15, 6)}" fill="{BARK}"/>')
-    # bark shading: darker right edge, faint highlight left, small leaf scars
+    # bark shading: darker right edge (opaque pre-blend) + a print-safe
+    # highlight on the thick lower trunk only; hairline scars dropped
     tid = uid("tk")
     out.append(f'<clipPath id="{tid}"><path d="{ribbon(TRUNK, 15, 6)}"/></clipPath>'
                f'<g clip-path="url(#{tid})">'
-               f'<path d="{ribbon([(p[0] + 5, p[1]) for p in TRUNK], 9, 3)}" fill="{BARK_DK}" opacity=".55"/>'
-               f'<path d="{cr_path([(p[0] - 3.2, p[1]) for p in TRUNK[:5]], closed=False)}" fill="none" '
-               f'stroke="{BARK_HI}" stroke-width="2" stroke-linecap="round" opacity=".7"/>'
-               + "".join(f'<path d="M{f(x - 4)} {f(y)} q4 -2.5 8 0" fill="none" stroke="{BARK_DK}" '
-                         f'stroke-width="1.6" stroke-linecap="round" opacity=".8"/>'
-                         for x, y in [(on(TRUNK, 0.12)[0], on(TRUNK, 0.12)[1]),
-                                      (on(TRUNK, 0.25)[0], on(TRUNK, 0.25)[1]),
-                                      (on(TRUNK, 0.37)[0], on(TRUNK, 0.37)[1])])
+               f'<path d="{ribbon([(p[0] + 5, p[1]) for p in TRUNK], 9, 3)}" fill="{mix(BARK, BARK_DK, 0.55)}"/>'
+               f'<path d="{ribbon([(p[0] - 3.4, p[1]) for p in TRUNK[:4]], 4.2, 4.0, per=3)}" fill="{BARK_HI}"/>'
                + "</g>")
     out += layers[1]
     out.append(front)
