@@ -205,8 +205,10 @@ def build():
     focal = dict(x=298, y=338, rot=-8, L=150, col=F, side=1, x0=300,
                  via=[(300, 450)], w=(9, 6), pc=PET, curl=0.03)
     # --- turned leaf showing its burgundy underside, low left
-    under = dict(x=222, y=472, rot=-118, L=104, col=P["burgundy"], x0=292,
-                 via=[(288, 470)], w=(7, 4.5), pc=PET, ap=0.6)
+    # its petiole rises on its own, left of the others, and only hooks over at
+    # the very top into the sinus (never meeting a neighbouring petiole)
+    under = dict(x=222, y=472, rot=-118, L=104, col=P["burgundy"], x0=272,
+                 via=[(262, 500)], w=(7, 4.5), pc=PET, ap=0.42)
 
     out = [back, '<g transform="translate(300 600) scale(1.07) translate(-300 -600)">']
 

@@ -136,15 +136,15 @@ def col(i):
 
 
 def tone(v, under, off):
-    # v in [-1,1]: brightness of the half; off = per-trio depth/tone offset
-    # separate the three depth layers by a clear step: back pushed darker,
-    # front pushed lighter / pinker, middle left as is
-    if off < 0:
-        off -= 0.75
-    elif off >= 1.0:
-        off += 0.8
-    i = 1.3 + v * 1.5 + off - (0.7 if under else 0)
-    return max(0.0, min(6.3, i))
+    # v in [-1,1]: brightness of the half; off = the trio's depth layer on the
+    # RAMP (explicit per trio, see LEAVES). The light swing inside one trio is
+    # kept modest so neighbouring layers stay >= 2 ramp steps apart where
+    # they overlap (verified pair by pair, not by eye).
+    i = 1.3 + v * TONE_SWING + off - (0.6 if under else 0)
+    return max(0.0, min(7.0, i))
+
+
+TONE_SWING = 1.1
 
 
 def leaflet(frame, L, W, off, asym=1.0, notch=0.87):
@@ -270,22 +270,23 @@ def umbel(base, top, bow, heads):
 # ------------------------------------------------------------------ layout
 # (base_x, tip(x,y), L, yaw, droop, fold, elev, lean, tone_off, bow, var, folds)
 LEAVES = [
-    # back layer (darker)
-    (296, (286, 196), 76, 8, 0.30, 0.15, 0.95, -3, -0.9, -6, (1, 1.05, .95), None),
-    (284, (170, 222), 70, -14, 0.40, 0.30, 0.85, -12, -0.3, -10, (1, .95, 1.05), (0.1, 0.5, 0.2)),
-    (316, (424, 240), 68, 20, 0.35, 0.10, 0.90, 10, -1.2, 12, (.95, 1.05, 1), None),
-    (268, (88, 312), 62, -30, 0.45, 0.20, 0.75, -20, -0.2, -18, (1, 1, .9), (0.2, 0.2, 0.6)),
-    (334, (508, 338), 60, 32, 0.40, 0.45, 0.80, 18, -0.5, 18, (1, .9, 1), None),
-    # middle layer
-    (276, (138, 400), 64, -22, 0.42, 0.15, 0.80, -16, 0.4, -14, (1, 1.05, 1), None),
-    # front layer (lighter / warmer)
-    (302, (300, 382), 72, -2, 0.30, 0.10, 0.80, 2, 1.3, 4, (1, 1.05, 1), (0.15, 0.1, 0.45)),
-    (282, (212, 470), 62, -18, 0.40, 0.20, 0.72, -12, 0.7, -10, (1, 1, .95), None),
-    (320, (392, 474), 64, 18, 0.42, 0.15, 0.75, 10, 1.8, 10, (.95, 1, 1), (0.45, 0.1, 0.15)),
-    (270, (110, 518), 50, -34, 0.50, 0.30, 0.62, -22, 1.9, -16, (1, .95, 1), None),
-    (330, (490, 516), 52, 30, 0.50, 0.20, 0.62, 20, 1.4, 16, (1, 1, .95), None),
+    # listed in draw order (back -> front); tone_off places each trio on RAMP.
+    # back: the top-centre crown and the two far outliers, darkest
+    (296, (286, 196), 76, 8, 0.30, 0.15, 0.95, -3, -1.1, -6, (1, 1.05, .95), None),
+    (268, (90, 312), 62, -30, 0.45, 0.20, 0.75, -20, -1.2, -18, (1, 1, .9), (0.2, 0.2, 0.6)),
+    (334, (510, 350), 60, 32, 0.40, 0.45, 0.80, 18, -0.6, 18, (1, .9, 1), None),
+    # second layer: the two upper side trios, mid burgundy -> breaks the top mass
+    (284, (170, 222), 70, -14, 0.40, 0.30, 0.85, -12, 1.2, -10, (1, .95, 1.05), (0.1, 0.5, 0.2)),
+    (316, (424, 240), 68, 20, 0.35, 0.10, 0.90, 10, 1.0, 12, (.95, 1.05, 1), None),
+    (276, (130, 398), 64, -22, 0.42, 0.15, 0.80, -16, 1.1, -14, (1, 1.05, 1), None),
+    (282, (226, 462), 62, -18, 0.40, 0.20, 0.72, -12, 2.9, -10, (1, 1, .95), None),
+    # front layer (lighter / rosier)
+    (302, (300, 382), 72, -2, 0.30, 0.10, 0.80, 2, 4.2, 4, (1, 1.05, 1), (0.15, 0.1, 0.45)),
+    (320, (398, 478), 64, 18, 0.42, 0.15, 0.75, 10, 3.0, 10, (.95, 1, 1), (0.45, 0.1, 0.15)),
+    (270, (104, 522), 50, -34, 0.50, 0.30, 0.62, -22, 3.2, -16, (1, .95, 1), None),
+    (330, (506, 526), 52, 30, 0.50, 0.20, 0.62, 20, 3.0, 16, (1, 1, .95), None),
     # drapes over the rim: deep plum so it parts clearly from the terracotta
-    (288, (232, 552), 58, -10, 0.45, 0.25, 0.60, -6, 0.25, -4, (1, 1, 1), (0.3, 0.2, 0.2)),
+    (288, (228, 560), 56, -10, 0.45, 0.25, 0.60, -6, 1.0, -4, (1, 1, 1), (0.3, 0.2, 0.2)),
 ]
 
 
@@ -307,8 +308,8 @@ def build():
     body += [fl1, fl2]
     late = []
     for i, (bx, tip, L, yaw, droop, fold, elev, lean, off, bow, var, folds) in enumerate(LEAVES):
-        col = PET_BACK if off < 0.5 else PET_FRONT
-        w0 = 5.4 if off >= 0.5 else 4.8
+        col = PET_BACK if off < 2.0 else PET_FRONT
+        w0 = 5.4 if off >= 2.0 else 4.8
         bx = 300 + (tip[0] - 300) * 0.24 + (bx - 300) * 0.5
         body.append(petiole((bx, 602), tip, bow, w0, 3.0, col))
         t = trio(tip, L, yaw, droop, fold, elev, lean, off, var, folds)

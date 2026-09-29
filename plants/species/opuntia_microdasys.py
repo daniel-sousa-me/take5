@@ -21,7 +21,12 @@ SC, DX = 1.08, 10  # plant scale about (300, 640) and x-shift before scaling
 MUST_SH = "#AE8436"  # shaded mustard (flower turned-away side)
 BUTTER = "#E3C677"   # mustard lifted toward cream: inner face of the petals
 BUTTER2 = "#D6B45F"  # a half step deeper, for alternating petals
-THROAT = "#86652B"   # the shadowed inside of the cup
+THROAT = "#A47E34"   # the inside of the cup: a mid ochre, one step under the back petals
+BACK1 = "#CFA84F"    # back petals' inner face (alternates with mustard so the pair reads)
+BACK2 = "#B28839"    # outermost back petals, turned furthest from the light
+LIT = "#EBD48E"      # the front petal square to the light
+STAMEN = "#D5D08E"   # pale yellow-green anthers: low contrast on the ochre throat
+STIGMA = "#C9CB84"   # stigma, a hair greener
 BAND = {  # thickness band tone for each face tone (a clear step darker)
     P["pale"]: "#8E9E80", P["light"]: P["sage"], P["sage"]: "#5F7355",
     P["mid"]: P["forest"], P["forest"]: "#2E4633",
@@ -195,17 +200,22 @@ def flower(x, y, deg, s=1.0, bud=False):
         for a, L, c, sh in ((-8, 31, BUTTER2, None), (8, 31, BUTTER2, None), (0, 34, P["mustard"], MUST_SH)):
             g.append(petal(a, L, 16, c, sh, oy=-19, claw=0.4, bw=0.3))
     else:
-        # open cup seen from the side, a little from above: four back petals
-        # show their pale inner face (alternating two close tones so each
-        # reads), the dark inside of the cup with a small cream stamen boss,
-        # three front petals (outer face, mustard, lit / shaded halves)
-        for a, L, c in ((-62, 31, BUTTER), (62, 31, BUTTER2), (-21, 38, BUTTER2), (21, 38, BUTTER)):
+        # open cup seen from the side, a little from above. The back petals
+        # show their inner face in the cup's shadow (two mid mustards that
+        # alternate so each petal reads); the throat is a mid ochre only a
+        # step deeper, holding a small low-contrast tuft of pale yellow-green
+        # stamens + stigma; the three front petals face the light and are the
+        # lightest part of the flower (lit / turned-away halves), so the cup
+        # reads as a rounded form rather than a flat disc.
+        for a, L, c in ((-62, 31, BACK2), (62, 31, BACK2), (-21, 38, P["mustard"]), (21, 38, BACK1)):
             g.append(petal(a, L, 18, c, oy=-22, claw=0.3))
-        g.append(f'<ellipse cx="0" cy="-41.5" rx="15" ry="8" fill="{THROAT}"/>')
-        g.append(f'<ellipse cx="0" cy="-43.6" rx="7" ry="3.8" fill="{P["cream"]}"/>')
-        g.append(f'<circle cx="0" cy="-44.6" r="1.9" fill="{P["yellow_edge"]}"/>')
-        for a, L in ((-38, 26), (38, 26), (0, 23)):
-            g.append(petal(a, L, 16, P["mustard"], MUST_SH, oy=-19, claw=0.38, bw=0.26))
+        g.append(f'<ellipse cx="0" cy="-41.5" rx="14" ry="7.5" fill="{THROAT}"/>')
+        for sx_, sy_, r_ in ((-3.6, -42.6, 1.6), (3.4, -42.9, 1.6), (-1.4, -45.4, 1.6), (1.9, -45.6, 1.5),
+                             (0.4, -40.6, 1.6)):
+            g.append(f'<circle cx="{f(sx_)}" cy="{f(sy_)}" r="{f(r_)}" fill="{STAMEN}"/>')
+        g.append(f'<circle cx="0" cy="-43.2" r="1.9" fill="{STIGMA}"/>')
+        for a, L, c, sh in ((-38, 26, BUTTER, BUTTER2), (38, 26, BUTTER, BUTTER2), (0, 23, LIT, BUTTER)):
+            g.append(petal(a, L, 16, c, sh, oy=-19, claw=0.38, bw=0.26))
     g += pc
     g.append("</g>")
     return "".join(g)

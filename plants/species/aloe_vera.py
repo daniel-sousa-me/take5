@@ -174,7 +174,8 @@ def build():
     by = BASE_Y
     L = []
     # --- back tier: upright, darkest
-    L.append(aloe_leaf([(318, by), (330, 470), (346, 330), (362, 190)], 30, P["deep"], side=1, k=0.5, seed=9))
+    # gently bowed (convex to the right, tip turning back in) so its margin is not a ruled line
+    L.append(aloe_leaf([(318, by), (332, 480), (352, 350), (362, 262), (360, 190)], 30, P["deep"], side=1, k=0.5, seed=9))
     L.append(aloe_leaf([(312, by), (356, 500), (428, 396), (488, 322), (514, 302)], 28, P["forest"], side=1, k=0.4, seed=10))
     L.append(aloe_leaf([(296, by), (297, 470), (291, 320), (262, 146)], 34, P["forest"], side=-1, k=0.5, seed=1))
     L.append(aloe_leaf([(284, by), (262, 480), (220, 350), (164, 226)], 32, P["mid"], side=-1, k=0.4, speck=0.55, seed=2))
