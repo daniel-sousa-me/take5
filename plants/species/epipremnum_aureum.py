@@ -259,14 +259,15 @@ def build():
         (0.83, -1, 38, P["forest"], 25, 50, 0.5, True),
         (0.98, 1, 28, P["mid"], 26, 40, 0.45, False),
     ], 5.2, 2.2, P["mid"], P["sage"])
-    # short curl, right side; bare tip curls back up
-    Rv = [(372, 604), (394, 590), (424, 596), (452, 620), (468, 650), (468, 678), (458, 693),
-          (444, 695), (436, 686)]
+    # short right vine: arches over the rim and hangs, ending on a small young leaf
+    # (pothos has no tendrils, so no bare hooked tip)
+    Rv = [(372, 604), (394, 590), (424, 596), (452, 620), (466, 650), (470, 676), (468, 694)]
     s2, b2 = vine(Rv, [
-        (0.15, 1, 68, P["mid"], 31, 58, 0.4, False),
-        (0.41, -1, 54, P["forest"], 32, 62, 0.55, True),
-        (0.62, 1, 36, P["sage"], 33, 60, 0.35, False),
-    ], 4.6, 1.5, P["mid"], P["sage"])
+        (0.18, 1, 68, P["mid"], 31, 58, 0.4, False),
+        (0.50, -1, 54, P["forest"], 32, 62, 0.55, True),
+        (0.76, 1, 36, P["sage"], 33, 60, 0.35, False),
+        (0.99, -1, 26, P["mid"], 34, 34, 0.45, True),
+    ], 4.6, 2.2, P["mid"], P["sage"])
     # short strand over the front of the rim
     Fv = [(322, 600), (330, 612), (336, 638), (334, 668), (326, 690)]
     s3, b3 = vine(Fv, [

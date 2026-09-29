@@ -165,7 +165,7 @@ def build():
         # back layer (deep) -- A right crown, B far left
         dict(x=334, y=336, rot=20, L=232, col=P["deep"], side="r", bend=-0.03,
              base=(308, 590), via=[(318, 470)]),
-        dict(x=222, y=430, rot=-72, L=186, col=P["deep"], side="l", bend=0.05, sx=0.92,
+        dict(x=206, y=434, rot=-70, L=180, col=P["deep"], side="l", bend=0.05, sx=0.92,
              base=(288, 594), via=[(262, 500)]),
         # middle layer (mid) -- C upper left, D right
         dict(x=266, y=360, rot=-30, L=212, col=P["mid"], side="r", bend=0.04,

@@ -211,7 +211,7 @@ def plantlet(x, y, spec, roots):
     """Small rosette: leaves radiating from (x,y); root nubs hanging below."""
     out = []
     for dx, rl in roots:
-        out.append(f'<path d="{ribbon([(x, y - 2), (x + dx * 0.4, y + rl * 0.55), (x + dx, y + rl)], 3.0, 1.0, per=4)}" '
+        out.append(f'<path d="{ribbon([(x, y - 2), (x + dx * 0.4, y + rl * 0.55), (x + dx, y + rl)], 3.6, 1.4, per=4)}" '
                    f'fill="{P["light"]}"/>')
     for a0, a1, L, W, tier in spec:
         out.append(arc_leaf((x, y + 3), a0, a1, L * 1.3, W * 1.35).svg(tier, 0.4, 0.86, stripe_shade=False))
@@ -239,10 +239,10 @@ def build(report=False):
     runR = [(338, 614), (350, 588), (368, 562), (396, 540), (430, 530), (462, 536), (484, 556),
             (498, 584), (504, 612), RB]
     babyL = plantlet(*LB, [
-        (-52, -124, 46, 6.0, "babyb"), (50, 140, 42, 5.6, "babyb"),
-        (-24, -100, 64, 6.6, "baby"), (18, 92, 58, 6.4, "baby"),
-        (-14, -58, 60, 6.6, "babyf"), (-90, -164, 30, 5.0, "baby"),
-        (86, 166, 32, 5.0, "baby")], [(-6, 22), (6, 18), (0, 30)])
+        (-52, -124, 46, 6.0, "babyb"), (54, 134, 35, 5.6, "babyb"),
+        (-24, -100, 64, 6.6, "baby"), (20, 76, 48, 6.4, "baby"),
+        (-14, -58, 60, 6.6, "babyf"), (-98, -150, 36, 5.2, "baby"),
+        (74, 128, 24, 4.8, "baby")], [(-6, 22), (6, 18), (0, 30)])
     babyR = plantlet(*RB, [
         (-58, -136, 60, 5.6, "babyb"), (54, 142, 58, 5.6, "babyb"),
         (-18, -92, 70, 6.0, "baby"), (22, 88, 66, 6.0, "babyf"),

@@ -25,7 +25,7 @@ def mix(a, b, t):
     return "#" + "".join(f"{round(x + (y - x) * t):02X}" for x, y in zip(ca, cb))
 
 
-VEIN_W = 4.2     # light-on-dark lateral veins: print-safe knockout weight
+VEIN_W = 4.0     # light-on-dark lateral veins: print-safe knockout weight
 
 # half-width profile of the violin-shaped blade (t along midrib, w as fraction of L)
 # Few, evenly spread nodes -> smooth margin: narrow base, one gentle waist (~0.42),
@@ -222,8 +222,9 @@ def build():
         fig = Fig(base, rot, L, sx, sy, bend, seed)
         dark = tone in ("deep", "forest")
         # opaque pre-blended vein tones: pale tint of the blade colour
-        vein = mix(P[tone], P["light"] if dark else P["ivory"], 0.3 if dark else 0.34)
-        rib = mix(P[tone], P["light"] if dark else P["ivory"], 0.5 if dark else 0.6)
+        # (kept ~25 % below the silhouette contrast so vein detail reads as detail)
+        vein = mix(P[tone], P["light"] if dark else P["ivory"], 0.24 if dark else 0.25)
+        rib = mix(P[tone], P["light"] if dark else P["ivory"], 0.4 if dark else 0.45)
         pw = 5.5 if L > 150 else 4.6
         s = petiole(sp, fig, w0=pw, w1=pw * 0.7)
         s += fig.svg(P[tone], vein, rib)
@@ -237,12 +238,12 @@ def build():
     out.append(f'<path d="{ribbon(BRANCH, 8, 4.5)}" fill="{BARK}"/>')
     out.append(f'<path d="{ribbon(TRUNK, 15, 6)}" fill="{BARK}"/>')
     # bark shading: darker right edge (opaque pre-blend) + a print-safe
-    # highlight on the thick lower trunk only; hairline scars dropped
+    # highlight rising from the soil and tapering out into the branch fork; hairline scars dropped
     tid = uid("tk")
     out.append(f'<clipPath id="{tid}"><path d="{ribbon(TRUNK, 15, 6)}"/></clipPath>'
                f'<g clip-path="url(#{tid})">'
                f'<path d="{ribbon([(p[0] + 5, p[1]) for p in TRUNK], 9, 3)}" fill="{mix(BARK, BARK_DK, 0.55)}"/>'
-               f'<path d="{ribbon([(p[0] - 3.4, p[1]) for p in TRUNK[:4]], 4.2, 4.0, per=3)}" fill="{BARK_HI}"/>'
+               f'<path d="{ribbon([(p[0] - 3.4, p[1]) for p in TRUNK[:3]] + [(297.6, 440), (297.2, 426)], 4.6, 0.6, per=4)}" fill="{BARK_HI}"/>'
                + "</g>")
     out += layers[1]
     out.append(front)

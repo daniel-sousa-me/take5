@@ -228,7 +228,8 @@ def leaf_def(var, tone, shade_side, speck, ribw=0.0):
     sg = 1 if lit == "r" else -1
     a = [lf.pt(t, sg * lf.width(t, lit) * 0.68) for t in (0.2, 0.36, 0.54, 0.70)]
     b = [lf.pt(t, sg * lf.width(t, lit) * 0.42) for t in (0.62, 0.46, 0.30)]
-    o.append(f'<path d="{cr_path(a + b, closed=True, sharp={0, 3})}" fill="{sheen}"/>')
+    if ribw:  # (small tip leaves: no sheen -- it would print as a sub-minimum sliver)
+        o.append(f'<path d="{cr_path(a + b, closed=True, sharp={0, 3})}" fill="{sheen}"/>')
     if speck and ribw:
         rnd = random.Random(speck * 31 + var)
         dd = []
@@ -246,7 +247,12 @@ def leaf_def(var, tone, shade_side, speck, ribw=0.0):
                 pts.append(p)
         for p in pts:
             r = ribw * rnd.uniform(1.1, 1.35)
-            dd.append(f"M{f(p[0] - r)} {f(p[1])}a{f(r)} {f(r)} 0 1 0 {f(2 * r)} 0a{f(r)} {f(r)} 0 1 0 {f(-2 * r)} 0")
+            k = r * 0.5523  # circle as four cubics (arcs measure as zero-area chords in print_prep)
+            x, y = p
+            dd.append(f"M{f(x - r)} {f(y)}C{f(x - r)} {f(y - k)} {f(x - k)} {f(y - r)} {f(x)} {f(y - r)}"
+                      f"C{f(x + k)} {f(y - r)} {f(x + r)} {f(y - k)} {f(x + r)} {f(y)}"
+                      f"C{f(x + r)} {f(y + k)} {f(x + k)} {f(y + r)} {f(x)} {f(y + r)}"
+                      f"C{f(x - k)} {f(y + r)} {f(x - r)} {f(y + k)} {f(x - r)} {f(y)}Z")
         o.append(f'<path d="{"".join(dd)}" fill="{spk}"/>')
     # midrib as a filled taper (not a hairline stroke) so the print pass keeps it
     # exactly as drawn instead of fattening it into a heavy pale bar
@@ -275,7 +281,7 @@ def place_leaf(node, ang, L, tone, var=0, speck=0, pl=None):
     tuck = (q[0] + dv[0] * L * 0.1, q[1] + dv[1] * L * 0.1)
     edge = (q[0] + dv[0] * 1.2, q[1] + dv[1] * 1.2)
     back = (node[0] - dv[0] * 1.5, node[1] - dv[1] * 1.5)
-    w = max(3.0, L * 0.05)
+    w = max(3.9, L * 0.05)  # pale stem on paper = knockout line: >= 0.20 mm printed
     pet = (f'<path d="M{f(back[0])} {f(back[1])}L{f(tuck[0])} {f(tuck[1])}" stroke-width="{f(w)}"/>')
     stub = (f'<path d="M{f(back[0])} {f(back[1])}L{f(edge[0])} {f(edge[1])}" stroke-width="{f(w)}"/>')
     shade_side = "r" if math.cos(rad(ang)) > 0 else "l"
@@ -308,7 +314,7 @@ def flower_defs(R=13.0):
     return (f'<clipPath id="hfc"><path d="{petals}"/></clipPath>'
             f'<g id="hf"><path d="{petals}" fill="{PETAL}"/>'
             f'<path d="M0 -14L14 -14L14 14L0 14Z" transform="rotate(-20)" fill="{PETAL_SH}" clip-path="url(#hfc)"/>'
-            f'<path d="{corona}" fill="{CORONA}"/><circle r="2.2" fill="{CORONA_C}"/></g>'
+            f'<path d="{corona}" fill="{CORONA}"/><circle r="2.6" fill="{CORONA_C}"/></g>'
             f'<g id="hfb"><path d="{petals}" fill="{PETAL_BK}"/>'
             f'<path d="{corona}" fill="{P["burgundy"]}"/></g>')
 
@@ -330,11 +336,9 @@ def umbel(anchor, R=32, n=40, seed=1, tilt=0.0):
         v = (v[0] * ca - v[1] * sa, v[0] * sa + v[1] * ca, v[2])
         items.append(v)
     items.sort(key=lambda v: v[2])
-    ped, fl = [], []
+    fl = []
     for v in items:
         p = (c[0] + v[0] * R, c[1] + v[1] * R * 0.9)
-        if v[1] < -0.2 and v[2] < 0.6:
-            ped.append(f"M{f(anchor[0])} {f(anchor[1])}L{f(p[0])} {f(p[1])}")
         fore = max(0.5, math.sqrt(max(0.0, v[2])) if v[2] > 0 else 0.5)
         a = math.degrees(math.atan2(v[1], v[0]))
         spin = rnd.uniform(0, 72)
@@ -344,13 +348,15 @@ def umbel(anchor, R=32, n=40, seed=1, tilt=0.0):
                   f'scale({fore * s:.2f} {s:.2f}) rotate({f(spin - a)})"/>')
     core_ = (f'<ellipse cx="{f(c[0])}" cy="{f(c[1] + R * 0.12)}" rx="{f(R * 0.78)}" ry="{f(R * 0.6)}" '
              f'fill="{P["rose"]}"/>')
-    return (f'<path d="{"".join(ped)}" stroke="{PEDICEL}" stroke-width="3" fill="none" stroke-linecap="round"/>'
-            + core_ + "".join(fl))
+    return core_ + "".join(fl)
 
 
-def peduncle(node, end, w=2.4):
-    mid = ((node[0] + end[0]) / 2 + 3, (node[1] + end[1]) / 2)
-    return f'<path d="{ribbon([node, mid, end], w, 1.6)}" fill="{PEDICEL}"/>'
+def peduncle(node, top, R, w=3.6):
+    """From the node down into the umbel's centre (its end is hidden under the ball)."""
+    end = (top[0], top[1] + R * 0.62)
+    # one smooth arc: out from the node, then hanging straight down into the ball
+    mid = (node[0] * 0.3 + end[0] * 0.7, node[1] * 0.55 + top[1] * 0.45)
+    return f'<path d="{ribbon([node, mid, end], w, 3.0, per=8)}" fill="{PEDICEL}"/>'
 
 
 # ------------------------------------------------------------------ layout
@@ -372,7 +378,7 @@ A_NODES = [
 B_NODES = [
     (70, [(62, 48, "forest", 1, 2, 0), (-58, 40, "deep", 0, 1, 0)]),
     (165, [(58, 60, "sage", 1, 1, 5), (-66, 46, "forest", 0, 2, 0)]),
-    (262, [(-70, 54, "mid", 1, 3, 0), (76, 44, "light", 1, 0, 0)]),  # pale leaf behind umbel 2
+    (262, [(-70, 54, "mid", 1, 3, 0), (76, 44, "forest", 1, 0, 0)]),  # dark leaf behind umbel 2 (pale stem reads on it)
     (352, [(-60, 48, "light", 1, 2, 6), (68, 44, "forest", 1, 1, 0)]),
     (420, [(-40, 30, "sage", 1, 0, 0), (40, 26, "mid", 1, 0, 0)]),
 ]
@@ -477,9 +483,9 @@ def build():
     body.append(emit_stubs(ast + bst))
     body.append(D.part(0, D.L))
     body.append(emit(af + bf + df))
-    body.append(peduncle(n1, u1_top))
+    body.append(peduncle(n1, u1_top, 36))
     body.append(umbel(u1_top, R=36, seed=2, tilt=0.12))
-    body.append(peduncle(n2, u2_top))
+    body.append(peduncle(n2, u2_top, 33))
     body.append(umbel(u2_top, R=33, seed=5, tilt=-0.1))
     body.append(front)
     body.append(C.part(10, C.L))

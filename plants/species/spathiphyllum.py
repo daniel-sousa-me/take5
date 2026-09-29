@@ -142,14 +142,13 @@ def spathe_svg(bx, by, deg, H, bend=0.06, flip=False, open_=1.0):
          f'<g clip-path="url(#{cid})">']
     # cupped half: warm off-white shade on one side of the midvein
     g.append(f'<path d="{half(sp, "r")}" fill="{SPATHE_SH}"/>')
-    # sage-green throat: a tint rising from the base and fading up the midvein
-    tw = lambda t: sp.width(t, "r") * 0.9
-    throat = cr_path([sp.axis(-0.05), sp.pt(0.06, 0.1), sp.pt(0.18, 0.1), sp.axis(0.38),
-                      sp.pt(0.18, -0.1), sp.pt(0.06, -0.1)], closed=True, sharp={0, 3})
-    g.append(f'<path d="{throat}" fill="{P["pale"]}"/>')
-    throat2 = cr_path([sp.axis(-0.05), sp.pt(0.05, 0.055), sp.axis(0.2), sp.pt(0.05, -0.055)],
-                      closed=True, sharp={0, 2})
-    g.append(f'<path d="{throat2}" fill="#ACB89E"/>')  # light over pale, pre-blended
+    # green throat: a slim wedge from the spathe base narrowing up the midvein into the
+    # midvein itself (straight-ish concave sides, no rounded blob behind the spadix)
+    b0, bl, br, tp = sp.axis(-0.05), sp.pt(0.0, -0.085), sp.pt(0.0, 0.085), sp.axis(0.4)
+    ql, qr = sp.pt(0.14, -0.03), sp.pt(0.14, 0.03)
+    throat = (f"M{f(bl[0])} {f(bl[1])}Q{f(ql[0])} {f(ql[1])} {f(tp[0])} {f(tp[1])}"
+              f"Q{f(qr[0])} {f(qr[1])} {f(br[0])} {f(br[1])}L{f(b0[0])} {f(b0[1])}Z")
+    g.append(f'<path d="{throat}" fill="{SPATHE_VEIN}"/>')
     # pale green midvein up the spathe
     g.append(f'<path d="{taper(sp.axis(0.02), sp.axis(0.42), sp.axis(0.82), 3.4, 1.0)}" fill="{SPATHE_VEIN}"/>')
     # rolled rim: a darker warm edge inside the silhouette, so the white hood

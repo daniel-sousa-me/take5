@@ -177,15 +177,18 @@ class Sword:
 
 # draw order = list order (back -> front)
 LEAVES = [
-    Sword(320, 12, 360, 25, "back", bend=0.03, seed=11, asym=0.05),
-    Sword(283, -9, 395, 27, "back", bend=-0.03, seed=12, asym=-0.05),
-    Sword(270, -18, 300, 24, "midd", bend=-0.07, seed=13),
-    Sword(336, 25, 238, 23, "midd", bend=0.05, seed=14),
-    Sword(300, -1, 470, 30, "midd", bend=-0.015, seed=15, asym=0.06),
-    Sword(322, 3, 412, 15, "front", bend=0.07, seed=16),
-    Sword(258, -36, 168, 22, "front", bend=-0.06, seed=17),
+    # bases staggered so neighbouring yellow margins at the rim are either well
+    # apart (>= ~10 units of green between them) or tucked decisively under the
+    # leaf in front -- no parallel double lines with dark slivers
+    Sword(322, 16, 360, 25, "back", bend=0.04, seed=11, asym=0.05),
+    Sword(282, -9, 395, 27, "back", bend=-0.03, seed=12, asym=-0.05),
+    Sword(269, -18, 300, 24, "midd", bend=-0.07, seed=13),
+    Sword(333, 25, 238, 23, "midd", bend=0.05, seed=14),
+    Sword(304, -1, 470, 30, "midd", bend=-0.015, seed=15, asym=0.06),
+    Sword(315, 10, 412, 15, "front", bend=-0.02, seed=16),
+    Sword(256, -42, 168, 22, "front", bend=-0.06, seed=17),
     Sword(286, -5, 222, 25, "fore", bend=-0.03, seed=18),
-    Sword(318, 13, 196, 23, "front", bend=0.05, seed=19),
+    Sword(319, 13.5, 196, 23, "front", bend=0.05, seed=19),
 ]
 
 
