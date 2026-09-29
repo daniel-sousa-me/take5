@@ -51,8 +51,17 @@ ULOW = 1 + len(LOW) / (len(PROFILE) - 1) - 0.02
 TONES = {
     "d": (P["deep"], P["night"], P["mid"], P["night"]),
     "m": (P["mid"], "#4B6349", P["light"], P["night"]),
-    "f": (P["light"], "#8E9E80", P["ivory"], P["forest"]),
+    # front highlight: a pale green-cream a few L* below the ivory stock, so it prints as ink (a paper-white
+    # dot would print as bare paper and make the mass read as foam)
+    "f": (P["light"], "#8E9E80", "#E4E6D2", P["forest"]),
 }
+HL_MIN = 2.4    # highlight radius floor: 4.8-unit dot, above the 4.5-unit print minimum
+HL_FRAC = 0.25  # highlight radius as a fraction of the bead radius (~1/4 of the diameter across)
+
+
+def hl_geom(x, y, r):
+    """Highlight disc (cx, cy, radius) of a bead at (x, y) of radius r."""
+    return x - 0.33 * r, y - 0.31 * r, max(HL_MIN, HL_FRAC * r)
 
 
 # ------------------------------------------------------------------ bead defs
@@ -79,23 +88,29 @@ RB = (6.8, 7.4, 8.0, 8.6, 9.2, 9.8, 10.4)   # bead radius buckets (one symbol ea
 
 
 def defs(used):
-    """One bead symbol per tone: round body, lower-right crescent, upper-left
-    highlight; then a scaled copy per radius bucket."""
+    """One bead symbol per tone: round body and lower-right crescent; a scaled
+    copy per radius bucket, and a variant of each with the upper-left highlight
+    (used only where the highlight is wholly visible)."""
     out = ["<defs>", f'<path id="bc" d="{_crescent_path()}"/>']
     for k in sorted(used):
         b, c, h, _ = TONES[k]
-        out.append(f'<g id="{k}"><circle r="{R0:g}" fill="{b}"/><use href="#bc" fill="{c}"/>'
-                   f'<circle cx="-3.6" cy="-3.4" r="3.4" fill="{h}"/></g>')
+        out.append(f'<g id="{k}"><circle r="{R0:g}" fill="{b}"/><use href="#bc" fill="{c}"/></g>')
         for i, r in enumerate(RB):
-            out.append(f'<use id="{k}{i}" href="#{k}" transform="scale({r / R0:.2f})"/>')
+            hx, hy, hr = hl_geom(0, 0, r)
+            out.append(f'<use id="{k}{i}" href="#{k}" transform="scale({r / R0:.2f})"/>'
+                       f'<g id="{k}{i}h"><use href="#{k}{i}"/>'
+                       f'<circle cx="{hx:.1f}" cy="{hy:.1f}" r="{hr:.1f}" fill="{h}"/></g>')
     out.append(FLOWER_DEF)
     out.append("</defs>")
     return "".join(out)
 
 
-def bead(x, y, r, tone):
-    i = min(range(len(RB)), key=lambda j: abs(RB[j] - r))
-    return f'<use href="#{tone}{i}" x="{x:.0f}" y="{y:.0f}"/>'
+def bucket(r):
+    return min(range(len(RB)), key=lambda j: abs(RB[j] - r))
+
+
+def bead(x, y, r, tone, hl):
+    return f'<use href="#{tone}{bucket(r)}{"h" if hl else ""}" x="{x:.0f}" y="{y:.0f}"/>'
 
 
 # ------------------------------------------------------------------ strands
@@ -121,7 +136,8 @@ def _at(pts, acc, s):
 
 def strand(ctrl, tone, seed, r0=9.4, r1=TIP_MIN, taper_from=0.5, gmin=1.6, gvar=3.0, stem=True):
     """Stem through ctrl with beads alternating sides, shrinking toward the end
-    (after `taper_from` of the length). Returns svg."""
+    (after `taper_from` of the length). Returns a list of paint ops:
+    ("stem", svg, polyline, width) and ("bead", x, y, r, tone)."""
     r1 = max(r1, TIP_MIN)
     rnd = random.Random(seed)
     pts = cr_sample(ctrl, 12)
@@ -155,11 +171,12 @@ def strand(ctrl, tone, seed, r0=9.4, r1=TIP_MIN, taper_from=0.5, gmin=1.6, gvar=
         sp = [p for p, a in zip(pts, acc) if a < s] + [(lx, ly)]
         k = max(1, int(len(sp) * 22 / max(s, 1)))      # a node every ~22 units
         sp = sp[::k] + [sp[-1]]
-        out.append(f'<path d="{open_path(sp)}" fill="none" stroke="{TONES[tone][3]}" '
-                   f'stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>')
+        out.append(("stem", f'<path d="{open_path(sp)}" fill="none" stroke="{TONES[tone][3]}" '
+                    f'stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>', sp, 3.0))
     for x, y, r in beads:
-        out.append(bead(x, y, r, tone))
-    return "".join(out)
+        # snap to what is drawn (integer position, bucket radius) so the visibility test is exact
+        out.append(("bead", round(x), round(y), RB[bucket(r)], tone))
+    return out
 
 
 # ------------------------------------------------------------------ mound geometry
@@ -260,7 +277,8 @@ def flower_stalk(pts, tilt, s=1.0):
     st = (f'<path d="{open_path(pts)}" fill="none" stroke="{P["sage"]}" stroke-width="3.4" '
           f'stroke-linecap="round" stroke-linejoin="round"/>')
     x, y = pts[-1]
-    return st + f'<use href="#fl" transform="translate({f(x)} {f(y + 2)}) rotate({tilt}) scale({s})"/>'
+    return ("stem", st + f'<use href="#fl" transform="translate({f(x)} {f(y + 2)}) rotate({tilt}) scale({s})"/>',
+            cr_sample(pts, 12), 3.4)
 
 
 # ------------------------------------------------------------------ layout
@@ -340,22 +358,77 @@ def build():
     back, front = pot(kind="classic", cx=CX, rim_y=RIM_Y, bottom=BOTTOM, rx=RX, rim_h=27,
                       base_w=57, band=True)
     items = layout()
-    body = [back, cushion_shadow()]
     behind = sorted((it for it in items if it[0] < 0), key=lambda t: t[0])
     ahead = sorted((it for it in items if it[0] >= 0), key=lambda t: t[0])
-    body += [s for _, s in behind]
+    ops = [op for _, st in behind for op in st]
     # flower stalks rise from inside the mound; their bases are covered by the nearer strands
     mid_stalk = [(318, 500), (320, 460), (326, 410), (338, 350), (350, 318)]
     fork = min(cr_sample(mid_stalk, 12), key=lambda q: abs(q[1] - 394))
-    body += [
+    ops += [
         flower_stalk([(290, 502), (286, 470), (282, 420), (270, 372), (252, 334)], -14, 1.4),
         flower_stalk([fork, (318, 368), (306, 352)], -28, 1.05),   # side head off the middle stalk
         flower_stalk(mid_stalk, 10, 1.45),
         flower_stalk([(350, 506), (356, 480), (374, 440), (396, 404), (414, 386)], 26, 1.3),
     ]
-    body.append(front)
-    body += [s for _, s in ahead]
+    ops.append(("pot", front))
+    ops += [op for _, st in ahead for op in st]
+    body = [back, cushion_shadow()]
+    hl = visible_highlights(ops)
+    for i, op in enumerate(ops):
+        if op[0] == "bead":
+            body.append(bead(*op[1:], hl=i in hl))
+        else:
+            body.append(op[1])
     return defs({"d", "m", "f"}) + "\n" + "\n".join(body)
+
+
+def _in_pot_front(x, y):
+    """Inside the pot's front (rim band + body) silhouette, approximately (generous)."""
+    dx = abs(x - CX)
+    if dx > RX + 1.5:
+        return False
+    ry = RX * 0.15
+    return y >= RIM_Y + ry * math.sqrt(max(0.0, 1 - (dx / RX) ** 2)) - 1.5
+
+
+def _seg_dist(px, py, a, b):
+    ax, ay = a
+    bx, by = b
+    vx, vy = bx - ax, by - ay
+    t = max(0.0, min(1.0, ((px - ax) * vx + (py - ay) * vy) / ((vx * vx + vy * vy) or 1)))
+    return math.hypot(px - ax - vx * t, py - ay - vy * t)
+
+
+def visible_highlights(ops):
+    """Indices of beads whose highlight disc is not overlapped by anything painted
+    after the bead (later beads, stems, flower stalks, the pot front). Highlights of
+    partly hidden beads are left off, so there are no thin pale crescents."""
+    ring = [(math.cos(2 * math.pi * k / 16), math.sin(2 * math.pi * k / 16)) for k in range(16)]
+    keep = set()
+    for i, op in enumerate(ops):
+        if op[0] != "bead":
+            continue
+        hx, hy, hr = hl_geom(op[1], op[2], op[3])
+        hr += 0.8                                      # a little clearance: no hairline slivers either
+        pts = [(hx, hy)] + [(hx + hr * c, hy + hr * s) for c, s in ring]
+        ok = True
+        for o in ops[i + 1:]:
+            if o[0] == "bead":
+                x, y, r = o[1], o[2], o[3]
+                if math.hypot(x - hx, y - hy) < r + hr:
+                    ok = False
+            elif o[0] == "stem":
+                poly, w = o[2], o[3] / 2
+                if any(_seg_dist(hx, hy, a, b) < hr + w for a, b in zip(poly, poly[1:])):
+                    ok = False
+            elif o[0] == "pot":
+                if any(_in_pot_front(px, py) for px, py in pts):
+                    ok = False
+            if not ok:
+                break
+        if ok:
+            keep.add(i)
+    return keep
 
 
 def main():

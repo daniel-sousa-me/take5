@@ -32,7 +32,8 @@ SE, CE = math.sin(EL), math.cos(EL)
 RAMP = ["#4A6155", "#5A7165", "#6B8377", "#7F968A", "#94AB9F", "#AABFB4", "#C0D1C7", "#D5E1D8",
         "#E4ECE4"]
 BLUSH = "#DCA29E"      # tip cap (between PAL blush and its lighter tint)
-CAP_K = 0.17           # blush cap = leaf outline scaled by this about its tip
+CAP_K = 0.15           # blush cap = leaf outline scaled by this about its tip
+BAND_K = 1.6           # mid-pink band under the cap: the outline scaled by CAP_K * BAND_K
 
 
 def mix(a, b, t):
@@ -217,11 +218,14 @@ def leaf_svg(lf, face, shade, blush=True, k=None, ps=MMU):
            f'<g clip-path="url(#{cid})"><path d="{poly_d(sh)}" fill="{shade}"/>']
     k = k or CAP_K
     if blush and lf.top and wm * k >= MIN_MM:
-        # the blush cap is the leaf's own outline shrunk towards its tip: a small
-        # leaf-shaped patch that shares the tip point and follows the leaf's shape
+        # the blush is the leaf's own outline shrunk towards its tip, in two graded
+        # steps: a wider mid-pink band (halfway between leaf and blush) and the
+        # tip cap inside it, so the colour builds up to the tip instead of sitting
+        # on the leaf as a separate pink shape
         tx, ty = lf.pt(1.0, 0)
-        out.append(f'<use href="#{lid}" fill="{mix(BLUSH, face, 0.18)}" transform="matrix({k} 0 0 {k} '
-                   f'{f(tx * (1 - k))} {f(ty * (1 - k))})"/>')
+        for kk, t in ((k * BAND_K, 0.40), (k, 0.12)):
+            out.append(f'<use href="#{lid}" fill="{mix(BLUSH, face, t)}" transform="matrix({kk:.3g} 0 0 {kk:.3g} '
+                       f'{f(tx * (1 - kk))} {f(ty * (1 - kk))})"/>')
     out.append("</g>")
     return "".join(out)
 
@@ -368,7 +372,9 @@ def stalk_svg(pts, w0, w1, bracts, flowers, rise_side=1, bud_turn=0.0):
 
 # ------------------------------------------------------------------ build
 RC = (300, 548)          # rosette centre (soil level of the rosette, projected)
-PUPS = [(210, 612, .34), (396, 616, .28)]   # x, y, scale (drawn PLANT_DY lower, like the rosette)
+# x, y, scale (drawn PLANT_DY lower, like the rosette): a larger pup on the left and a clearly smaller
+# one lower down on the right, so the two do not pair up either side of the rim like ears
+PUPS = [(210, 612, .34), (404, 634, .21)]
 PLANT_DY = 12            # rosette + pups + stalks sit this much lower (the shallow bowl's rim is at RIM_Y)
 
 
@@ -391,8 +397,9 @@ def build():
                 + stalk_svg(stalk1, 9.0, 4.6, [0.30, 0.44], fl1, bud_turn=-34))
 
     main = rosette(*RC, hook=stalks, hook_after=1)
-    pup_rings = [(7, 10, 24, 150, .40, 3, 0), (6, 34, 20, 112, .42, 5, 30),
-                 (5, 56, 14, 72, .46, 6, 10), (3, 76, 8, 40, .52, 8, 40)]
+    # the pups' outer ring is a step lighter (RAMP[4]) than the rosette's outer leaves behind them
+    pup_rings = [(7, 10, 24, 150, .40, 4, 0), (6, 34, 20, 112, .42, 5, 30),
+                 (5, 56, 14, 72, .46, 7, 10), (3, 76, 8, 40, .52, 8, 40)]
     pup = rosette(0, 0, 1.0, pup_rings, k=0.22, ps=MMU * min(p[2] for p in PUPS), bud=(15, 11))
     defs = f'<defs><g id="bell">{bell_def()}</g><g id="pup">{pup}</g></defs>'
     pups = "".join(f'<use href="#pup" transform="translate({x} {y}) scale({s:g})"/>'

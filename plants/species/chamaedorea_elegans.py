@@ -333,10 +333,11 @@ def build():
                          (338, 106), (356, 76)], (300, 318), P["mid"], 12, 76, 3,
                         P["sage"], 8.2, [0.12, 0.27, 0.41], w1=1.1, near="left",
                         spread=(50, 28), droop=(0.5, 0.2)))
-    # ---- front: arching up-right (light)
+    # ---- arching up-right (sage, on a light cane): a step darker than the palest tone, so it does not
+    # read as a pale frond set behind the darker ones around it
     G.append(palm_frond([(309, 602), (314, 520), (325, 440), (344, 364), (374, 304), (414, 262),
-                         (456, 240), (496, 240)], (356, 334), P["light"], 9, 70, 7,
-                        P["pale"], 6.4, [0.1, 0.3], near="lower", spread=(42, 28), droop=(0.45, 0.16)))
+                         (456, 240), (496, 240)], (356, 334), P["sage"], 9, 70, 7,
+                        P["light"], 6.4, [0.1, 0.3], near="lower", spread=(42, 28), droop=(0.45, 0.16)))
     # ---- front: arching down-right (mid) and down-left (sage)
     G.append(palm_frond([(336, 602), (346, 542), (364, 496), (398, 464), (450, 466), (500, 494),
                          (542, 536)], (386, 472), P["mid"], 9, 74, 4,
