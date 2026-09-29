@@ -1,17 +1,22 @@
-"""Senecio rowleyanus (string of pearls) -- v5.
+"""Senecio (Curio) rowleyanus (string of pearls) -- v6.
 
-Habit: a low cushion of pearls just above the rim, a few strands arching a
-little up and over, and a long curtain of strands spilling over the rim and
-hanging down both sides and the front of the pot at varied lengths. The
-vertical rhythm comes from the hanging strands, not from an upright column.
+Habit: a well-grown plant in a small pot. The strands pile into a soft,
+rounded cushion that mounds up above the rim and bulges out past it, then
+spill over the rim and hang down the pot sides and front at varied lengths.
+A few slender flower stalks carry the plant's white "shaving-brush" heads
+above the cushion. The pot is the same classic banded pot as the rest of
+the set, just smaller, so the plant reads at the set's size on the card.
 
-Depth is carried by three clearly separated tone sets:
-  back  (forest)  - cushion silhouette + strands hanging behind the pot sides
-  mid   (sage)    - cushion middle + strands spilling over the side rims
-  front (pale)    - cushion front row + strands draping over the front rim
-Every bead is one shared <use>: a body (round, small pointed tip turned
-along the strand), an un-rotated darker lower-right crescent and an opaque
-upper-left highlight, so light always reads from above-left.
+The cushion is built as a mound (a solid of revolution): every strand
+follows the mound surface -- down a meridian from near the top, or round
+part of it -- and, once past the widest point, falls straight down.
+Depth is carried by tone, set by how far round the mound a strand lies:
+  back  (deep)  - the far side: top silhouette, strands behind the pot
+  mid   (mid)   - the sides of the mound and the side curtains
+  front (light) - the near face and the strands draping over the front rim
+Each bead is one shared <use>: a round body, an un-rotated darker
+lower-right crescent and an opaque upper-left highlight (light from
+above-left).
 
 Run:  python3 species/senecio_rowleyanus.py  -> out/senecio_rowleyanus.svg
 """
@@ -26,11 +31,21 @@ from core import PAL, cr_path, cr_sample, open_path, pot, svg_doc, f, reset_ids 
 
 P = PAL
 CX = 300
-RIM_Y = 588
+RIM_Y = 616
 BOTTOM = 752
-RX = 98
+RX = 82
 R0 = 10.0      # bead symbol radius (scaled per bead)
 TIP_MIN = 6.8  # smallest bead radius: keeps the highlight dot print-safe
+
+# mound: base centre, max half-width, height above the base, view tilt
+MB = (300, 612)
+MA = 144
+MH = 172
+TILT = 0.26
+# profile of the mound, top -> widest point: (radius fraction, height fraction)
+PROFILE = [(0.0, 1.0), (0.30, 0.975), (0.56, 0.90), (0.78, 0.76), (0.93, 0.58), (1.0, 0.40)]
+LOW = [(0.95, 0.21), (0.76, 0.04)]   # underside of the bulge, into the rim
+ULOW = 1 + len(LOW) / (len(PROFILE) - 1) - 0.02
 
 # tone sets: body, crescent, highlight, stem
 TONES = {
@@ -46,9 +61,8 @@ def _crescent_path(dx=-3.4, dy=-4.8, r=R0, n=10):
     cubic segments (no arcs, so the print checker measures it correctly)."""
     d = math.hypot(dx, dy)
     ux, uy = dx / d, dy / d
-    h = math.sqrt(r * r - (d / 2) ** 2)
-    base = math.atan2(-uy, -ux)                    # direction of the crescent's middle
-    half = math.acos((d / 2) / r)                  # half-angle to the cusps on the outer circle
+    base = math.atan2(-uy, -ux)
+    half = math.acos((d / 2) / r)
     outer = [(r * math.cos(base - half + 2 * half * i / n), r * math.sin(base - half + 2 * half * i / n))
              for i in range(n + 1)]
     cx2, cy2 = dx, dy
@@ -61,27 +75,27 @@ def _crescent_path(dx=-3.4, dy=-4.8, r=R0, n=10):
     return cr_path(outer + inner, closed=True, sharp={0, n})
 
 
+RB = (6.8, 7.4, 8.0, 8.6, 9.2, 9.8, 10.4)   # bead radius buckets (one symbol each per tone)
+
+
 def defs(used):
-    """One bead symbol per tone: round body, lower-right crescent, upper-left highlight."""
+    """One bead symbol per tone: round body, lower-right crescent, upper-left
+    highlight; then a scaled copy per radius bucket."""
     out = ["<defs>", f'<path id="bc" d="{_crescent_path()}"/>']
-    for k in sorted({t for t, _ in used}):
+    for k in sorted(used):
         b, c, h, _ = TONES[k]
         out.append(f'<g id="{k}"><circle r="{R0:g}" fill="{b}"/><use href="#bc" fill="{c}"/>'
                    f'<circle cx="-3.6" cy="-3.4" r="3.4" fill="{h}"/></g>')
+        for i, r in enumerate(RB):
+            out.append(f'<use id="{k}{i}" href="#{k}" transform="scale({r / R0:.2f})"/>')
+    out.append(FLOWER_DEF)
     out.append("</defs>")
     return "".join(out)
 
 
-class Beads:
-    def __init__(self):
-        self.used = set()
-
-    def one(self, x, y, r, ang, tone):
-        self.used.add((tone, 0))
-        return f'<use href="#{tone}" transform="translate({f(x)} {f(y)}) scale({r / R0:.2f})"/>'
-
-    def many(self, beads):
-        return "".join(self.one(*b) for b in beads)
+def bead(x, y, r, tone):
+    i = min(range(len(RB)), key=lambda j: abs(RB[j] - r))
+    return f'<use href="#{tone}{i}" x="{x:.0f}" y="{y:.0f}"/>'
 
 
 # ------------------------------------------------------------------ strands
@@ -105,10 +119,9 @@ def _at(pts, acc, s):
     return b, ((b[0] - a[0]) / m, (b[1] - a[1]) / m)
 
 
-def strand(ctrl, tone, seed, r0=9.4, r1=TIP_MIN, start=0.0, side0=1, lean=30, taper_from=0.5,
-           gmin=2.2):
+def strand(ctrl, tone, seed, r0=9.4, r1=TIP_MIN, taper_from=0.5, gmin=1.6, gvar=3.0, stem=True):
     """Stem through ctrl with beads alternating sides, shrinking toward the end
-    (after `taper_from` of the length). Returns (stem_svg, beads)."""
+    (after `taper_from` of the length). Returns svg."""
     r1 = max(r1, TIP_MIN)
     rnd = random.Random(seed)
     pts = cr_sample(ctrl, 12)
@@ -120,114 +133,228 @@ def strand(ctrl, tone, seed, r0=9.4, r1=TIP_MIN, start=0.0, side0=1, lean=30, ta
         return r0 + (r1 - r0) * (u ** 1.2)
 
     beads = []
-    s, side = start, side0
+    s, side = 0.0, rnd.choice((-1, 1))
     while True:
         u = min(1.0, s / L)
-        r = rad(s) * rnd.uniform(0.9, 1.1)
+        r = rad(s) * rnd.uniform(0.9, 1.08)
         (px, py), (tx, ty) = _at(pts, acc, s)
         nx, ny = -ty * side, tx * side
-        off = r * rnd.uniform(0.38, 0.55)
-        bx, by = px + nx * off, py + ny * off
-        la = math.radians(lean + rnd.uniform(-12, 12))
-        dx = nx * math.cos(la) + tx * math.sin(la)
-        dy = ny * math.cos(la) + ty * math.sin(la)
-        beads.append((bx, by, r, math.degrees(math.atan2(dx, -dy)), tone))
+        off = r * rnd.uniform(0.34, 0.52)
+        beads.append((px + nx * off, py + ny * off, r))
         rn = rad(s + 2 * r)
-        gap = gmin + rnd.uniform(0, 3.6) + 2.4 * u + (rnd.uniform(3, 7) if rnd.random() < 0.18 else 0)
-        lat = (r + rn) * 0.48
+        gap = gmin + rnd.uniform(0, gvar) + 2.0 * u + (rnd.uniform(3, 6) if rnd.random() < 0.15 else 0)
+        lat = (r + rn) * 0.46
         step = math.sqrt(max((r + rn + gap) ** 2 - lat ** 2, (r + rn) ** 2 * 0.3))
         if s + step > L:
             break
         s += step
         side = -side
-    lx, ly = beads[-1][0], beads[-1][1]
-    sp = [p for p, a in zip(pts, acc) if a < s] + [(lx, ly)]
-    sp = sp[::4] + [sp[-1]]
-    stem_svg = (f'<path d="{open_path(sp)}" fill="none" stroke="{TONES[tone][3]}" '
-                f'stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>')
-    return stem_svg, beads
-
-
-def draw(B, items, **kw):
     out = []
-    for c, t, sd, r0, s0 in items:
-        st, bs = strand(c, t, sd, r0=r0, side0=s0, **kw)
-        out += [st, B.many(bs)]
-    return out
+    if stem:
+        lx, ly = beads[-1][0], beads[-1][1]
+        sp = [p for p, a in zip(pts, acc) if a < s] + [(lx, ly)]
+        k = max(1, int(len(sp) * 22 / max(s, 1)))      # a node every ~22 units
+        sp = sp[::k] + [sp[-1]]
+        out.append(f'<path d="{open_path(sp)}" fill="none" stroke="{TONES[tone][3]}" '
+                   f'stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>')
+    for x, y, r in beads:
+        out.append(bead(x, y, r, tone))
+    return "".join(out)
+
+
+# ------------------------------------------------------------------ mound geometry
+def prof(u):
+    """(radius frac, height frac) at u in [0, 1] along the profile (top -> widest);
+    u in (1, 1 + len(LOW)/5] continues round the underside of the bulge."""
+    if u > 1:
+        seg = [PROFILE[-1]] + LOW
+        k = min((u - 1) * (len(PROFILE) - 1), len(LOW) - 1e-9)
+        i = int(k)
+        t = k - i
+        (r0, h0), (r1, h1) = seg[i], seg[i + 1]
+        return r0 + (r1 - r0) * t, h0 + (h1 - h0) * t
+    k = u * (len(PROFILE) - 1)
+    i = min(int(k), len(PROFILE) - 2)
+    t = k - i
+    (r0, h0), (r1, h1) = PROFILE[i], PROFILE[i + 1]
+    return r0 + (r1 - r0) * t, h0 + (h1 - h0) * t
+
+
+def proj(rf, hf, phi, lift=0.0):
+    """Mound surface point -> canvas. phi: 90 = facing the viewer, 270 = far side."""
+    a = math.radians(phi)
+    # soft irregularity: a few broad lobes round the mound, and a crown that sits
+    # a little higher on the left
+    lobe = 1 + 0.045 * math.sin(3 * a + 0.7) + 0.03 * math.sin(5 * a + 2.1)
+    rf *= 1 + (lobe - 1) * min(1.0, rf * 1.4)
+    hf *= 1 - 0.05 * math.cos(a) * hf
+    x = MA * rf * math.cos(a)
+    z = MA * rf * math.sin(a)
+    return (MB[0] + x, MB[1] - MH * hf + TILT * z - lift)
+
+
+def meridian(phi, u0, drop_to=None, sway=5.0, seed=0, bend=0.0):
+    """Down the mound from u0 to the widest point (drifting `bend` degrees round
+    the mound on the way), then -- if drop_to -- hang straight down to y=drop_to."""
+    pts = []
+    n = 5
+    for i in range(n + 1):
+        u = u0 + (1 - u0) * i / n
+        rf, hf = prof(u)
+        pts.append(proj(rf, hf, phi + bend * i / n))
+    if drop_to:
+        rnd = random.Random(seed)
+        x0, y0 = pts[-1]
+        # tuck in a little under the bulge (the strand swings from the rim edge)
+        a = math.radians(phi + bend)
+        dx_in = -math.cos(a) * rnd.uniform(4, 12)
+        y = y0
+        k = 0
+        ph = rnd.uniform(0, 6.28)
+        while y < drop_to - 1:
+            y = min(drop_to, y + 42)
+            k += 1
+            x = x0 + dx_in * min(1, k / 2) + sway * math.sin(ph + k * 1.1)
+            pts.append((x, y))
+    else:
+        # no drop: carry on round the underside of the bulge into the rim
+        for rf, hf in LOW:
+            pts.append(proj(rf, hf, phi + bend))
+    return pts
+
+
+def contour(phi0, phi1, u, n=6, wobble=0.04, seed=0, drift=0.0):
+    """Part-way round the mound at profile position u (drifting by `drift` along
+    the profile, with a little wander)."""
+    rnd = random.Random(seed)
+    pts = []
+    for i in range(n + 1):
+        uu = min(ULOW, max(0.0, u + drift * (i / n - 0.5) + rnd.uniform(-wobble, wobble)))
+        rf, hf = prof(uu)
+        pts.append(proj(rf, hf, phi0 + (phi1 - phi0) * i / n))
+    return pts
+
+
+# ------------------------------------------------------------------ flowers
+# white brush-like flower head: green involucre cup + a fan of white florets
+# with dark anthers, drawn upright at the origin (cup base at 0,0)
+def _flower_def():
+    cup = cr_path([(-5.5, 0), (-7.2, -9), (-6.4, -15), (6.4, -15), (7.2, -9), (5.5, 0)],
+                  closed=True, sharp={0, 2, 3, 5})
+    fan = cr_path([(-6.2, -13), (-15, -25), (-13.5, -33), (-5, -38.5), (5, -38.5), (13.5, -33),
+                   (15, -25), (6.2, -13)], closed=True, sharp={0, 7})
+    dots = [(-12.5, -30), (-6.5, -36.5), (0.5, -39), (7, -36), (12.8, -29.5), (-2.5, -31), (4.5, -30)]
+    d = "".join(f'<circle cx="{x}" cy="{y}" r="2.2" fill="{P["wine"]}"/>' for x, y in dots)
+    styles = (f'<path d="M-4 -16 L-9 -29 M0 -16 L0 -33 M4 -16 L9 -29" fill="none" '
+              f'stroke="{P["pale"]}" stroke-width="3" stroke-linecap="round"/>')
+    return (f'<g id="fl"><path d="{fan}" fill="{P["spot"]}"/>{styles}{d}'
+            f'<path d="{cup}" fill="{P["sage"]}"/>'
+            f'<path d="M1.5 -14 L5.8 -14 L6.4 -9 L4.6 0 L1.5 0Z" fill="#6A7E60"/></g>')
+
+
+FLOWER_DEF = _flower_def()
+
+
+def flower_stalk(pts, tilt, s=1.0):
+    st = (f'<path d="{open_path(pts)}" fill="none" stroke="{P["sage"]}" stroke-width="3.4" '
+          f'stroke-linecap="round" stroke-linejoin="round"/>')
+    x, y = pts[-1]
+    return st + f'<use href="#fl" transform="translate({f(x)} {f(y + 2)}) rotate({tilt}) scale({s})"/>'
 
 
 # ------------------------------------------------------------------ layout
-# (control points, tone, seed, first bead radius, first side)
-# BACK: silhouette of the cushion; outer strands flop over the back rim (rising
-# at most ~50 units above it) and hang behind / beside the pot sides (drawn
-# before the pot front)
-BACK = [
-    # cushion back mounds (stay inside the cushion)
-    ([(292, 588), (288, 558), (306, 538), (336, 534), (362, 546)], "d", 13, 9.8, 1),
-    ([(310, 588), (304, 558), (282, 540), (252, 540), (230, 554)], "d", 14, 9.8, -1),
-    ([(300, 588), (306, 554), (298, 534), (276, 528)], "d", 19, 9.6, 1),
-    # flopping strands: a low arch, then a soft fall into a hanging curtain
-    ([(282, 582), (246, 554), (204, 546), (170, 556), (152, 584), (146, 626), (150, 672),
-      (146, 712), (150, 736)], "d", 11, 9.6, 1),
-    ([(262, 580), (218, 552), (170, 548), (128, 562), (106, 590), (100, 634), (104, 674),
-      (100, 700)], "d", 15, 9.4, -1),
-    ([(318, 582), (356, 552), (396, 548), (428, 562), (446, 596), (450, 640), (446, 690),
-      (450, 734)], "d", 12, 9.6, -1),
-    ([(340, 580), (386, 554), (436, 556), (476, 574), (498, 602), (502, 634), (498, 660)],
-     "d", 16, 9.4, 1),
-]
+def zof(pts_rf_phi):
+    return sum(rf * math.sin(math.radians(ph)) for rf, ph in pts_rf_phi) / len(pts_rf_phi)
 
-# MID: the middle of the cushion; the outer ones spill over the side rims
-MID_IN = [  # drawn before the pot front (stay inside the cushion)
-    ([(300, 594), (292, 566), (266, 552), (236, 556), (216, 574)], "m", 21, 9.8, 1),
-    ([(302, 594), (316, 564), (346, 552), (378, 558), (394, 576)], "m", 22, 9.8, -1),
-    ([(286, 594), (300, 566), (326, 552), (346, 552)], "m", 23, 9.6, 1),
-    ([(304, 584), (270, 576), (238, 578), (212, 588)], "m", 29, 9.6, 1),
-    ([(298, 586), (332, 574), (366, 576), (392, 588)], "m", 30, 9.6, -1),
-    # low fill so no soil shows between the cushion and the front row
-    ([(236, 592), (262, 586), (290, 588), (318, 584), (346, 588), (372, 592)], "m", 33, 9.2, 1),
-    ([(320, 578), (296, 566), (268, 566), (244, 574)], "m", 34, 9.2, -1),
-    ([(280, 578), (306, 568), (334, 566), (360, 572)], "m", 35, 9.2, 1),
-]
-MID_OUT = [  # over the side rims: drawn after the pot front
-    ([(262, 576), (226, 560), (200, 572), (186, 604), (180, 646), (184, 684), (180, 710)],
-     "m", 25, 9.6, -1),
-    ([(282, 568), (240, 550), (192, 552), (150, 568), (130, 596), (124, 640), (128, 684),
-      (124, 726)], "m", 27, 9.4, -1),
-    ([(340, 576), (376, 560), (402, 574), (414, 610), (418, 652), (414, 690), (418, 716)],
-     "m", 26, 9.6, 1),
-    ([(322, 566), (372, 550), (424, 556), (460, 578), (474, 610), (476, 652), (472, 684)],
-     "m", 28, 9.4, 1),
-]
 
-# FRONT: the cushion's front row (resting on the rim) and strands draping
-# over the front of the rim and down the pot face
-FRONT_ROW = [
-    ([(308, 600), (276, 594), (244, 592), (214, 596)], "f", 31, 9.8, 1),
-    ([(294, 598), (326, 590), (358, 590), (388, 596)], "f", 32, 9.8, -1),
-]
-DRAPES = [
-    ([(234, 590), (222, 616), (218, 650), (224, 686), (218, 718)], "f", 41, 9.6, 1),
-    ([(266, 594), (258, 622), (262, 662), (256, 700), (260, 734)], "f", 42, 9.6, -1),
-    ([(318, 596), (324, 622), (318, 650), (324, 676)], "f", 43, 9.6, 1),
-    ([(352, 592), (362, 616), (358, 652), (364, 696), (358, 726)], "f", 44, 9.6, -1),
-    ([(386, 590), (398, 612), (400, 642)], "f", 45, 9.4, 1),
-]
+def tone_z(z):
+    return "d" if z < -0.2 else ("m" if z < 0.5 else "f")
+
+
+def cushion_shadow():
+    """Solid dark mass inside the cushion so gaps between strands read as the
+    shaded interior, not as paper."""
+    ring = ([(CX - RX + 4, RIM_Y + 4), proj(0.9, 0.2, 180)]
+            + [proj(rf * 0.94, hf * 0.985, 180) for rf, hf in PROFILE[::-1]][:-1]
+            + [proj(0, 0.975, 90)]
+            + [proj(rf * 0.94, hf * 0.985, 0) for rf, hf in PROFILE][1:]
+            + [proj(0.9, 0.2, 0), (CX + RX - 4, RIM_Y + 4), (CX, RIM_Y + 14)])
+    return f'<path d="{cr_path(ring, closed=True)}" fill="{P["night"]}"/>'
+
+
+def layout():
+    """List of (z, svg) strand items (painter's order by z)."""
+    rnd = random.Random(7)
+    items = []
+    seed = [100]
+
+    def add(pts, z, tone=None, **kw):
+        seed[0] += 1
+        items.append((z, strand(pts, tone or tone_z(z), seed[0], **kw)))
+
+    # 1. tangled cover: rows of short strands wandering round the mound level by
+    #    level (each drifting a little up or down), overlapping at their ends
+    u = 0.03
+    k = 0
+    while u < ULOW - 0.05:
+        rf = max(prof(u)[0], 0.12)
+        near = u > 0.62                          # lower rows: only the near half shows
+        c = rnd.uniform(-40, 0) if near else rnd.uniform(0, 360)
+        end = c + (225 if near else 360)
+        while c < end:
+            span = min(rnd.uniform(34, 60) / rf, 150)
+            a0, a1 = c, c + span
+            dr = rnd.uniform(-0.14, 0.14)
+            z = zof([(prof(u)[0], a0 + (a1 - a0) * t / 4) for t in range(5)])
+            k += 1
+            add(contour(a0, a1, u, wobble=0.05, seed=k, drift=dr), z, r0=rnd.uniform(9.0, 10.0),
+                taper_from=0.95, stem=tone_z(z) == "f", gmin=0.6, gvar=2.4)
+            c = a1 - rnd.uniform(-4, 16) / rf
+        u += rnd.uniform(0.07, 0.085)
+
+    # 2. far side: meridians over the back, outer ones hanging behind the pot sides
+    for phi in (194, 207, 221, 319, 333, 346):
+        ph = phi + rnd.uniform(-5, 5)
+        drop = rnd.uniform(676, 728)
+        add(meridian(ph, rnd.uniform(0.3, 0.6), drop, seed=seed[0], bend=rnd.uniform(-10, 10)),
+            -0.6, "d", r0=9.6, taper_from=0.7)
+
+    # 3. side curtains (mid): spill over the side rims and hang at varied lengths
+    for phi, drop in ((-8, 736), (6, 694), (20, 724), (32, 662), (148, 732), (160, 704), (174, 672), (188, 716)):
+        ph = phi + rnd.uniform(-4, 4)
+        add(meridian(ph, rnd.uniform(0.55, 0.8), drop, seed=seed[0], bend=rnd.uniform(-8, 8),
+                     sway=rnd.uniform(3, 7)),
+            0.05 if 0 < ph < 180 else -0.1, "m", r0=9.6, taper_from=0.6)
+
+    # 4. front drapes (light): over the front rim and down the pot face
+    for phi, u0, drop in ((62, 0.72, 706), (84, 0.8, 736), (104, 0.7, 668), (122, 0.78, 720)):
+        ph = phi + rnd.uniform(-3, 3)
+        add(meridian(ph, u0, drop, seed=seed[0], bend=rnd.uniform(-8, 8), sway=rnd.uniform(3, 6)),
+            1.2, "f", r0=9.8, taper_from=0.4)
+    return items
 
 
 def build():
     reset_ids()
-    B = Beads()
-    back, front = pot(kind="classic", cx=CX, rim_y=RIM_Y, bottom=BOTTOM, rx=RX, rim_h=30,
-                      base_w=68, band=True)
-    body = [back]
-    body += draw(B, BACK, start=12, lean=28)
-    body += draw(B, MID_IN, start=10, lean=28, taper_from=0.9)
+    back, front = pot(kind="classic", cx=CX, rim_y=RIM_Y, bottom=BOTTOM, rx=RX, rim_h=27,
+                      base_w=57, band=True)
+    items = layout()
+    body = [back, cushion_shadow()]
+    behind = sorted((it for it in items if it[0] < 0), key=lambda t: t[0])
+    ahead = sorted((it for it in items if it[0] >= 0), key=lambda t: t[0])
+    body += [s for _, s in behind]
+    # flower stalks rise from inside the mound; their bases are covered by the nearer strands
+    mid_stalk = [(318, 500), (320, 460), (326, 410), (338, 350), (350, 318)]
+    fork = min(cr_sample(mid_stalk, 12), key=lambda q: abs(q[1] - 394))
+    body += [
+        flower_stalk([(290, 502), (286, 470), (282, 420), (270, 372), (252, 334)], -14, 1.4),
+        flower_stalk([fork, (318, 368), (306, 352)], -28, 1.05),   # side head off the middle stalk
+        flower_stalk(mid_stalk, 10, 1.45),
+        flower_stalk([(350, 506), (356, 480), (374, 440), (396, 404), (414, 386)], 26, 1.3),
+    ]
     body.append(front)
-    body += draw(B, MID_OUT, start=16, lean=30)
-    body += draw(B, DRAPES, start=8, lean=34, taper_from=0.35)
-    body += draw(B, FRONT_ROW, start=6, lean=30, taper_from=0.9)
-    return defs(B.used) + "\n" + "\n".join(body)
+    body += [s for _, s in ahead]
+    return defs({"d", "m", "f"}) + "\n" + "\n".join(body)
 
 
 def main():
