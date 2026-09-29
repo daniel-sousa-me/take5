@@ -180,6 +180,17 @@ def petiole(a, b, u_end, w0, w1, col, bow=0.0):
     return f'<path d="{ribbon([a, m, c, b], w0, w1)}" fill="{col}"/>'
 
 
+def petiole_arc(a, b, u_end, w0, w1, col, k=0.45):
+    """a -> b as ONE bend (quadratic bezier): the control point sits back down the
+    leaf axis from b, so the petiole leaves the soil and arrives along the blade
+    axis with no S-wiggle."""
+    L = math.hypot(b[0] - a[0], b[1] - a[1])
+    X = (b[0] - u_end[0] * L * k, b[1] - u_end[1] * L * k)
+    pts = [tuple((1 - t) ** 2 * a[j] + 2 * (1 - t) * t * X[j] + t * t * b[j] for j in (0, 1))
+           for t in (i / 6 for i in range(7))]
+    return f'<path d="{ribbon(pts, w0, w1)}" fill="{col}"/>'
+
+
 # ------------------------------------------------------------------ vines
 def along(s, frac):
     """point + unit tangent at fraction of arclength of sampled polyline s."""
@@ -237,6 +248,7 @@ def build():
         ((290, 582), -72, 96, P["mid"], 8, True, 326, 0.04),
         ((372, 572), 80, 86, P["light"], 9, False, 322, 0.05),
     ]
+    ARC = {2, 3}
     stems, leaves, low = [], [], []
     for grp in (crown_back, crown_front, crown_low):
         for (bx, by), rot, L, fill, seed, flip, sx0, bow in grp:
@@ -244,7 +256,10 @@ def build():
                 bx, by, L = 300 + (bx - 300) * CS, 612 + (by - 612) * CS, L * CS
             u = (math.sin(math.radians(rot)), -math.cos(math.radians(rot)))
             w = max(3.0, L * 0.036)
-            stems.append(petiole((sx0, 612), (bx, by), u, w * 1.3, w, P["sage"], bow))
+            if seed in ARC:  # the two long centre petioles crossing open ground: one arc each
+                stems.append(petiole_arc((sx0, 612), (bx, by), u, w * 1.3, w, P["sage"]))
+            else:
+                stems.append(petiole((sx0, 612), (bx, by), u, w * 1.3, w, P["sage"], bow))
             (low if grp is crown_low else leaves).append(leaf_svg(bx, by, rot, L, fill, seed, flip=flip))
     out += stems + leaves
 

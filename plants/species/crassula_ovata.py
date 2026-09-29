@@ -242,8 +242,9 @@ def rosette(samples, size, tone, pairs=3, seed=0, gap=1.0, spread=0, tilt=0, fir
         L = size * (0.52 + 0.36 * age)
         tn = T_(tone - (1 if age > 0.9 else 0))
         if i == 0:                                  # closed bud pair at the tip
-            M.append(lf(x, y, a - 7, size * 0.32, T_(tone + 1), "n", gloss=False, jit=2))
-            M.append(lf(x, y, a + 6, size * 0.29, T_(tone + 1), "n", gloss=False, jit=2))
+            # one plump pair, big enough to print as leaves (not red-tipped specks)
+            M.append(lf(x, y, a - 9, size * 0.44, T_(tone + 1), "o", gloss=False, jit=2))
+            M.append(lf(x, y, a + 8, size * 0.40, T_(tone + 1), "o", gloss=False, jit=2))
         elif kinds[(i - 1) % 2] == "spread":        # pair in the picture plane
             op = 44 + 22 * age + spread
             sk = rng.uniform(-6, 6)

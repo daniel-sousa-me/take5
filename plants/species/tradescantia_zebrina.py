@@ -237,14 +237,19 @@ def leaf_dir(t, side, ang, up):
 class Shoot:
     """One jointed stem. nodes: (frac, side, L, tid, ang, up)."""
 
-    def __init__(self, pts, w0, w1, st, nodes, tip_flower=None):
+    def __init__(self, pts, w0, w1, st, nodes, tip_flower=None, lead=None):
         self.pts, self.w0, self.w1, self.st = pts, w0, w1, st
+        self.lead = lead  # extra stem points before pts[0] (stem only; nodes stay put)
         self.nodes, self.tip_flower = nodes, tip_flower
         self.s = cr_sample(pts, 10)
         self.total = along(self.s, 1.0)[2]
 
-    def stem(self):
-        out = [f'<path d="{ribbon(self.pts, self.w0, self.w1, per=4)}" fill="{STEM[self.st]}"/>']
+    def ribbon(self):
+        return ribbon((self.lead or []) + self.pts, self.w0, self.w1, per=4)
+
+    def stem(self, clip=None):
+        cp = f' clip-path="url(#{clip})"' if clip else ""
+        out = [f'<path d="{self.ribbon()}" fill="{STEM[self.st]}"{cp}/>']
         coll = []
         for fr, *_ in self.nodes:
             if fr > 0.97:
@@ -342,36 +347,49 @@ def build():
               grow(3, 104, 66, 2, first=-1, f0=0.45, seed=10, ang0=56, ang1=30, up=0.1, shapes="bca",
                    drop={0})),
     ]
+    # trailing strands leave the soil behind the crown: their first stretch (inside the
+    # pot opening) is drawn here, under the crown; the part crossing the rim is drawn
+    # again over the pot front, clipped to outside the opening -- seamless at the lip.
+    trails = trail_shoots()
+    out += [f'<path d="{sh.ribbon()}" fill="{STEM[sh.st]}"/>' for sh in trails if sh.lead]
     for sh in crown:
         out += [sh.stem(), sh.leaves()]
     out += [sh.flower() for sh in crown]
 
     out.append(front)
 
-    # trailing strands, drawn over the pot. Leaves turn outward/up off the
-    # hanging stems; some twist to show the plum underside.
-    trails = [
-        # long left strand: hangs down the pot side, tip turning out well above the ground line
-        Shoot([(232, 600), (198, 594), (170, 610), (150, 644), (134, 674), (116, 694), (98, 700)], 5.4, 2.8, 2,
-              grow(8, 74, 34, 2, first=-1, f0=0.08, seed=11, ang0=78, ang1=44, up=0.9, under={2, 5},
-                   utone=1, shapes="abcab", tier_tip=1, bracts=True),
-              tip_flower=(15, 10, 10)),
-        # medium right strand
-        Shoot([(370, 600), (406, 594), (436, 612), (454, 652), (462, 700), (462, 730)], 5.2, 2.8, 2,
-              grow(7, 72, 34, 2, first=1, f0=0.08, seed=12, ang0=78, ang1=44, up=0.9, under={3},
-                   utone=0, shapes="cabca", tier_tip=1)),
-        # short front drape
-        Shoot([(326, 602), (344, 614), (352, 638), (352, 662)], 4.4, 2.8, 2,
-              grow(3, 58, 36, 2, first=1, f0=0.35, seed=13, ang0=74, ang1=50, up=0.8, under={1},
-                   utone=0, shapes="bac")),
-    ]
-    out += [sh.stem() for sh in trails]
+    # front copy: only beyond the lip crossing (x side of the strand) and outside the opening
+    ell = f"M{f(300 - 102)} 590A102 15.3 0 1 0 {f(300 + 102)} 590A102 15.3 0 1 0 {f(300 - 102)} 590Z"
+    for i, (x0, x1) in enumerate(((0, 238), (364, 600))):
+        out.append(f'<clipPath id="rimout{i}"><path clip-rule="evenodd" '
+                   f'd="M{x0} 0H{x1}V800H{x0}Z{ell}"/></clipPath>')
+    out += [sh.stem(f"rimout{i}" if sh.lead else None) for i, sh in enumerate(trails)]
     out += [sh.leaves() for sh in trails]
     out += [sh.flower() for sh in trails]
     body = "".join(out)
     # drop templates no <use> references (keeps the file small)
     used = set(re.findall(r'href="#(\w+)"', body))
     return re.sub(r'<g id="(\w+)">.*?</g>', lambda m: m.group(0) if m.group(1) in used else "", body)
+
+
+def trail_shoots():
+    """trailing strands, drawn over the pot. Leaves turn outward/up off the
+    hanging stems; some twist to show the plum underside."""
+    return [
+        # long left strand: hangs down the pot side, tip turning out well above the ground line
+        Shoot([(232, 600), (198, 594), (170, 610), (150, 644), (134, 674), (116, 694), (98, 700)], 5.4, 2.8, 2,
+              grow(8, 74, 34, 2, first=-1, f0=0.08, seed=11, ang0=78, ang1=44, up=0.9, under={2, 5},
+                   utone=1, shapes="abcab", tier_tip=1, bracts=True),
+              tip_flower=(15, 10, 10), lead=[(272, 614), (264, 597), (249, 592)]),
+        # medium right strand
+        Shoot([(370, 600), (406, 594), (436, 612), (454, 652), (462, 700), (462, 730)], 5.2, 2.8, 2,
+              grow(7, 72, 34, 2, first=1, f0=0.08, seed=12, ang0=78, ang1=44, up=0.9, under={3},
+                   utone=0, shapes="cabca", tier_tip=1), lead=[(318, 614), (328, 596), (350, 592)]),
+        # short front drape
+        Shoot([(326, 602), (344, 614), (352, 638), (352, 662)], 4.4, 2.8, 2,
+              grow(3, 58, 36, 2, first=1, f0=0.35, seed=13, ang0=74, ang1=50, up=0.8, under={1},
+                   utone=0, shapes="bac")),
+    ]
 
 
 if __name__ == "__main__":

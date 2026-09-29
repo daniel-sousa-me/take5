@@ -290,11 +290,15 @@ def petiole(node, attach, rot, w0, w1, color, tuck=10):
 
 
 # ------------------------------------------------------------------ flowers
-def flower_cluster(anchor, rot=0):
+def flower_cluster(anchor, rot=0, hub=None):
     """Pendant cyme: arching peduncle, then 3 open male flowers + 2 buds."""
     ax, ay = anchor
     o = []
-    ped = [(ax, ay), (ax + 16, ay - 10), (ax + 34, ay - 2), (ax + 42, ay + 22)]
+    if hub is None:
+        ped = [(ax, ay), (ax + 16, ay - 10), (ax + 34, ay - 2), (ax + 42, ay + 22)]
+    else:  # rises from the node ring, one arch out and down to the hub
+        hx, hy = hub
+        ped = [(ax, ay), (ax + (hx - ax) * 0.3, hy - 2), (ax + (hx - ax) * 0.68, hy - 10), (hx, hy)]
     o.append(f'<path d="{ribbon(ped, 3.4, 2.4, per=6)}" fill="{P["plum"]}"/>')
     hub = ped[-1]
     # (dx, dy, size, tilt, kind)
@@ -396,7 +400,10 @@ def build():
     v = canes["C"]
     o.append(cane_svg(v["pts"], v["w"][0], v["w"][1], CANE, v["nodes"], NODE))
     o += layer(2)
-    o.append(flower_cluster(nodes["R"][3][0]))
+    # peduncle from the lower node ring (R[2]), below the mid-green leaf; hub kept where
+    # it was (x+42, y+22 from node R[3]) so the flowers do not move
+    (n3x, n3y), _ = nodes["R"][3]
+    o.append(flower_cluster(nodes["R"][2][0], hub=(n3x + 42, n3y + 22)))
     o.append(front)
     o += layer(3)
     return "".join(o)

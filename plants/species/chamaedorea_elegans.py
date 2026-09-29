@@ -62,6 +62,9 @@ def defs():
         o, lo, mid = leaflet_d(bend)
         # (leaflet midribs dropped: too fine to survive print)
         out.append(f'<g id="ce{k}"><path d="{o}"/><path d="{lo}" fill="currentColor"/></g>')
+        # flat variant for the smallest tip leaflets, whose shaded half alone would be
+        # narrower than the print minimum (it reads as a speck): one tone, no split
+        out.append(f'<path id="ce{k}f" d="{o}"/>')
     out.append("</defs>")
     return "".join(out)
 
@@ -85,6 +88,21 @@ def at(s, acc, fr):
     d = (b[0] - a[0], b[1] - a[1])
     m = math.hypot(*d) or 1
     return p, (d[0] / m, d[1] / m)
+
+
+# print check for the shaded lower half of a leaflet: its measured width (4A/P) in
+# template units, and the plan scale (mm/unit, a little under this plant's deck scale)
+HALF_W, MM_PLAN = 9.68, 0.052
+
+
+def lum(hexc):
+    r, g, b = (int(hexc[i:i + 2], 16) / 255 for i in (1, 3, 5))
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def half_ok(L, wscale, shade):
+    need = 0.225 if lum(shade) > 0.55 else 0.175
+    return HALF_W * L / 100 * math.sqrt(wscale) * MM_PLAN >= need
 
 
 def use(kind, x, y, ang, L, wscale, flip):
@@ -138,7 +156,11 @@ def frond_parts(pts, tone, n_pairs, lmax, seed, bare=0.2, near="upper", spread=(
             if rnd.random() < 0.25:
                 kind = {"a": "b", "b": "c", "c": "b"}[kind]
             x0, y0 = p[0] - dx * 2.0, p[1] - dy * 2.0   # base tucked under the rachis
-            rows[side].append(use(kind, x0, y0, ang, L, rnd.uniform(0.92, 1.08), flip))
+            ws = rnd.uniform(0.92, 1.08)
+            row_tone = tone if side == near_side else far_tone
+            if not half_ok(L, ws, SH[row_tone]):
+                kind += "f"
+            rows[side].append(use(kind, x0, y0, ang, L, ws, flip))
     nr, fr_ = rows[near_side], rows[-near_side]
     rc = rach_col or P["light"]
     if lead:
