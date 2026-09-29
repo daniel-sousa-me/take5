@@ -16,8 +16,8 @@ X0 = 14
 # undersides). Hex values as they appear in plants/out/*.svg -- update if those plants change.
 BURG_PAIRS = [("#4A3441", "#5E3A40", "zebrina 0 / 1"), ("#5E3A40", "#6C4150", "zebrina 1 / 2"),
               ("#5E3A40", "#74464D", "wine / burgundy"), ("#74464D", "#8A5560", "burgundy / plum")]
-TIER_CARDS = ((2, 25), (3, 30), (5, 22), (7, 55))   # section 5: one real card per tier, neighbours side by side
-CARD_S = 0.68     # section 5 card scale (four trim-wide cards across x 14..196 mm)
+TIER_CARDS = ((1, 4), (2, 25), (3, 30), (5, 22), (7, 55))   # section 5: one real card per tier, neighbours side by side
+CARD_S = 0.54     # section 5 card scale (five trim-wide cards across x 14..196 mm, ~2.6 mm apart)
 NUM3_CARDS = (100, 104)   # section 4: 3-digit numbers at 100 %, top-left corner of the trim
 NUM3_W, NUM3_H, X3 = 30.0, 24.0, 133   # crop (mm) and left edge of that test
 TINTS = ("#FFFFFF", "#FBF6EA", "#F6EFDF", "#F0E6D2", "#EADFC8")   # section 3: near-paper tints, lightest first
@@ -197,9 +197,13 @@ def build():
     # (card_top below = the top half of deck.card: field + sprig top-right, number + marks top-left), without
     # the plant and name label, cropped below the marks and shown at CARD_S scale
     y += 42.3
-    g.append(h(y, "5  Neighbouring tiers — each neighbour (2|3, 3|5, 5|55) must read as a different penalty"))
+    head5 = "5  Neighbouring tiers — each neighbour (1|2, 2|3, 3|5, 5|55) must read as a different penalty"
+    g.append(h(y, head5))
+    fits(head5, X0, 196, 3.4, HEAD)
+    nc = len(TIER_CARDS)
     pw, ph = deck.TW * CARD_S, CROP * CARD_S
-    gap = (196 - X0 - 4 * pw) / 3
+    gap = (196 - X0 - nc * pw) / (nc - 1)
+    assert gap >= 2.0, gap
     for j, (p, n) in enumerate(TIER_CARDS):
         x, yy = X0 + j * (pw + gap), y + 3
         cid = f"tc{n}"
@@ -207,9 +211,13 @@ def build():
                  f'<g transform="translate({x:.3f} {yy:.3f}) scale({CARD_S}) translate({-deck.B} {-deck.B})">'
                  f'<g clip-path="url(#{cid})">{card_top(n)}</g></g>'
                  f'<rect x="{x:.3f}" y="{yy:.3f}" width="{pw:.3f}" height="{ph:.3f}" fill="none" stroke="#bbb" stroke-width="0.15"/>')
-        g.append(t(x, yy + ph + 2.8, f"tier {p} · card {n} (top {CROP:g} mm, at {CARD_S * 100:g} %)", 2.2))
-        fits(f"tier {p} · card {n} (top {CROP:g} mm, at {CARD_S * 100:g} %)", x, x + pw + gap - 0.8, 2.2)
-    assert yy + ph + 3.3 <= deck.REC_BOT, yy + ph + 3.3
+        g.append(t(x, yy + ph + 2.8, f"tier {p} · card {n}", 2.2))
+        fits(f"tier {p} · card {n}", x, min(x + pw + gap - 0.8, 196), 2.2)
+    note5 = (f"Top {CROP:g} mm of each real card (number, penalty marks, corner field), at {CARD_S * 100:g} %. "
+             "1|2 (sage / ochre) is the pair met most often in play.")
+    g.append(t(X0, yy + ph + 6.0, note5, 2.1))
+    fits(note5, X0, 196, 2.1)
+    assert yy + ph + 6.5 <= deck.REC_BOT, yy + ph + 6.5
     g.append("</svg>")
     return "".join(g)
 

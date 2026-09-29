@@ -105,6 +105,17 @@ STAMENS = [((-3, -30), (-30, -120), (-58, -172), 20),
            ((6, -26), (58, -78), (106, -116), 5)]
 
 
+# lily calyx in flower-local units (petal bases at 0,0, flower opening toward -y). The stem (LILY_STEM) arrives
+# from the left, nearly level, and ends inside the receptacle; the outline starts and ends on the stem's edges at
+# x = -31 so the green runs on without a step. Sepal tips: left (-31, -31), centre (1, -43), right (33, -27).
+CALYX = ("M-31 8.5 C-24 7.9 -18 6 -15 -1 C-20 -10 -26 -19 -31 -31 C-22 -25 -14 -19 -8 -14 "
+         "C-6 -23 -3 -33 1 -43 C5 -33 8 -23 9 -14 C16 -20 25 -24 33 -27 C30 -16 24 -2 16 6 "
+         "C10 12 0 14.2 -8 14.2 C-16 14.2 -24 14.4 -31 14.8Z")
+# turned-away half: the centre sepal's right side, the right sepal and the receptacle's right flank
+CALYX_SHADE = ("M1 -43 C5 -33 8 -23 9 -14 C16 -20 25 -24 33 -27 C30 -16 24 -2 16 6 C13.5 8.5 11.5 10 9.5 11 "
+               "C6 2 5 -8 3.5 -20 C2.8 -30 1.9 -37 1 -43Z")
+
+
 def lily(x, y, rot, s, col, shade, hi, stamen_col):
     """Side-view lily opening upward; base at (x, y). Petals are long, pointed and curl outward."""
     g = [f'<g transform="{T(x, y, rot, s)}">']
@@ -121,8 +132,9 @@ def lily(x, y, rot, s, col, shade, hi, stamen_col):
     for r, L, w, b, c, sd in ((-36, 175, 0.21, -0.36, col, "l"), (46, 185, 0.21, 0.40, col, "r"),
                               (6, 140, 0.19, 0.10, hi, None)):
         g.append(leaf_g(petal(L, w, b), c, shade=shade if sd else None, side=sd or "r", transform=T(0, 0, r)))
-    # calyx cup
-    g.append(f'<path d="M-24 4 C-22 -16 -10 -26 0 -26 C10 -26 22 -16 24 4 C12 14 -12 14 -24 4Z" fill="{G["forest"]}"/>')
+    # calyx: CALYX below -- three pointed sepals cupping the petal bases over a rounded receptacle that narrows into
+    # the stem (same green as the stem, so the join is seamless); the right half a shade darker, like the leaves
+    g.append(f'<path d="{CALYX}" fill="{G["forest"]}"/><path d="{CALYX_SHADE}" fill="{SHADE[G["forest"]]}"/>')
     g.append("</g>")
     return "".join(g)
 
@@ -150,7 +162,7 @@ def branch(pts, leaves, back_cols, front_cols, width=0.2, angle=46, w0=8, w1=3.2
 
 
 LILY = (268, 810, -8, 0.72)                              # flower base x, y, rotation, scale
-LILY_STEM = [(100, 876), (136, 850), (196, 826), (266, 804)]
+LILY_STEM = [(100, 876), (136, 850), (196, 828), (236, 824), (262, 817)]
 BR = [(70, 930), (170, 868), (290, 845), (400, 806), (470, 788), (520, 780), (552, 776)]   # low right sweep
 BERRY_R = 17
 BERRIES = ((104, 852), [((38, 770), -20), ((34, 845), 2), ((80, 814), -3)], STEM_R, BERRY_R, BERRY, BERRY_S)

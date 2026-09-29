@@ -59,9 +59,11 @@ for history; where it disagrees with this file, this file wins (card size and pr
   check whether the unstarred `#F0E6D2` / `#EADFC8` print as a clean tint or as speckle), the
   scale, the 3-digit numerals at 100 % (the top-left 30 × 24 mm of real cards 100 and 104, the tightest digit pairs in the deck,
   so digit spacing can be judged on the real stock; the print-setting reminders that stood beside the scale test
-  moved into the intro lines), and shows the neighbouring tiers side by side: the top 30.5 mm of real cards 25, 30, 22 and 55 (tiers 2, 3, 5, 7), drawn with
+  moved into the intro lines), and shows the neighbouring tiers side by side: the top 30.5 mm of real cards 4, 25, 30, 22 and 55 (tiers 1, 2, 3, 5, 7, so
+  1|2 — sage / ochre, the pair met most often in play — is judged too), drawn with
   the deck's own `info_block` / `field_blob` / `sprig` exactly as on the card (number top-left, marks 3 over 2 and
-  4 over 3, field top-right; plant and label left out), at 68 % so four fit inside the recommended area. The proof's text is set in the deck's
+  4 over 3, field top-right; plant and label left out), at 54 % so five fit across inside the recommended area
+  (`TIER_CARDS` / `CARD_S`; short labels, with the crop and scale in one note line below). The proof's text is set in the deck's
   own fonts, drawn as paths (DM Serif Display for the title and headings, Fraunces for the rest — Medium for the
   bold labels, a Regular opsz-9 instance made once into `build/fonts`), so it needs no installed font and every line's
   width is exact: `proof.fits()` asserts that each label and note ends inside its column. Sections have ≥ 2.5 mm of
@@ -145,6 +147,10 @@ for history; where it disagrees with this file, this file wins (card size and pr
   `LILY_GAP`, asserted by `back.check()` via `paper_gap()`, which ignores the paper right beside a decisive overlap), its
   left petal clearly overlaps the upright's big leaf, and it stays ≥ 11 mm from the "5" (11.5 mm now; `TITLE_GAP`,
   also asserted by `back.check()`).
+- Lily calyx (`CALYX` / `CALYX_SHADE` in `deck/back.py`): three small pointed sepals (left, centre, right) cupping the
+  petal bases over a rounded receptacle that narrows into the stem, in the stem's own green so the join is seamless,
+  with the right half a solid shade darker like the leaves. It replaced a plain half-disc cap. The lily stem
+  (`LILY_STEM`) now ends low inside the receptacle, arriving nearly level from the left, instead of meeting the cap's side.
 - Lily stamens (`STAMENS` in `deck/back.py`): five, deliberately irregular — different lengths, spread and curvature,
   one leaning left, the tallest left of centre (away from the "5") — with small tilted oval anthers, instead of four
   fanned to one side at equal angle steps with round anthers on a neat arc.
