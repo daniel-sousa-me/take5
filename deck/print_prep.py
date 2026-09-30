@@ -23,10 +23,10 @@ Rules (docs/DESIGN_AND_PRINT_NOTES.md and the plant print policy):
     no ink, the bare paper shows). This is informational, not a rule break: the master keeps its colour (it is
     right on screen) and the plant still reports "ok (unchanged)" for the line rules; the count is shown
     separately as "[paper-white: N]".
-  - Speckle band: a near-neutral colour with SPECKLE_MIN_L < L* < PAPER_MIN_L (and C* <= PAPER_MAX_C) is too light
-    to print as an even tint and too dark to be sent as bare paper. It is printed as drawn and reported per plant
-    as a warning, "[speckle-band: N]" (-v lists the colours): the plant author should move it to L* <= 90 (a
-    visible pale tint) or to #FFFFFF (paper). Like paper-white it is a separate note, not part of "ok (unchanged)".
+  - Speckle band: a pale, low-chroma colour with SPECKLE_MIN_L < L* < PAPER_MIN_L (88-95) and C* <= SPECKLE_MAX_C
+    (25: creams and pale yellows too, not only near-neutrals) is too light to print as an even tint and not a
+    white to send as bare paper. It is printed as drawn and reported per plant as a warning, "[speckle-band: N]"
+    (-v lists the colours): the plant author should move it to L* <= 88 (a visible pale tint) or to #FFFFFF. Like paper-white it is a separate note, not part of "ok (unchanged)".
 A master that follows the policy passes through unchanged. Everything widened or dropped is printed per plant.
 
 Usage:  python deck/print_prep.py            # summary line per plant
@@ -46,9 +46,12 @@ MIN_DOT_POS, MIN_DOT_KO = 0.175, 0.225  # filled dots and slivers (by their wide
 KO_LUM = 0.55                         # a stroke/fill lighter than this counts as a knockout (light-on-dark) mark
 MAX_WIDEN, MAX_WIDEN_CLIPPED = 1.6, 2.0
 STOCK = "#FFFFFF"                     # 250 gsm uncoated WHITE card; the face leaves it unprinted
-PAPER_MAX_C = 15.0                    # chroma limit for paper-white and the speckle band (near-neutral whites / creams)
+PAPER_MAX_C = 15.0                    # chroma limit for paper-white (near-neutral whites / creams)
 PAPER_MIN_L = 95.0                    # L* >= this (and C* <= PAPER_MAX_C) -> printed as bare paper (#FFFFFF, no ink)
-SPECKLE_MIN_L = 90.0                  # SPECKLE_MIN_L < L* < PAPER_MIN_L -> "speckle band": sparse dither, warned about
+SPECKLE_MIN_L = 88.0                  # SPECKLE_MIN_L < L* < PAPER_MIN_L (and C* <= SPECKLE_MAX_C) -> "speckle band":
+SPECKLE_MAX_C = 25.0                  # sparse dither, warned about. Wider than paper-white (a pale cream / pale yellow
+                                      # such as the anthurium spadix #EFE3BC, L* 90.3 C* 21, dithers just the same) and
+                                      # from L* 88, a margin under the ~L* 90 where the printer starts to lay an even tint
 TOL = 0.995                           # rounding slack: 0.1495 mm counts as 0.15
 NS = "{http://www.w3.org/2000/svg}"
 XLINK = "{http://www.w3.org/1999/xlink}href"
@@ -99,10 +102,11 @@ def paper_white(c):
 
 
 def speckle_band(c):
-    """True if colour c is a near-neutral pale tint in the speckle band (SPECKLE_MIN_L < L* < PAPER_MIN_L): too
-    light for an even tint on white stock, too dark to send as paper. Printed as drawn, but warned about."""
+    """True if colour c is a pale, low-chroma tint in the speckle band (SPECKLE_MIN_L < L* < PAPER_MIN_L, C* <=
+    SPECKLE_MAX_C) and not already paper-white: too light for an even tint on white stock. Printed as drawn, but
+    warned about."""
     v = lab(c)
-    return v is not None and SPECKLE_MIN_L < v[0] < PAPER_MIN_L and v[3] <= PAPER_MAX_C
+    return v is not None and SPECKLE_MIN_L < v[0] < PAPER_MIN_L and v[3] <= SPECKLE_MAX_C
 
 
 PAPER_KEYS = ("fill", "stroke", "stop-color", "flood-color", "lighting-color", "color")
@@ -346,7 +350,7 @@ def process(fn, mm_per_unit, out_dir=OUT):
 def summary(rep):
     """Line/dot rule result ("ok (unchanged)" when the master meets the policy), plus two separate notes: the
     paper-white count (informational: near-whites sent as bare paper) and the speckle-band count (a warning: pale
-    tints between L* 90 and 95 that the plant author should move to L* <= 90 or to #FFFFFF)."""
+    tints between L* 88 and 95, C* <= 25, that the plant author should move to L* <= 88 or to #FFFFFF)."""
     n = {k: sum(x[0] for x in rep[k].values()) for k in ("widened", "dropped", "small")}
     s = "ok (unchanged)" if not any(n.values()) else \
         f"widened {n['widened']:3d} · dropped {n['dropped']:3d} · small dots/slivers {n['small']:3d}"
@@ -377,5 +381,5 @@ if __name__ == "__main__":
                           f"move to L* <= {SPECKLE_MIN_L:g} or #FFFFFF")
     print(f"paper-white = near-white (L* >= {PAPER_MIN_L:g}, C* <= {PAPER_MAX_C:g}) on the white {STOCK} stock: printed "
           "as bare paper (#FFFFFF); informational, masters keep their colour")
-    print(f"speckle-band = pale near-neutral tint ({SPECKLE_MIN_L:g} < L* < {PAPER_MIN_L:g}, C* <= {PAPER_MAX_C:g}): "
-          "prints as sparse speckle, not an even tint; WARNING, fix in the master (L* <= 90 or #FFFFFF)")
+    print(f"speckle-band = pale low-chroma tint ({SPECKLE_MIN_L:g} < L* < {PAPER_MIN_L:g}, C* <= {SPECKLE_MAX_C:g}): "
+          f"prints as sparse speckle, not an even tint; WARNING, fix in the master (L* <= {SPECKLE_MIN_L:g} or #FFFFFF)")

@@ -5,9 +5,10 @@ Design rules for hand cutting + manual duplex:
   * no frame, nothing that runs parallel to a cut edge
   * art only crosses the edges at the top-right and bottom-left corners, as organic shapes,
     so a 1-2 mm cut/registration drift just crops a leaf a little differently (check() asserts this and the
-    berries' >= 1.2 mm clearance on every build)
+    berries' >= 2.0 mm clearance on every build: a manual duplex flip can drift 1-2 mm, and a berry
+    must never be cut)
   * paper is left unprinted (white stock) -> no big flat tint to band
-  * no colour in the near-white speckle band (L* 90-95, low chroma): check() asserts it
+  * no colour in the pale speckle band (L* 88-95, C* <= 25): check() asserts it
   * lines >= 0.25 mm, light-on-dark lines >= 0.25 mm (the midribs taper below that only in their last few mm)
 """
 import os, sys, math, random
@@ -47,8 +48,10 @@ def mix(a, b, t):
     return "#" + "".join(f"{round(int(a[i:i + 2], 16) * (1 - t) + int(b[i:i + 2], 16) * t):02X}" for i in (1, 3, 5))
 
 
-VEIN_PALE = "#E1E6D6"   # midrib mix target only (a pale sage); the midribs themselves stay at L* <= 90, out of the speckle band
-VEIN_DL = 20.0          # every midrib sits this many L* above its leaf, so the veins read alike on every tone
+VEIN_PALE = "#E1E6D6"   # midrib mix target only (a pale sage); the midribs themselves stay at L* <= VEIN_MAX_L
+VEIN_DL = 20.0          # every midrib sits this many L* above its leaf, so the veins read alike on every tone ...
+VEIN_MAX_L = 87.5       # ... but never above L* 87.5, under the L* 88-95 speckle band (only the lightest leaf, #9DAE88,
+                        # is capped: its midrib was #DCE2D0 at L* 89)
 
 
 def vein_col(col):
@@ -59,7 +62,7 @@ def vein_col(col):
     lo, hi = 0.0, 1.0
     for _ in range(20):
         t = (lo + hi) / 2
-        lo, hi = (t, hi) if lab(mix(col, VEIN_PALE, t))[0] < L0 + VEIN_DL else (lo, t)
+        lo, hi = (t, hi) if lab(mix(col, VEIN_PALE, t))[0] < min(L0 + VEIN_DL, VEIN_MAX_L) else (lo, t)
     return mix(col, VEIN_PALE, hi)
 
 
@@ -181,8 +184,10 @@ LILY_STEM = [(100, 876), (136, 850), (196, 828), (236, 824), (262, 817)]
 BR = [(70, 930), (170, 868), (290, 845), (400, 806), (470, 788), (520, 780), (552, 776)]   # low right sweep
 BERRY_R = 17
 # the top berry sits in the open paper under the upright's dark lowest leaf (at (38, 770) it lay on that leaf,
-# burgundy on dark green: too little contrast); the low one moved a touch right/down to keep a clear gap to it
-BERRIES = ((104, 852), [((32, 806), 4), ((36, 848), 2), ((80, 814), -3)], STEM_R, BERRY_R, BERRY, BERRY_S)
+# burgundy on dark green: too little contrast); the low one moved a touch right/down to keep a clear gap to it.
+# The two left-hand berries moved in from (32, 806) / (36, 848) (1.65 / 1.45 mm from the trim) so every berry is
+# >= 2.0 mm inside it (BERRY_MIN; now 2.05 at the closest), keeping ~1 mm of paper to each other and to the leaf
+BERRIES = ((104, 852), [((36, 810), 4), ((55, 845), 2), ((80, 814), -3)], STEM_R, BERRY_R, BERRY, BERRY_S)
 
 
 def build_body():
@@ -211,7 +216,7 @@ def build_parts():
     o.append(branch(br, [(0.52, 98), (0.65, 80), (0.78, 96), (0.90, 62)], angle=38,
                     back_cols=[G["forest"], G["dark"]], front_cols=[G["sage"], G["mid"]], tip=(56, G["light"]), first=1, w0=7, w1=3), "sweep")
     # berries branch off the upright stem (drawn first so the join sits under the stem)
-    # all three berries sit fully inside the trim (>= 1.2 mm, see check()), none cut by the left edge; stalks go under the
+    # all three berries sit fully inside the trim (>= 2.0 mm, see check()), none cut by the left edge; stalks go under the
     # upright stem, the berries themselves are drawn after it so the leaves don't hide them
     berries = BERRIES
     o.append(sprig(*berries, w=3.4, part="stalks"), "berry_stalks")
@@ -247,7 +252,7 @@ class _Parts:
         self.items.append((name, svg))
 
 
-BERRY_MIN = 12       # berries stay >= 1.2 mm inside the trim
+BERRY_MIN = 20       # berries stay >= 2.0 mm inside the trim (manual duplex drift is 1-2 mm; no berry is ever cut)
 CORNER_R = 220       # art may reach into the bleed / the 1 mm band inside the cut only within 22 mm of the
 EDGE_BAND = 10       # top-right and bottom-left trim corners
 
@@ -320,13 +325,13 @@ def check(px_per_mm=10):
     g5, where5, ov5 = paper_gap(["lily"], ["title"], box=(60, 300, 635, 880))
     assert g5 >= TITLE_GAP and not ov5, f"lily only {g5 / 10:.2f} mm from the \"5\" near {where5}"
     # white stock: no near-white that print_prep would send as bare paper, and no pale tint in the speckle band
-    # (L* 90-95, low chroma), which a pigment inkjet prints as a sparse dither instead of an even tint
+    # (L* 88-95, C* <= 25), which a pigment inkjet prints as a sparse dither instead of an even tint
     import re
     cols = {c.upper() for c in re.findall(r"#[0-9A-Fa-f]{6}\b", build_body())}
     pale = sorted(c for c in cols if paper_white(c) and c != STOCK)   # #FFFFFF itself = no ink, fine
     assert not pale, f"near-white colours on the back (the {STOCK} stock shows through instead): {pale}"
     band = sorted(c for c in cols if speckle_band(c))
-    assert not band, f"speckle-band colours (L* 90-95) on the back: {band}"
+    assert not band, f"speckle-band colours (L* 88-95, C* <= 25) on the back: {band}"
     return clear
 
 

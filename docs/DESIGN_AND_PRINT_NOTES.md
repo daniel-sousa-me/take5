@@ -45,24 +45,30 @@ for history; where it disagrees with this file, this file wins (card size and pr
   through unchanged (`ok (unchanged)` in the build output); `python deck/print_prep.py -v` lists the rest.
 - **White stock: paper-white and the speckle band.** The stock is white (`STOCK` = `#FFFFFF` in `print_prep.py`).
   Ink only darkens paper, and a pigment inkjet lays a very light colour down as a sparse dither of dots rather
-  than an even tint. So, for every fill / stroke / stop colour with chroma C* ≤ 15 (a near-neutral white, cream
-  or pale grey):
-  - **L* ≥ 95 → paper-white**: `print_prep.py` sets it to `#FFFFFF` (no ink, the bare paper shows). A colour meant
+  than an even tint. So, for every fill / stroke / stop colour:
+  - **L* ≥ 95 and C* ≤ 15 → paper-white** (a near-neutral white, cream or pale grey): `print_prep.py` sets it to `#FFFFFF` (no ink, the bare paper shows). A colour meant
     to look white should simply be `#FFFFFF` in the master. Informational, not a rule break: the master keeps its
     colour, the plant still reports `ok (unchanged)` for the line rules, and the count is shown beside it as
     `[paper-white: N]` (`-v` lists the colours).
-  - **90 < L* < 95 → speckle band**: too light for an even tint, too dark to send as paper. It is printed as drawn
-    but reported per plant as a warning, `[speckle-band: N]` (`-v` lists each colour with its L* / C*). The fix
-    belongs in the master: move the colour to L* ≤ 90 (a real pale tint, e.g. `#EAE1D3`) or to `#FFFFFF`.
-  - **L* ≤ 90**: prints as a visible, even pale tint; left alone.
+  - **88 < L* < 95 and C* ≤ 25 → speckle band** (`SPECKLE_MIN_L` / `SPECKLE_MAX_C`): too light for an even tint,
+    and not a white to send as paper. It is printed as drawn but reported per plant as a warning,
+    `[speckle-band: N]` (`-v` lists each colour with its L* / C*). The fix belongs in the master: move the colour
+    to L* ≤ 88 (a real pale tint, e.g. `#E1D9CB`) or to `#FFFFFF`. The band used to be C* ≤ 15 and L* > 90; it was
+    widened because pale creams and yellows dither just the same (the anthurium spadix `#EFE3BC`, L* 90.3, C* 21,
+    escaped it) and L* 88 leaves a margin under the ≈ L* 90 where the printer starts to lay an even tint. Against the
+    masters before the 29 Sep art pass, the wider band flagged every plant (the old pot ground shadow `#DEE2DF`,
+    L* 89.5) plus anthurium `#EFE3BC`, echeveria `#D5E1D8` / `#DCE4DC`, hoya `#F0DAD0`, pilea `#DAE0CF` / `#DCE2D1`,
+    string of pearls `#DFE1CD`, peace lily `#E3E2D1` and inch plant `#E0E3D3`; those were all moved below L* 88.
+  - **otherwise** (L* ≤ 88, or more saturated): prints as a visible, even tint; left alone.
   Current build: no plant reports any paper-white or speckle-band colour (see the `print_prep.py` output). The
   card face has nothing above L* 87 (the lightest is the tier-1 sage field `#D8DDBF`); `deck.face_colour_check()`
   asserts on every build that no tier colour, name label or `PAPER_BG` is a near-white or in the band (`PAPER_BG`
   is off; the old cream `C["cream"]` `#F5EDDD`, L* 94, would now be refused). The sheet background is `#fff` =
-  no ink. The back's lightest colour is a midrib at L* 89; `back.check()` asserts no near-white and nothing in the
-  speckle band there. The shared pot ground shadow (`plants/core.py` `pot()`) is an opaque solid, `#DEE2DF` (L* 89.5,
-  `deep` over white at ≈ 16 % pre-blended), under every pot: just below the speckle band, so it should print as an
-  even pale tint. It replaced an 11 %-opacity `deep` ellipse that landed at ≈ `#E8EBE9` (L* 93), inside the band.
+  no ink. The back's lightest colour is a midrib at L* 87.6 (`VEIN_MAX_L`); `back.check()` asserts no near-white and
+  nothing in the speckle band there. The shared pot ground shadow (`plants/core.py` `pot()`) is an opaque solid,
+  `#D8DCD9` (L* 87.4, `deep` over white at ≈ 18 % pre-blended), under every pot: just below the speckle band, so it
+  should print as an even pale tint. It replaced `#DEE2DF` (L* 89.5, inside the widened band) and, before that, an
+  11 %-opacity `deep` ellipse that landed at ≈ `#E8EBE9` (L* 93).
   Judge it on the proof's tint row (last patch, "pot shadow"); if it still speckles, darken it a step in `pot()`
   and in `POT_SHADOW` in `deck/proof.py`.
 - The pot band (`pot(band=True)` in `plants/core.py`) is an opaque pre-blended line 4 units wide (a step
@@ -71,11 +77,11 @@ for history; where it disagrees with this file, this file wins (card size and pr
   Tradescantia's leaf-band tiers and the oxalis / tradescantia wine–burgundy–plum steps, `BURG_PAIRS` in
   `deck/proof.py`, which warns if those colours leave the plant art), the corner tints and solid colours, a row of near-white cream tints (`TINTS` in `deck/proof.py`, C* ≈ 8 at L* 97, 94, 92, 90, 87:
   `#FEF5E7`, `#F5EDDE`, `#F0E7D9`, `#EAE1D3`, `#E1D9CB`, each as a patch on bare white paper inside grey corner ticks
-  and as a stripe down a leaf-green bar, all printed as drawn, followed by the pot ground shadow `#DEE2DF`
-  (`POT_SHADOW`, L* 89.5, labelled "pot shadow", its stripe down a terracotta bar as it meets the pot); `*` marks the one at L* ≥ 95 that the plant print copies
-  send as no ink, `!` the two in the L* 90–95 speckle band — check where the printer stops speckling and lays an
-  even tint: `#EAE1D3` (L* 90) and `#E1D9CB` (L* 87) should be clean; if L* 90 still speckles, lower `SPECKLE_MIN_L`
-  / the plant tints accordingly), the
+  and as a stripe down a leaf-green bar, all printed as drawn, followed by the pot ground shadow `#D8DCD9`
+  (`POT_SHADOW`, L* 87.4, labelled "pot shadow", its stripe down a terracotta bar as it meets the pot); `*` marks the one at L* ≥ 95 that the plant print copies
+  send as no ink, `!` the three in the L* 88–95 speckle band — check where the printer stops speckling and lays an
+  even tint: `#E1D9CB` (L* 87) should be clean; if `#EAE1D3` (L* 90) is clean too, `SPECKLE_MIN_L` could move back up
+  toward 90; if L* 87 still speckles, lower it and the plant tints accordingly), the
   scale, the 3-digit numerals at 100 % (the top-left 30 × 24 mm of real cards 100 and 104, the tightest digit pairs in the deck,
   so digit spacing can be judged on the real stock; the print-setting reminders that stood beside the scale test
   moved into the intro lines), and shows the neighbouring tiers side by side: the top 30.5 mm of real cards 4, 25, 30, 22 and 55 (tiers 1, 2, 3, 5, 7, so
@@ -121,7 +127,10 @@ for history; where it disagrees with this file, this file wins (card size and pr
   1 sage `#D8DDBF`, 2 ochre `#EFD8A0`, 3 terracotta `#F0C4A4`, 5 dusty rose `#D8A3B0` (burgundy number
   `#6A3A45`; the rose is ~10 L* darker and redder than tier 3 — ΔE ≈ 25 — so the two can't drift together on
   uncoated stock), and 55 alone in bird-of-paradise orange `#E38E62` with a burnt-orange number and marks `#A8452A`.
-  Numbers on 1–3 are deep green; each tier's marks take a darker shade of its field hue. The small sprig in
+  Numbers on 1–3 are deep green; each tier's marks take a darker shade of its field hue: 1 `#6B7C52`, 2 `#A0722C`,
+  3 `#7E4630` (a dark brown-terracotta; the first `#A9583A` was almost the pot's `#B96E4A`, ΔE00 7.8, so on 10, 20
+  and 100 the bottom-right marks read as part of the pot, and nearly tier 7's `#A8452A`, ΔE00 5.3; now ΔE00 17.5
+  from the pot and 9.4 from tier 7, same hue angle), 5 `#86465A`, 7 `#A8452A`. The small sprig in
   each field is a visibly darker (or, on 55, lighter) tone of the field, not a 5 % step that vanishes in print.
 - Plant: every pot stands on the same base point (bottom centre at x = 31.75, y = 68.6 mm card-local incl.
   bleed, just left of centre so the bottom-right block lands beside the narrow pot rather than under the leaves).
@@ -147,7 +156,11 @@ for history; where it disagrees with this file, this file wins (card size and pr
   ≈ 3.7 mm to the top-left marks; before, at 1.08× with the pot 1 mm right, the bottom-right corner felt crowded).
 - Plant name (common + botanical, Fraunces) runs up the right edge, 5 mm from the cut. Common name in forest
   green `#405D43`; botanical name in italic warm grey-brown `#625444` (darker than the first `#7A6A58`, which was
-  too faint on uncoated card).
+  too faint on uncoated card). Common name 3.0 mm (Medium), botanical 2.5 mm (italic), baselines `LATIN_OFFSET` =
+  3.35 mm apart: at 2.95 the common name's descenders came within 0.44–0.55 mm of the botanical line's caps and
+  ascenders (begonia, jade, string of pearls, Swiss cheese, bird of paradise, Chinese money plant); now ≥ 0.82 mm
+  on every label (`deck.name_label_gap()`, asserted ≥ `LABEL_MIN_GAP` = 0.8 on every build). The common name's
+  ascenders end on the 5 mm EDGE line (`LABEL_ASC`); the extra 0.4 mm goes inward, and no plant had to shrink.
 - Showy plants go on the high-penalty cards (bird of paradise on 55; flowering/striking plants on the other
   multiples of 11, `SHOWY_11`). Other plants cycle; no two consecutive numbers share a plant; each plant appears
   4–5 times. A predominantly burgundy/pink plant (purple shamrock, inch plant: `NOT_ON_ROSE`) never goes on a
@@ -169,7 +182,8 @@ for history; where it disagrees with this file, this file wins (card size and pr
   base, where it meets the stem, and tapers toward the tip (`midrib()`: a filled ribbon 0.40 → 0.16 mm ending at
   0.86 of the leaf length, clipped to the leaf so it has no end cap at the base); it replaced a 0.3 mm round-capped
   stroke that stopped inside the leaf at both ends and read as a floating dash. Every midrib is a pale line 20 L* above its
-  leaf (`vein_col()`: a solid mix toward `VEIN_PALE` `#E1E6D6`; the lightest midrib is L* 89, below the speckle band). Before, the lighter
+  leaf (`vein_col()`: a solid mix toward `VEIN_PALE` `#E1E6D6`, capped at `VEIN_MAX_L` = L* 87.5 so the lightest
+  leaf's midrib, L* 87.6, stays below the L* 88 speckle band). Before, the lighter
   top-right leaves had dark midribs and the bottom-left bunch pale ones; the pale line reads crisper at card size.
 - The lily (`LILY` = base (268, 810), −8°, 0.72 in 0.1 mm units) sits a little higher and turned slightly left of its
   first place, so its lower right petal no longer runs along the low sweep with ~1 mm of paper between them (a
@@ -189,7 +203,8 @@ for history; where it disagrees with this file, this file wins (card size and pr
 - Leaf outline (`leaf_shape()`): the last node before the sharp tip sits at ~0.22–0.24 of the leaf width, so the
   outline runs straight into the point; the old narrower node (0.10–0.12) pinched the tip into a small hook that
   read as a notch at zoom.
-- The three burgundy berries sit fully inside the trim (≥ 1.2 mm; currently 1.45 mm at the closest), fanned out on
+- The three burgundy berries sit fully inside the trim (≥ 2.0 mm, `BERRY_MIN`, since a manual duplex flip can drift
+  1–2 mm; currently 2.05 mm at the closest, was 1.45 mm; ≈ 1 mm of paper between neighbouring berries), fanned out on
   stalks from one point on the upright stem, drawn in front of the upright stem's leaves. They sit in the open paper
   below the upright's dark lowest leaf; the top one used to lie on that leaf (burgundy on dark green, too little contrast).
 - Art only crosses the cut at those two corners (within 22 mm of them), and only as leaves and stems (no berry is

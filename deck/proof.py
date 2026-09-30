@@ -21,13 +21,14 @@ CARD_S = 0.54     # section 5 card scale (five trim-wide cards across x 14..196 
 NUM3_CARDS = (100, 104)   # section 4: 3-digit numbers at 100 %, top-left corner of the trim
 NUM3_W, NUM3_H, X3 = 30.0, 24.0, 133   # crop (mm) and left edge of that test
 # section 3: near-white cream tints (C* ~8) on the WHITE stock, lightest first: L* 97, 94, 92, 90, 87. The first is
-# what print_prep sends as no ink (L* >= 95, "*"), the next two sit in the speckle band (L* 90-95, "!"); 90 and 87
-# are the pale tints the plants may use. The proof prints them all as drawn, to show where the printer stops dithering a speckle
+# what print_prep sends as no ink (L* >= 95, "*"), the next three sit in the speckle band (L* 88-95, "!"); only 87
+# is a pale tint the plants may use (L* 90 is kept to see whether the band's lower edge could move back up). The proof prints them all as drawn, to show where the printer stops dithering a speckle
 # and lays down an even tint.
 TINTS = ("#FEF5E7", "#F5EDDE", "#F0E7D9", "#EAE1D3", "#E1D9CB")
 # ... plus, last in the row, the pot ground shadow: the opaque pre-blended solid every pot stands on
-# (plants/core.py pot(), L* 89.5, just under the speckle band), so it is judged on the real card. Update if pot() changes.
-POT_SHADOW = "#DEE2DF"
+# (plants/core.py pot(), L* 87.4, just under the L* 88-95 speckle band), so it is judged on the real card. Update if
+# pot() changes.
+POT_SHADOW = "#D8DCD9"
 CROP = 30.5       # section 5: card shown from the top cut down to this depth (mm), just below two rows of marks
 
 
@@ -145,7 +146,7 @@ def build():
     # near-white tints, printed as drawn: each as a patch on bare paper (grey corner ticks 0.6 mm outside it) and
     # as a stripe down a leaf-green bar (chlorophytum's cream stripe, the spathe's light half). Tints marked * are
     # near-whites (L* >= 95) that print_prep.py sends as no ink (#FFFFFF) in the plant print copies; ! marks the
-    # speckle band (L* 90-95), which it prints as drawn but warns about.
+    # speckle band (L* 88-95, C* <= 25), which it prints as drawn but warns about.
     # (2.5+ mm of paper between the solid labels and the tick marks above the tints)
     # patch 6 wide, green bar 4.4 wide (the pot shadow: a terracotta bar, as it meets the pot), label, then >= 1.5 mm
     # of paper before the next patch's corner ticks (the labels used to run into them); the legend ends >= 6 mm

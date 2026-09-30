@@ -7,7 +7,7 @@ from fontTools.pens.svgPathPen import SVGPathPen
 from fontTools.pens.boundsPen import BoundsPen
 
 PLANTS = str(paths.PLANTS_PRINT)   # print-prepped plants (see print_prep.py)
-PAPER_BG = None   # None = leave the white stock unprinted (recommended); a tint must be L* <= 90 (face_colour_check)
+PAPER_BG = None   # None = leave the white stock unprinted (recommended); a tint must be L* <= 88 (face_colour_check)
 FONT = str(paths.DM_SERIF)
 paths.ensure_static_fonts()
 
@@ -37,7 +37,9 @@ TIER = {  # (field tint, field accent, sprig ornament, number colour, glyph colo
     # bird-of-paradise orange (the one card with 7 marks gets a strong field *and* an orange number)
     1: ("#D8DDBF", "#CDD4AF", "#A3AF83", C["deep"], "#6B7C52"),
     2: ("#EFD8A0", "#E8CC87", "#C9A45A", C["deep"], "#A0722C"),
-    3: ("#F0C4A4", "#E9B592", "#CF906B", C["deep"], "#A9583A"),
+    3: ("#F0C4A4", "#E9B592", "#CF906B", C["deep"], "#7E4630"),   # marks a dark brown-terracotta: the old #A9583A
+    # was nearly the pot's #B96E4A (dE00 7.8; the bottom-right marks on 10/20/100 read as part of the pot) and tier 7's
+    # #A8452A (dE00 5.3); #7E4630 is dE00 17.5 from the pot and 9.4 from tier 7, same hue (h 47) as before
     5: ("#D8A3B0", "#CD94A3", "#B07282", "#6A3A45", "#86465A"),   # cooler + ~10 L darker than tier 3 so they never merge
     7: ("#E38E62", "#D97D51", "#F4C2A2", "#A8452A", "#A8452A"),
 }
@@ -288,13 +290,43 @@ NAMES = {  # common name, currently accepted botanical name
 }
 
 
+LATIN_OFFSET = 3.35   # botanical baseline, mm below the common name's (was 2.95: the common name's descenders came within
+                      # 0.44-0.55 mm of the botanical caps/ascenders on begonia, jade, string of pearls, Swiss cheese,
+                      # bird of paradise and Chinese money plant; now >= 0.83 mm on every label, name_label_gap())
+LABEL_ASC = 2.25      # common-name ascender height (ink reaches 2.23 mm above its baseline)
+LABEL_MIN_GAP = 0.8   # min paper between the two lines' ink (mm), asserted on every build
+
+
 def name_label(species, cy, x_base, col_common, col_latin, rot=-90):
     """Vertical label centred on cy, first baseline at x_base (card-local).
     rot=-90 reads bottom-to-top (caps toward the left edge); rot=90 reads top-to-bottom (caps toward the right edge)."""
     common, latin = NAMES[species]
     g = (f'<g fill="{col_common}">' + LABEL_FONT.path(common, 3.0, 0, 0, track=0.02) + "</g>"
-         f'<g fill="{col_latin}">' + LATIN_FONT.path(latin, 2.5, 0, 2.95) + "</g>")
+         f'<g fill="{col_latin}">' + LATIN_FONT.path(latin, 2.5, 0, LATIN_OFFSET) + "</g>")
     return f'<g transform="translate({x_base:.2f} {cy:.2f}) rotate({rot})">{g}</g>'
+
+
+def name_label_gap(species, k=40):
+    """Shortest paper gap (mm) between the common name's ink and the botanical name's ink, rendered upright at
+    k px/mm. Exact to the raster: the nearest ink of each line to the other lies on its facing frontier, so each
+    line is reduced to its column-by-column bottom (common) / top (botanical) edge."""
+    import io, cairosvg, numpy as np
+    from PIL import Image
+    common, latin = NAMES[species]
+    w = max(LABEL_FONT.width(common, 3.0, 0.02), LATIN_FONT.width(latin, 2.5)) + 2
+
+    def ink(g):
+        svg = (f'<svg xmlns="http://www.w3.org/2000/svg" width="{w * k:.0f}" height="{8 * k}" '
+               f'viewBox="{-w / 2} -3 {w} 8">{g}</svg>')
+        return np.array(Image.open(io.BytesIO(cairosvg.svg2png(bytestring=svg.encode()))).convert("RGBA"))[..., 3] > 127
+    a = ink(LABEL_FONT.path(common, 3.0, 0, 0, track=0.02))
+    b = ink(LATIN_FONT.path(latin, 2.5, 0, LATIN_OFFSET))
+    ca, cb = np.nonzero(a.any(0))[0], np.nonzero(b.any(0))[0]
+    bot = a.shape[0] - 1 - np.argmax(a[::-1, ca], axis=0)          # lowest ink row of each common-name column
+    top = np.argmax(b[:, cb], axis=0)                              # highest ink row of each botanical column
+    dy = np.maximum(top[None, :] - bot[:, None] - 1, 0)
+    dx = np.maximum(np.abs(cb[None, :] - ca[:, None]) - 1, 0)
+    return float(np.sqrt(dx ** 2 + dy ** 2).min()) / k
 
 
 def numeral_height(size):
@@ -389,6 +421,8 @@ PLANT_S = 0.054           # mm per plant-canvas unit for a reference plant (= 40
 PLANT_REF = (657, 113.5e3)  # reference ink height above the pot base (units) and ink area (units^2)
 PLANT_FIT = (0.6, 0.4, 0.8)  # weights of height-fit and area-fit, then damping exponent
 PLANT_CLAMP = (0.92, 1.2)  # limits on the per-plant factor
+PLANT_CLAMP_MAX = {"senecio_rowleyanus": 1.53}  # per-species upper limit overriding PLANT_CLAMP[1]: a plant drawn
+                          # with a smaller pot in its master may be scaled up further (its pot still prints at the set's rim width)
 POT_MAX = 13.5            # widest pot rim on the card (mm): squat plants in wide bowls don't balloon
 PLANT_X, PLANT_Y = CW / 2 - 1.5, 68.6   # card position of the pot's bottom centre
 PLANT_SHIFTS = (0.0, -1.0, -2.0, -3.0)  # allowed leftward pot shifts (mm) when a plant is blocked
@@ -543,14 +577,14 @@ def plant_design_scale(name):
     area = m.sum() * MASK_UNITS ** 2
     wh, wa, damp = PLANT_FIT
     rel = ((PLANT_REF[0] / h) ** wh * (PLANT_REF[1] / area) ** (wa / 2)) ** damp
-    s = PLANT_S * min(PLANT_CLAMP[1], max(PLANT_CLAMP[0], rel))
+    s = PLANT_S * min(PLANT_CLAMP_MAX.get(name, PLANT_CLAMP[1]), max(PLANT_CLAMP[0], rel))
     return min(s, POT_MAX / pot_w) if pot_w else s
 
 
 def label_box(species, cy, x_base):
     common, latin = NAMES[species]
     half = max(LABEL_FONT.width(common, 3.0, 0.02), LATIN_FONT.width(latin, 2.5)) / 2
-    return (x_base - 3.6, cy - half, x_base + 2.2, cy + half)
+    return (x_base - LATIN_OFFSET - 0.65, cy - half, x_base + LABEL_ASC, cy + half)   # latin descenders ~0.63 mm
 
 
 def plant_y(n):
@@ -653,7 +687,8 @@ def plant_scales():
     return {sp: species_fit(sp)[0] for sp in SPECIES}
 
 
-LABEL_POS = (CH / 2 - 4.0, CW - B - EDGE - 2.15)   # (centre y, first baseline x) of the vertical name label
+LABEL_POS = (CH / 2 - 4.0, CW - B - EDGE - LABEL_ASC)   # (centre y, first baseline x) of the vertical name label:
+                                                        # the common name's ascenders end on the EDGE line
 
 
 def card(n, species):
@@ -683,12 +718,12 @@ def card(n, species):
 
 def face_colour_check():
     """White stock: no card-face colour (tier fields / accents / sprigs / numbers / marks, name labels, PAPER_BG)
-    may be a near-white or sit in the speckle band (L* 90-95, low chroma: prints as a sparse dither, not an even
+    may be a near-white or sit in the speckle band (L* 88-95, C* <= 25: prints as a sparse dither, not an even
     tint). Returns the lightest face colour and its L*."""
     from print_prep import lab, paper_white, speckle_band
     cols = {c for t in TIER.values() for c in t} | {"#405D43", LATIN_COL} | ({PAPER_BG} if PAPER_BG else set())
     bad = sorted(c for c in cols if paper_white(c) or speckle_band(c))
-    assert not bad, f"card-face colours too light for white stock (L* > 90, near-neutral): {bad}"
+    assert not bad, f"card-face colours too light for white stock (L* > 88, C* <= 25): {bad}"
     top = max(cols, key=lambda c: lab(c)[0])
     return top, lab(top)[0]
 
@@ -731,8 +766,11 @@ if __name__ == "__main__":
     gaps = sorted((min(digit_gaps(n)), n) for n in range(10, 105))
     assert gaps[0][0] >= DIGIT_GAP - 0.01, gaps[:5]
     c0, L0 = face_colour_check()
-    print(f"card-face colours ok on white stock (lightest {c0}, L* {L0:.1f}; none in the L* 90-95 speckle band)")
+    print(f"card-face colours ok on white stock (lightest {c0}, L* {L0:.1f}; none in the L* 88-95 speckle band)")
     print("digit gaps (mm), tightest:", ", ".join(f"{n} {g:.2f}" for g, n in gaps[:5]))
+    lg = sorted((name_label_gap(sp), sp) for sp in SPECIES)
+    assert lg[0][0] >= LABEL_MIN_GAP, f"name label lines too close: {lg[:3]}"
+    print("name label line gaps (mm), tightest:", ", ".join(f"{sp} {g:.2f}" for g, sp in lg[:4]))
     outdir = sys.argv[1] if len(sys.argv) > 1 else str(paths.BUILD / "deck_sheets")
     os.makedirs(outdir, exist_ok=True)
     A = assign()
