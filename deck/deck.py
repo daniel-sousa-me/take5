@@ -746,14 +746,18 @@ def slot(i):
     return MX + (i % COLS) * CH, MY + (i // COLS) * CW
 
 
+BLOCK_RIGHT, BLOCK_BOT = MX + COLS * CH, MY + ROWS * CW   # far edges of the card block (incl. bleed); the block is
+                                                         # centred in the recommended area, not on the page
+
+
 def crop_marks(gap=2.0, length=4.0):
     xs = sorted({MX + c * CH + d for c in range(COLS) for d in (B, CH - B)})
     ys = sorted({MY + r * CW + d for r in range(ROWS) for d in (B, CW - B)})
     L = []
     for x in xs:
-        L.append(f"M{x:.2f} {MY - gap - length:.2f}v{length}M{x:.2f} {PH - MY + gap:.2f}v{length}")
+        L.append(f"M{x:.2f} {MY - gap - length:.2f}v{length}M{x:.2f} {BLOCK_BOT + gap:.2f}v{length}")
     for y in ys:
-        L.append(f"M{MX - gap - length:.2f} {y:.2f}h{length}M{PW - MX + gap:.2f} {y:.2f}h{length}")
+        L.append(f"M{MX - gap - length:.2f} {y:.2f}h{length}M{BLOCK_RIGHT + gap:.2f} {y:.2f}h{length}")
     return f'<path d="{"".join(L)}" stroke="#3A3A3A" stroke-width="0.2" fill="none"/>'
 
 
@@ -767,7 +771,7 @@ def page(cards, idx, total):
         g.append(f'<g transform="translate({x + CH:.3f} {y:.3f}) rotate(90)"><g clip-path="url(#cc)">{card(n, sp)}</g></g>')
     g.append(crop_marks(gap=1.5, length=3.0))
     g.append(sheet_header(f'Take 5 · Botanical · sheet {idx}/{total} · cards {cards[0][0]}–{cards[-1][0]} · '
-                          '63.5 × 88 mm · print at 100%, borderless off'))
+                          '63.5 × 88 mm · print at 100%'))
     g.append("</svg>")
     return "".join(g)
 
@@ -798,13 +802,9 @@ if __name__ == "__main__":
     A = assign()
     allc = [(n, A[n]) for n in range(1, 105)]
     pages = [allc[i:i + 6] for i in range(0, len(allc), 6)]
-    w = PdfWriter()
-    for k, pc in enumerate(pages, 1):
-        svg = page(pc, k, len(pages))
+    for k, pc in enumerate(pages, 1):       # per-sheet fronts; backs_sheet.py interleaves them with the backs
+        svg = page(pc, k, len(pages))           # into build/take5_botanical_deck_63x88_A4.pdf
         open(f"{outdir}/sheet_{k:02d}.svg", "w").write(svg)
         cairosvg.svg2pdf(bytestring=svg.encode(), write_to=f"{outdir}/sheet_{k:02d}.pdf")
-        w.append(PdfReader(f"{outdir}/sheet_{k:02d}.pdf"))
-    w.add_metadata({"/Title": "Take 5 Botanical — 104-card print-and-play deck (63.5x88 mm poker)"})
-    w.write(str(paths.BUILD / "take5_botanical_deck_63x88_A4.pdf"))
     from collections import Counter
     print(Counter(A.values()))

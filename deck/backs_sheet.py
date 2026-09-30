@@ -16,7 +16,7 @@ def page():
         x = deck.PW - x - deck.CH
         g.append(f'<g transform="translate({x + deck.CH:.3f} {y:.3f}) rotate(90)"><g clip-path="url(#bc)"><use href="#backart"/></g></g>')
     g.append(deck.sheet_header('Take 5 · Botanical · card backs · print on the reverse of each deck sheet · '
-                               'flip on the long edge · 100%, borderless off'))
+                               'flip on the long edge · 100%'))
     g.append("</svg>")
     return "".join(g)
 
@@ -25,3 +25,13 @@ if __name__ == "__main__":
     paths.BUILD.mkdir(exist_ok=True)
     open(paths.BUILD / "backs_sheet.svg", "w").write(svg)
     deck.write_pdf(svg, paths.BUILD / "take5_card_backs_63x88_A4.pdf", "Take 5 Botanical — card backs (print on the reverse of every deck sheet)")
+    # the deck PDF: every front sheet followed by the backs sheet, ready for double-sided printing (long-edge flip)
+    import io, glob, cairosvg
+    from pypdf import PdfWriter, PdfReader
+    back_pdf = cairosvg.svg2pdf(bytestring=svg.encode())
+    w = PdfWriter()
+    for f in sorted(glob.glob(str(paths.BUILD / "deck_sheets" / "sheet_*.pdf"))):
+        w.append(PdfReader(f))
+        w.append(PdfReader(io.BytesIO(back_pdf)))
+    w.add_metadata({"/Title": "Take 5 Botanical — 104 cards, 18 sheets, fronts with backs (duplex, long-edge flip)"})
+    w.write(str(paths.BUILD / "take5_botanical_deck_63x88_A4.pdf"))

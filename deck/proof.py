@@ -83,7 +83,7 @@ def build():
          '<rect width="210" height="297" fill="#fff"/>']
     y = deck.REC_TOP + 4.6
     g.append(t(X0, y, "Take 5 · Botanical — print proof (GX5050, 250 gsm uncoated)", 5.0, HEAD))
-    intro = ("Rear tray, one sheet at a time · 100% / Actual size · borderless OFF · Prevent paper abrasion ON. Print once per",
+    intro = ("Rear tray, one sheet at a time · 100% / Actual size · Prevent paper abrasion ON. Print once per",
              "paper-type setting, tick it below, dry 10 min, judge. Then print deck sheet 1 on the same setting: cut one card, try it in a 66 × 91 mm sleeve.")
     for i, s in enumerate(intro):
         g.append(t(X0, y + 5.5 + i * 3.5, s, 2.4))
@@ -186,10 +186,16 @@ def build():
     g.append(t(X0 + 15 - tw("30 × 30 mm", 2.4) / 2, y + 24.3, "30 × 30 mm", 2.4))
     x5 = 70
     g.append(t(x5, y + 13, "Setting used (tick one):", 2.8, BOLD))
-    for i, o in enumerate(["Plain Paper · High", "Plain Paper · Standard", "Matte Photo Paper", "Other: ______________"]):
-        yy = y + 19 + i * 5.2
-        g.append(f'<rect x="{x5}" y="{yy - 2.8}" width="3.2" height="3.2" fill="none" stroke="#333" stroke-width="0.25"/>')
-        g.append(t(x5 + 5, yy, o, 2.4))
+    for i, o in enumerate(["Plain Paper · High", "Plain Paper · Standard", "Matte Photo Paper", "Other: _________"]):
+        xx, yy = x5 + (i // 2) * 32, y + 19 + (i % 2) * 5.2          # 2 x 2, leaving room for the label test below
+        g.append(f'<rect x="{xx}" y="{yy - 2.8}" width="3.2" height="3.2" fill="none" stroke="#333" stroke-width="0.25"/>')
+        g.append(t(xx + 5, yy, o, 2.4))
+        fits(o, xx + 5, xx + 31 if i < 2 else X3 - 2, 2.4)
+    # the card's name label at 100 % (common name COMMON_SIZE, botanical LATIN_SIZE upright), longest botanical name
+    head_l = f"Name label, 100 % — botanical line ≈ {deck.LATIN_SIZE / 0.3528:.0f} pt"
+    g.append(t(x5, y + 29.5, head_l, 2.4, BOLD))
+    fits(head_l, x5, X3 - 2, 2.4, BOLD)
+    g.append(deck.name_label("chlorophytum_comosum", y + 34.2, (x5 + X3 - 2) / 2, "#405D43", deck.LATIN_COL, rot=0))
     # 3-digit numbers at 100 %: the top-left corner of real cards 100 and 104 (deck.info_block, as on the card),
     # the tightest digit pairs in the deck (0|0 and 0|4, opened to deck.DIGIT_GAP)
     g.append(t(X3, y, "3-digit numbers, 100 % — no digit may touch", 2.5, BOLD))

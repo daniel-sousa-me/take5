@@ -66,8 +66,9 @@ A clean rebuild reproduces the files in `dist/` exactly.
 ## Printing
 
 See `docs/DESIGN_AND_PRINT_NOTES.md`. Short version: print `take5_print_proof_A4.pdf` first on the real
-white card; rear tray, 100 % / Actual size, borderless off, "Prevent paper abrasion" on; then the 18 deck sheets;
-then the back sheet 18× on the reverse, flipping each sheet on its long edge.
+white card; rear tray, 100 % / Actual size, "Prevent paper abrasion" on. Then `take5_botanical_deck_63x88_A4.pdf`:
+36 pages, each front sheet followed by its back, for double-sided printing flipped on the long edge (by hand: print
+the odd pages, turn the stack over left-to-right, print the even pages).
 
 ## Rights
 
