@@ -111,6 +111,20 @@ def ribbon(pts, w0, w1, per=6):
     return cr_path(ring, closed=True, sharp={0, len(ring) - 1})
 
 
+def arc_pts(p0, p1, bow=0.0, sway=0.0, n=5):
+    """Points on a natural curve from p0 to p1 for stems/petioles: bow bulges the middle
+    sideways (fraction of the chord, + = to the right of p0->p1), sway adds an S-curve."""
+    dx, dy = p1[0] - p0[0], p1[1] - p0[1]
+    L = math.hypot(dx, dy) or 1
+    nx, ny = -dy / L, dx / L
+    out = []
+    for i in range(n):
+        t = i / (n - 1)
+        o = L * (bow * 4 * t * (1 - t) + sway * 2.6 * t * (1 - t) * (1 - 2 * t))
+        out.append((p0[0] + dx * t - nx * o, p0[1] + dy * t - ny * o))
+    return out
+
+
 def stem(pts, w0, w1, color, extra=""):
     return f'<path d="{ribbon(pts, w0, w1)}" fill="{color}"{extra}/>'
 
@@ -128,8 +142,10 @@ class Leaf:
     (positive numbers; the left side is mirrored automatically)."""
 
     def __init__(self, L, right, left=None, bend=0.0, tip_sharp=True, base_sharp=True,
-                 cordate=False, tip_t=1.0):
-        self.L, self.bend = L, bend
+                 cordate=False, tip_t=1.0, sway=0.0):
+        # bend: C-curve of the midrib (tip offset = bend*L); sway: S-curve on top of it
+        # (base swings one way, tip the other; |offset| peaks near 0.1*sway*L)
+        self.L, self.bend, self.sway = L, bend, sway
         self.right = right
         self.left = left if left is not None else right
         self.tip_sharp, self.base_sharp, self.cordate = tip_sharp, base_sharp, cordate
@@ -137,11 +153,16 @@ class Leaf:
 
     def axis(self, t):
         L = self.L
-        return (self.bend * L * t * t, -L * t)
+        x = self.bend * L * t * t
+        if self.sway:
+            x += self.sway * L * t * (1 - t) * (1 - 2 * t)
+        return (x, -L * t)
 
     def normal(self, t):
         L = self.L
         tx, ty = 2 * self.bend * L * t, -L
+        if self.sway:
+            tx += self.sway * L * (1 - 6 * t + 6 * t * t)
         m = math.hypot(tx, ty)
         return (-ty / m, tx / m)  # points to the right when unbent
 
