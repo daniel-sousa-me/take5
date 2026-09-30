@@ -20,7 +20,7 @@ PW, PH = 210.0, 297.0
 # whole printable area anyway (the 3 mm bleed absorbs feed drift) and only the proof page keeps to the recommended area.
 PRINT_MARGIN = 5.0
 REC_TOP, REC_BOT = 45.8, PH - 36.8
-CROP_GAP, CROP_LEN = 1.0, 2.0                          # crop marks: gap from the bleed edge, length (mm)
+CROP_GAP, CROP_LEN = 0.0, 2.0                          # crop marks: start on the bleed edge, 2 mm long
 MX = (PW - COLS * CH) / 2                              # 11.0: block 188 mm wide, centred
 MY = (PH - ROWS * CW) / 2                              # 9.5: block 278 mm tall, centred; its crop marks end 1.5 mm
                                                        # inside the printable area at top and bottom
@@ -258,10 +258,10 @@ def text_font():
 
 
 def sheet_header(s, size=2.0, col="#777"):
-    """One line of sheet header, in Fraunces as paths, running up the left margin (outside the crop marks, inside
-    the printable area) alongside the bottom row of cards, between that row's crop marks."""
+    """One line of sheet header, in Fraunces as paths, running up the left margin in the crop marks' own band
+    (between the bottom row's two marks), so it takes no extra paper."""
     f = text_font()
-    x = MX - CROP_GAP - CROP_LEN - 0.9                        # baseline; caps reach ~1.4 mm further left
+    x = MX - CROP_GAP - 0.35                                  # baseline just off the bleed; caps reach ~1.4 mm left
     y0, y1 = MY + (ROWS - 1) * CW + B + 2, MY + ROWS * CW - B - 2   # between the bottom row's two crop marks
     assert f.width(s, size) <= y1 - y0, f"sheet header too long: {s!r}"
     assert x - size * 0.75 >= PRINT_MARGIN, x
