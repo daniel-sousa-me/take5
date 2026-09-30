@@ -7,22 +7,24 @@ for history; where it disagrees with this file, this file wins (card size and pr
 
 - Canon MAXIFY GX5050: four pigment inks, up to 600 × 1200 dpi. Strong on plain/uncoated paper; can show
   slight banding in smooth tints; no borderless mode.
-- Canon's GX5000-series A4 figures: printable area 200 × 287 mm (5 mm margin all round). **Recommended**
-  area leaves 45.8 mm at the top and 36.8 mm at the bottom, where "feeding precision or print quality may
-  be affected". Everything in these files (cards, crop marks, sheet labels) sits inside the recommended area.
-- Sheet header lines (deck and backs sheets, `deck.sheet_header()`) are set in Fraunces Regular (opsz 9, the proof's
-  body font, `deck.text_font()`) drawn as paths, 2.0 mm, grey, 5.2 mm above the card block; no installed font is
-  needed and the header asserts it stays inside the recommended area and ends within the block width.
+- Canon's GX5000-series A4 figures: printable area 200 × 287 mm (5 mm margin all round). Canon's **recommended**
+  area also leaves out 45.8 mm at the top and 36.8 mm at the bottom, where "feeding precision or print quality may
+  be affected". The deck sheets use the whole printable area anyway: feed drift only moves the art within the
+  3 mm bleed. Check front/back alignment of the top and bottom rows on the first duplex sheet. The proof page
+  still keeps to the recommended area.
+- Sheet header lines (deck and backs sheets, `deck.sheet_header()`): Fraunces Regular (opsz 9, `deck.text_font()`)
+  drawn as paths, 2.0 mm, grey, running up the left margin beside the bottom row, between its crop marks.
 - Stock: 250 gsm uncoated **white** card, loaded one sheet at a time in the rear tray. Judge every render on white.
 
 ## Card size and sheet layout
 
-- Poker size, 63.5 × 88 mm, 1.5 mm bleed on every side → 66.5 × 91 mm per card.
-- 6 per A4: 2 columns × 3 rows, cards turned 90°. Block 182 × 199.5 mm at the top of the recommended area
-  (x 14–196 mm, y 50.3–249.8 mm; the top crop marks start on the 45.8 mm line), so the unused paper is a single
-  strip at the bottom: the sheet header just under the bottom crop marks, then ~40 mm free. 18 sheets for 104 cards.
-- Poker is the largest standard size that fits 6-up inside the recommended area. Sleeves: 66 × 91 mm.
-- Crop marks (3 mm long, 1.5 mm off the art) sit outside the cards; neighbouring cards keep their own bleed.
+- Poker size, 63.5 × 88 mm, 3 mm bleed on every side (`B`) → 69.5 × 94 mm per card.
+- 8 per A4: 2 columns × 4 rows, cards turned 90°. Block 188 × 278 mm, centred on the page (x 11–199 mm,
+  y 9.5–287.5 mm), crop marks just inside the printable area. 104 cards = exactly 13 sheets.
+- Crop marks (2 mm long, 1 mm off the art) sit outside the cards; neighbouring cards keep their own bleed.
+- The corner colour fields keep their shape relative to the trim; their straight outer edges stretch to cover
+  the bleed (`deck.field_group`). The back's art reaches the bleed edge where it crosses the cut.
+- Sleeves: 66 × 91 mm.
 
 ## Ink on uncoated card
 
@@ -228,7 +230,7 @@ for history; where it disagrees with this file, this file wins (card size and pr
 3. Before committing card, test the duplex path on plain paper: print pages 1–2 of the deck PDF double-sided
    (or by hand: page 1, turn the sheet over left-to-right, same edge leading, page 2) and check the alignment
    against a light. `take5_card_backs_63x88_A4.pdf` is the back sheet on its own for this test and for reprints.
-4. `take5_botanical_deck_63x88_A4.pdf`: 36 pages, each front sheet followed by its back, laid out for a
+4. `take5_botanical_deck_63x88_A4.pdf`: 26 pages, each front sheet followed by its back, laid out for a
    **long-edge** flip. By hand: print the odd pages, let them dry fully, turn the stack over left-to-right with
    the same edge leading into the rear tray, print the even pages.
 5. Cut on the crop marks.

@@ -59,8 +59,7 @@ def card_top(n):
     p = deck.penalty(n)
     tint, acc, spr, ncol, gcol = deck.TIER[p]
     block, _, _ = deck.info_block(n, p, ncol, gcol)
-    field = (f'<g transform="translate({deck.CW} 0) scale(-1 1) scale({deck.FIELD_SCALE})">'
-             + deck.field_blob(tint, acc) + deck.sprig(spr) + "</g>")
+    field = deck.field_group(tint, acc, spr)
     return field + block
 
 

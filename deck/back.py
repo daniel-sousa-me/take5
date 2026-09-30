@@ -1,6 +1,6 @@
 """Card back — asymmetric botanical spray (after the client's mock-up).
 
-Units: 0.1 mm. Trim = 0..635 x 0..880 (63.5 x 88 mm poker). Bleed 15 units (1.5 mm).
+Units: 0.1 mm. Trim = 0..635 x 0..880 (63.5 x 88 mm poker). Bleed = deck.B (3 mm = 30 units).
 Design rules for hand cutting + manual duplex:
   * no frame, nothing that runs parallel to a cut edge
   * art only crosses the edges at the top-right and bottom-left corners, as organic shapes,
@@ -31,7 +31,7 @@ ORANGE, ORANGE_S, ORANGE_HI = "#C8744E", "#AF5F3E", "#D68C68"   # a notch softer
 RED, RED_S, RED_HI = "#A9463A", "#91392F", "#BE5B4B"
 STEM_G, STEM_R = "#4B6843", "#6E3538"
 
-BLEED = 15
+BLEED = round(deck.B * 10)   # bleed in body units (0.1 mm), from the deck
 W, H = 635, 880
 
 

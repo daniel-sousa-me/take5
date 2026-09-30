@@ -1,4 +1,4 @@
-"""A4 sheet of 6 card backs, positioned to match the front sheets for a LONG-EDGE flip
+"""A4 sheet of 8 card backs, positioned to match the front sheets for a LONG-EDGE flip
 (sheet turned over left-to-right, same edge leading into the rear tray)."""
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -15,8 +15,7 @@ def page():
         # mirror the column for a long-edge flip (the layout is symmetric left/right, so this is exact)
         x = deck.PW - x - deck.CH
         g.append(f'<g transform="translate({x + deck.CH:.3f} {y:.3f}) rotate(90)"><g clip-path="url(#bc)"><use href="#backart"/></g></g>')
-    g.append(deck.sheet_header('Take 5 · Botanical · card backs · print on the reverse of each deck sheet · '
-                               'flip on the long edge · 100%'))
+    g.append(deck.sheet_header('Take 5 · card backs · long-edge flip · 100%'))
     g.append("</svg>")
     return "".join(g)
 
@@ -33,5 +32,5 @@ if __name__ == "__main__":
     for f in sorted(glob.glob(str(paths.BUILD / "deck_sheets" / "sheet_*.pdf"))):
         w.append(PdfReader(f))
         w.append(PdfReader(io.BytesIO(back_pdf)))
-    w.add_metadata({"/Title": "Take 5 Botanical — 104 cards, 18 sheets, fronts with backs (duplex, long-edge flip)"})
+    w.add_metadata({"/Title": "Take 5 Botanical — 104 cards, 13 sheets, fronts with backs (duplex, long-edge flip)"})
     w.write(str(paths.BUILD / "take5_botanical_deck_63x88_A4.pdf"))

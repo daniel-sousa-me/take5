@@ -28,7 +28,7 @@ A clean rebuild reproduces the files in `dist/` exactly.
 | `deck/deck.py` | Card face + A4 sheet layout, rules (penalties), plant assignment, plant names |
 | `deck/print_prep.py` | Print pass for pigment ink on white uncoated card: widens thin opaque lines a little, drops thin translucent ones, reports under-size dots, sends near-whites (L* ≥ 95) as no ink and warns about pale tints in the L* 90–95 speckle band (`-v` for details) |
 | `deck/back.py` | Card back artwork |
-| `deck/backs_sheet.py` | A4 sheet of 6 backs, positioned for a long-edge flip |
+| `deck/backs_sheet.py` | A4 sheet of 8 backs, positioned for a long-edge flip |
 | `deck/proof.py` | One-page printer / paper proof |
 | `deck/paths.py` | All paths (package-relative) and font instancing |
 | `deck/preview.py`, `deck/coverage.py` | Dev tools: PNG preview of chosen cards; rough ink-coverage estimate |
@@ -67,7 +67,7 @@ A clean rebuild reproduces the files in `dist/` exactly.
 
 See `docs/DESIGN_AND_PRINT_NOTES.md`. Short version: print `take5_print_proof_A4.pdf` first on the real
 white card; rear tray, 100 % / Actual size, "Prevent paper abrasion" on. Then `take5_botanical_deck_63x88_A4.pdf`:
-36 pages, each front sheet followed by its back, for double-sided printing flipped on the long edge (by hand: print
+26 pages (13 sheets of 8 cards), each front sheet followed by its back, for double-sided printing flipped on the long edge (by hand: print
 the odd pages, turn the stack over left-to-right, print the even pages).
 
 ## Rights

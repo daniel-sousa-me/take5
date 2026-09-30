@@ -1,4 +1,4 @@
-"""Take 5 botanical — card face + A4 print sheets (63.5x88 mm poker size, 1.5 mm bleed, 6 per A4: 2 cols x 3 rows, cards rotated 90 deg, inside Canon recommended print area)."""
+"""Take 5 botanical — card face + A4 print sheets (63.5x88 mm poker size, 3 mm bleed, 8 per A4: 2 cols x 4 rows, cards rotated 90 deg, inside the printable area)."""
 import re, os, sys, math
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import paths
@@ -11,18 +11,20 @@ PAPER_BG = None   # None = leave the white stock unprinted (recommended); a tint
 FONT = str(paths.DM_SERIF)
 paths.ensure_static_fonts()
 
-TW, TH, B = 63.5, 88.0, 1.5          # trim size (poker), bleed
-CW, CH = TW + 2 * B, TH + 2 * B       # printed card envelope 66.5 x 91 (card-local, portrait)
-COLS, ROWS = 2, 3                     # cards turned 90 deg on a portrait A4: slot = CH wide x CW tall
+TW, TH, B = 63.5, 88.0, 3.0          # trim size (poker), bleed: 3 mm, so feed / duplex drift only crops the bleed
+CW, CH = TW + 2 * B, TH + 2 * B       # printed card envelope 69.5 x 94 (card-local, portrait)
+COLS, ROWS = 2, 4                     # cards turned 90 deg on a portrait A4: slot = CH wide x CW tall; 104 = 13 x 8
 PW, PH = 210.0, 297.0
-# Canon GX5000-series A4: printable area 200 x 287 (5 mm all round); recommended area excludes
-# 45.8 mm at the top and 36.8 mm at the bottom (feeding precision / quality "may be affected").
+# Canon GX5000-series A4: printable area 200 x 287 (5 mm all round). Canon's recommended area also excludes
+# 45.8 mm at the top and 36.8 mm at the bottom (feed precision / quality "may be affected"); the deck sheets use the
+# whole printable area anyway (the 3 mm bleed absorbs feed drift) and only the proof page keeps to the recommended area.
+PRINT_MARGIN = 5.0
 REC_TOP, REC_BOT = 45.8, PH - 36.8
-MX = (PW - COLS * CH) / 2                              # 14.0
-CROP_GAP, CROP_LEN = 1.5, 3.0                          # crop marks: gap from the bleed edge, length (mm)
-MY = REC_TOP + CROP_GAP + CROP_LEN                     # 50.3: block at the top of the recommended area (its top crop
-                                                       # marks start on REC_TOP), 50.3..249.8, so the unused paper is
-                                                       # one strip at the bottom (header + ~40 mm free below it)
+CROP_GAP, CROP_LEN = 1.0, 2.0                          # crop marks: gap from the bleed edge, length (mm)
+MX = (PW - COLS * CH) / 2                              # 11.0: block 188 mm wide, centred
+MY = (PH - ROWS * CW) / 2                              # 9.5: block 278 mm tall, centred; its crop marks end 1.5 mm
+                                                       # inside the printable area at top and bottom
+assert MY - CROP_GAP - CROP_LEN >= PRINT_MARGIN and MX - CROP_GAP - CROP_LEN >= PRINT_MARGIN
 
 C = dict(cream="#F5EDDD", deep="#314B37", forest="#405D43", burgundy="#74464D",
          terra_dark="#92543D", terra="#B96E4A", ink="#2B3F2F")
@@ -256,13 +258,15 @@ def text_font():
 
 
 def sheet_header(s, size=2.0, col="#777"):
-    """One line of sheet header, in Fraunces as paths, left-aligned just below the card block's bottom crop marks
-    (inside the recommended area) and ending inside the block's right edge."""
+    """One line of sheet header, in Fraunces as paths, running up the left margin (outside the crop marks, inside
+    the printable area) alongside the bottom row of cards, between that row's crop marks."""
     f = text_font()
-    y = MY + ROWS * CW + CROP_GAP + CROP_LEN + 3.5
-    assert MX + f.width(s, size) <= PW - MX, f"sheet header overruns: {s!r}"
-    assert y + size * 0.25 <= REC_BOT, y
-    return f'<g fill="{col}">' + f.path(s, size, MX, y, anchor="start") + "</g>"
+    x = MX - CROP_GAP - CROP_LEN - 0.9                        # baseline; caps reach ~1.4 mm further left
+    y0, y1 = MY + (ROWS - 1) * CW + B + 2, MY + ROWS * CW - B - 2   # between the bottom row's two crop marks
+    assert f.width(s, size) <= y1 - y0, f"sheet header too long: {s!r}"
+    assert x - size * 0.75 >= PRINT_MARGIN, x
+    return (f'<g fill="{col}" transform="translate({x:.2f} {y1:.2f}) rotate(-90)">'
+            + f.path(s, size, 0, 0, anchor="start") + "</g>")
 LATIN_COL = "#625444"    # botanical name: warm grey-brown, a step darker than the old #7A6A58 (too faint on uncoated card)
 LATIN_FONT = text_font()   # upright Fraunces at the 9 pt optical size: far more legible at 2.5 mm than the italic;
                            # the smaller size and softer colour already set it apart from the common name
@@ -390,10 +394,23 @@ def uniq(body, tag):
     return re.sub(r'(id="|url\(#|href="#)([^"\)]+)', lambda m: f"{m.group(1)}{tag}{m.group(2)}", body)
 
 # ------------------------------------------------------------------ card face
-def field_blob(col, acc):
-    """Organic colour field crossing the top-left corner (card-local coords incl. bleed)."""
-    return (f'<path d="M-1 -1 H36 C33 6 27 9 20 11.5 C12 14.5 7 19 5 27 C4 31 2 34 -1 35 Z" fill="{col}"/>'
-            f'<path d="M-1 22 C3 21 6 17.5 7.5 13 C9.5 7.5 14 4 21 2.5 C24 1.8 27 0.8 29 -1 H-1Z" fill="{acc}"/>')
+FIELD_REF_B = 1.5   # the field was drawn for a 1.5 mm bleed; with more bleed it moves in with the trim (so its shape
+                    # inside the card is unchanged) and its straight outer edges are stretched out to cover the bleed
+
+
+def field_blob(col, acc, e=1.0):
+    """Organic colour field crossing the top-left corner (card-local coords incl. bleed); e = how far (field units)
+    its outer edges reach past its own origin."""
+    return (f'<path d="M{-e} {-e} H36 C33 6 27 9 20 11.5 C12 14.5 7 19 5 27 C4 31 2 34 {-e} 35 Z" fill="{col}"/>'
+            f'<path d="M{-e} 22 C3 21 6 17.5 7.5 13 C9.5 7.5 14 4 21 2.5 C24 1.8 27 0.8 29 {-e} H{-e}Z" fill="{acc}"/>')
+
+
+def field_group(tint, acc, sprig_col):
+    """The top-right colour field + sprig, card-local (its 180-degree twin is drawn by rotating the half)."""
+    d = B - FIELD_REF_B
+    e = 1.0 + d / FIELD_SCALE
+    return (f'<g transform="translate({CW} 0) scale(-1 1) translate({d} {d}) scale({FIELD_SCALE})">'
+            + field_blob(tint, acc, e) + sprig(sprig_col) + "</g>")
 
 
 def sprig(col):
@@ -646,7 +663,7 @@ def obstacles(n, species, showpiece=False):
     c = PLANT_CLEAR
     x0, y0, x1, y1 = label_box(species, *LABEL_POS)
     obs.append((x0 - c, y0 - c, x1 + c, y1 + c))
-    fw, fh = 36 * FIELD_SCALE, 35 * FIELD_SCALE                                 # corner colour fields
+    fw, fh = 36 * FIELD_SCALE + B - FIELD_REF_B, 35 * FIELD_SCALE + B - FIELD_REF_B                                # corner colour fields
     obs += [(CW - fw, 0, CW, fh), (0, CH - fh, fw, CH)]
     e, big = B + EDGE, 1e3
     obs += [(-big, -big, e, big), (CW - e, -big, big, big), (-big, -big, big, e), (-big, CH - e, big, big)]
@@ -712,8 +729,7 @@ def card(n, species):
     block, block_bottom, _ = info_block(n, p, ncol, gcol)
     twin = block if TWIN_NUM_SCALE == 1.0 else info_block(n, p, ncol, gcol, TWIN_NUM_SCALE)[0]
     # colour field lives in the corner opposite the number (top-right; its 180-degree twin is bottom-left)
-    field = (f'<g transform="translate({CW} 0) scale(-1 1) scale({FIELD_SCALE})">'
-             + field_blob(tint, acc) + sprig(sprig_col) + "</g>")
+    field = field_group(tint, acc, sprig_col)
     half, half_twin = field + block, field + twin
     # pot bottom-centre pinned to (PLANT_X, PLANT_Y): just left of centre so the bottom-right block sits
     # beside the narrow pot rather than under the leaves
@@ -774,8 +790,7 @@ def page(cards, idx, total):
         # rotate 90 deg: card-local (u, v) -> page (x + CH - v, y + u)
         g.append(f'<g transform="translate({x + CH:.3f} {y:.3f}) rotate(90)"><g clip-path="url(#cc)">{card(n, sp)}</g></g>')
     g.append(crop_marks(gap=CROP_GAP, length=CROP_LEN))
-    g.append(sheet_header(f'Take 5 · Botanical · sheet {idx}/{total} · cards {cards[0][0]}–{cards[-1][0]} · '
-                          '63.5 × 88 mm · print at 100%'))
+    g.append(sheet_header(f'Take 5 · sheet {idx}/{total} · cards {cards[0][0]}–{cards[-1][0]} · print at 100%'))
     g.append("</svg>")
     return "".join(g)
 
@@ -803,9 +818,13 @@ if __name__ == "__main__":
     print("name label line gaps (mm), tightest:", ", ".join(f"{sp} {g:.2f}" for g, sp in lg[:4]))
     outdir = sys.argv[1] if len(sys.argv) > 1 else str(paths.BUILD / "deck_sheets")
     os.makedirs(outdir, exist_ok=True)
+    for f in os.listdir(outdir):                   # stale sheets from an earlier layout would end up in the deck PDF
+        if f.startswith("sheet_"):
+            os.remove(os.path.join(outdir, f))
     A = assign()
     allc = [(n, A[n]) for n in range(1, 105)]
-    pages = [allc[i:i + 6] for i in range(0, len(allc), 6)]
+    per = COLS * ROWS
+    pages = [allc[i:i + per] for i in range(0, len(allc), per)]
     for k, pc in enumerate(pages, 1):       # per-sheet fronts; backs_sheet.py interleaves them with the backs
         svg = page(pc, k, len(pages))           # into build/take5_botanical_deck_63x88_A4.pdf
         open(f"{outdir}/sheet_{k:02d}.svg", "w").write(svg)
