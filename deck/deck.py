@@ -394,15 +394,16 @@ def uniq(body, tag):
     return re.sub(r'(id="|url\(#|href="#)([^"\)]+)', lambda m: f"{m.group(1)}{tag}{m.group(2)}", body)
 
 # ------------------------------------------------------------------ card face
-FIELD_REF_B = 1.5   # the field was drawn for a 1.5 mm bleed; with more bleed it moves in with the trim (so its shape
-                    # inside the card is unchanged) and its straight outer edges are stretched out to cover the bleed
+FIELD_REF_B = 0.0   # where the field's own corner sits relative to the trim corner (mm, outward). 0: the whole shape
+                    # (as it used to look including its bleed) now lies inside the cut, and only straight extensions of
+                    # its outlines, which meet the cut steeply, run out through the bleed, so a mis-cut barely shows
 
 
 def field_blob(col, acc, e=1.0):
     """Organic colour field crossing the top-left corner (card-local coords incl. bleed); e = how far (field units)
     its outer edges reach past its own origin."""
-    return (f'<path d="M{-e} {-e} H36 C33 6 27 9 20 11.5 C12 14.5 7 19 5 27 C4 31 2 34 {-e} 35 Z" fill="{col}"/>'
-            f'<path d="M{-e} 22 C3 21 6 17.5 7.5 13 C9.5 7.5 14 4 21 2.5 C24 1.8 27 0.8 29 {-e} H{-e}Z" fill="{acc}"/>')
+    return (f'<path d="M{-e} {-e} H36 V-1 C33 6 27 9 20 11.5 C12 14.5 7 19 5 27 C4 31 2 34 -1 35 H{-e} Z" fill="{col}"/>'
+            f'<path d="M{-e} 22 H-1 C3 21 6 17.5 7.5 13 C9.5 7.5 14 4 21 2.5 C24 1.8 27 0.8 29 -1 V{-e} H{-e}Z" fill="{acc}"/>')
 
 
 def field_group(tint, acc, sprig_col):
@@ -663,7 +664,7 @@ def obstacles(n, species, showpiece=False):
     c = PLANT_CLEAR
     x0, y0, x1, y1 = label_box(species, *LABEL_POS)
     obs.append((x0 - c, y0 - c, x1 + c, y1 + c))
-    fw, fh = 36 * FIELD_SCALE + B - FIELD_REF_B, 35 * FIELD_SCALE + B - FIELD_REF_B                                # corner colour fields
+    fw, fh = 36 * FIELD_SCALE + B - FIELD_REF_B, 36 * FIELD_SCALE + B - FIELD_REF_B                                # corner colour fields
     obs += [(CW - fw, 0, CW, fh), (0, CH - fh, fw, CH)]
     e, big = B + EDGE, 1e3
     obs += [(-big, -big, e, big), (CW - e, -big, big, big), (-big, -big, big, e), (-big, CH - e, big, big)]

@@ -22,8 +22,10 @@ for history; where it disagrees with this file, this file wins (card size and pr
 - 8 per A4: 2 columns × 4 rows, cards turned 90°. Block 188 × 278 mm, centred on the page (x 11–199 mm,
   y 9.5–287.5 mm), crop marks inside the printable area with 2.5 mm to spare. 104 cards = exactly 13 sheets.
 - Crop marks: 2 mm long, starting on the bleed edge, outside the cards; neighbouring cards keep their own bleed.
-- The corner colour fields keep their shape relative to the trim; their straight outer edges stretch to cover
-  the bleed (`deck.field_group`). The back's art reaches the bleed edge where it crosses the cut.
+- The corner colour fields: the whole sweep (as it used to look including its bleed) lies inside the cut, and only
+  straight extensions of its two outlines, which meet the cut almost at right angles, run out through the bleed
+  (`deck.field_group`, `FIELD_REF_B` = 0). A mis-cut only slides those straight stubs, so the two opposite corners
+  don't betray it. The larger field trims the African mask, bunny ears cactus and bird of paradise by 3–4 %. The back's art reaches the bleed edge where it crosses the cut.
 - Sleeves: 66 × 91 mm.
 - Backs sheet (`deck/backs_sheet.py`): laid out for a **long-edge** flip. The fronts are rotated +90° (card top
   toward the page's right edge); turning the sheet over on its long edge brings that edge to the left, so each
