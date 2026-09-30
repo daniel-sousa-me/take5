@@ -17,6 +17,8 @@ def page():
         # the fronts are rotated +90 (card top toward the right edge of the page); turning the sheet over on its long
         # edge puts that same physical edge on the LEFT, so the backs are rotated -90 (card top toward the left)
         g.append(f'<g transform="translate({x:.3f} {y + deck.CW:.3f}) rotate(-90)"><g clip-path="url(#bc)"><use href="#backart"/></g></g>')
+    g.append(deck.crop_marks(gap=deck.CROP_GAP, length=deck.CROP_LEN))   # the block is symmetric, so the marks
+                                                                        # sit on the same lines as the fronts'
     g.append(deck.sheet_header('Take 5 · card backs · long-edge flip · 100%'))
     g.append("</svg>")
     return "".join(g)
