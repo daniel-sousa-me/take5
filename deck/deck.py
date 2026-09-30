@@ -500,11 +500,17 @@ GLYPH_Q = 4.0      # penalty mark size in the "quarter" layout (mm)
 UL_INSET = 0.3     # underline = numeral ink width minus this at each end
 
 
-def info_block(n, p, ncol, gcol):
-    """Number + penalty marks in the top-left quadrant (card-local coords).
+TWIN_NUM_SCALE = 1.0   # size of the bottom-right (180-degree twin) number relative to the top-left one; the
+                       # penalty marks keep their size. <1 frees room beside the pot (the twin is only read from
+                       # across the table, the top-left index is the one seen in a hand fan).
+
+
+def info_block(n, p, ncol, gcol, num_scale=1.0):
+    """Number + penalty marks in the top-left quadrant (card-local coords); num_scale shrinks the number only.
     Returns (svg, bottom of the block, ink boxes [(x0, y0, x1, y1)])."""
     top = B + EDGE
     size, track = num_style(n)
+    size *= num_scale
     nh = numeral_height(size)
     base = top + nh
     xmin, xmax = number_ink(n, size, track)
@@ -591,8 +597,8 @@ def plant_y(n):
     """Card y of the pot base on card n. Normally PLANT_Y. On 100-104 (whose wide bottom-right number reaches
     under the pot), and on any card whose twin number would, the plant is lifted just enough to leave POT_GAP
     between the pot and the numeral, so the pot never looks as if it stands on it."""
-    _, _, boxes = info_block(n, penalty(n), "#000", "#000")
-    x0, y0, x1, y1 = boxes[0][:4]                              # the number's ink box (top-left block)
+    _, _, boxes = info_block(n, penalty(n), "#000", "#000", TWIN_NUM_SCALE)
+    x0, y0, x1, y1 = boxes[0][:4]                              # the twin number's ink box, before rotation
     tx0, ty0 = CW - x1, CH - y1                                # its 180-degree twin: left edge, top
     if n < 100 and tx0 > PLANT_X + POT_HALF_LOW:              # twin number clear of the pot sideways
         return PLANT_Y
@@ -621,10 +627,13 @@ def obstacles(n, species, showpiece=False):
     """Boxes (card-local mm) the plant ink must stay out of."""
     p = penalty(n)
     _, _, boxes = info_block(n, p, "#000", "#000")
+    _, _, twin = info_block(n, p, "#000", "#000", TWIN_NUM_SCALE)
     obs = []
     for x0, y0, x1, y1, *k in boxes:
         c = (SHOWPIECE_MARK_CLEAR if showpiece else k[0]) if k else PLANT_CLEAR
         obs.append((x0 - c, y0 - c, x1 + c, y1 + c))
+    for x0, y0, x1, y1, *k in twin:
+        c = (SHOWPIECE_MARK_CLEAR if showpiece else k[0]) if k else PLANT_CLEAR
         if showpiece:                    # the bottom-right block sits beside the pot: number and marks get more air
             c = max(c, SHOWPIECE_BR_CLEAR)
         obs.append((CW - x1 - c, CH - y1 - c, CW - x0 + c, CH - y0 + c))      # 180-degree twin
@@ -695,10 +704,11 @@ def card(n, species):
     p = penalty(n)
     tint, acc, sprig_col, ncol, gcol = TIER[p]
     block, block_bottom, _ = info_block(n, p, ncol, gcol)
+    twin = block if TWIN_NUM_SCALE == 1.0 else info_block(n, p, ncol, gcol, TWIN_NUM_SCALE)[0]
     # colour field lives in the corner opposite the number (top-right; its 180-degree twin is bottom-left)
     field = (f'<g transform="translate({CW} 0) scale(-1 1) scale({FIELD_SCALE})">'
              + field_blob(tint, acc) + sprig(sprig_col) + "</g>")
-    half = field + block
+    half, half_twin = field + block, field + twin
     # pot bottom-centre pinned to (PLANT_X, PLANT_Y): just left of centre so the bottom-right block sits
     # beside the narrow pot rather than under the leaves
     s, dx = species_fit(species)
@@ -713,7 +723,7 @@ def card(n, species):
     label = name_label(species, *LABEL_POS, "#405D43", LATIN_COL, rot=90)
     bg = f'<rect x="0" y="0" width="{CW}" height="{CH}" fill="{PAPER_BG}"/>' if PAPER_BG else ""
     return (bg + half
-            + f'<g transform="rotate(180 {CW / 2} {CH / 2})">{half}</g>'
+            + f'<g transform="rotate(180 {CW / 2} {CH / 2})">{half_twin}</g>'
             + plant + label)
 
 def face_colour_check():
