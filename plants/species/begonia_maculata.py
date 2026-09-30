@@ -16,6 +16,15 @@ P = PAL
 
 
 # ------------------------------------------------------------------ helpers
+def refrac(pts, targets, per=14):
+    """Arc-length fractions on `pts` of the points closest to each target (point, angle)."""
+    s = cr_sample(pts, per)
+    acc = [0.0]
+    for a, b in zip(s, s[1:]):
+        acc.append(acc[-1] + math.hypot(b[0] - a[0], b[1] - a[1]))
+    return [acc[min(range(len(s)), key=lambda k: math.dist(s[k], p))] / acc[-1] for p, _ in targets]
+
+
 def along(pts, fracs, per=14):
     """Point + tangent angle (deg, 0 = up, clockwise) at arc-length fractions."""
     s = cr_sample(pts, per)
@@ -57,6 +66,17 @@ def dist_to_poly(pt, poly):
         u = max(0, min(1, ((pt[0] - ax) * dx + (pt[1] - ay) * dy) / m))
         best = min(best, math.hypot(pt[0] - ax - u * dx, pt[1] - ay - u * dy))
     return best
+
+
+def mix(a, b, t):
+    """Opaque pre-blend of hex colour b over a at strength t (print policy: no translucent detail)."""
+    return "#" + "".join(f"{round(int(a[i:i + 2], 16) * (1 - t) + int(b[i:i + 2], 16) * t):02X}" for i in (1, 3, 5))
+
+
+DOT = "#FFFFFF"  # silvery-white polka dots = bare white paper (a beige tint read as cream on white stock)
+DOT_MIN = 4.6    # light dot diameter floor (print policy: >= 4.5 units)
+LINE_W = 3.0     # midrib / node-ring width (print policy: dark line >= 3.0 units)
+EDGE_DEPTH = 0.068  # turned-over margin band, fraction of L at its widest (~14.5 units on the front leaf)
 
 
 def to_world(p, x, y, rot, sx=1):
@@ -110,6 +130,7 @@ class AngelLeaf:
         sr = ripple(sr, 1)
         sl = ripple(sl, -1)
         self.poly_local = sr + sl[::-1][1:-1]
+        self.sl = sl
         # decimated control points for the path
         kr = sr[::6] + ([sr[-1]] if (len(sr) - 1) % 6 else [])
         kl = sl[::6] + ([sl[-1]] if (len(sl) - 1) % 6 else [])
@@ -141,6 +162,19 @@ class AngelLeaf:
         pts = [(round(x), round(y)) for x, y in pts]
         return cr_path(pts, closed=True, sharp={0, len(mid) - 1, len(mid), len(pts) - 1})
 
+    def turned_edge_d(self, depth=EDGE_DEPTH, t0=0.08, t1=0.97):
+        """Narrow crescent along the small-side margin: the edge curling over to show a
+        sliver of the burgundy underside (widest mid-leaf, tapering to nothing)."""
+        L = self.L
+        edge = [p for p in self.sl if t0 * L <= -p[1] <= t1 * L]
+        inner = []
+        for x, y in edge:
+            u = (-y / L - t0) / (t1 - t0)
+            d = depth * L * math.sin(math.pi * u) ** 0.9
+            inner.append((x + d, y))
+        ring = [self.B(p) for p in edge[::3]] + [self.B(p) for p in inner[::-1][::3]]
+        return cr_path(ring, closed=True, sharp={0, len(edge[::3]) - 1, len(edge[::3]), len(ring) - 1})
+
     def veins_d(self):
         """faint palmate basal veins + a few pinnate laterals."""
         L = self.L
@@ -158,12 +192,14 @@ class AngelLeaf:
             v.append(f"M{round(p0[0])} {round(p0[1])}Q{round(p1[0])} {round(p1[1])} {round(p2[0])} {round(p2[1])}")
         return "".join(v)
 
-    def dots(self, density=1.0, rmin=1.5, rmax=5.2, seed=1):
+    def dots(self, density=1.0, rmax=5.2, seed=1, small_margin=0.0):
         rnd = random.Random(seed)
         L = self.L
         pts = []
         tries = 0
-        target = int(34 * density * (L / 180) ** 2)
+        # fewer, print-safe dots: every dot >= DOT_MIN across (widen, don't multiply)
+        target = int(24 * density * (L / 180) ** 2)
+        rmin = DOT_MIN / 2
         xs = [p[0] for p in self.poly_local]
         ys = [p[1] for p in self.poly_local]
         while len(pts) < target and tries < 4000:
@@ -176,16 +212,17 @@ class AngelLeaf:
             if t > 0.86 or t < -0.05:
                 continue
             # size: skewed to small, fewer big; smaller towards tip
-            u = rnd.random() ** 1.7
-            r = (rmin + (rmax - rmin) * u) * (1 - 0.45 * max(0, t - 0.4)) * (L / 180) ** 0.5
+            u = rnd.random() ** 1.35
+            top = max(rmin * 1.25, rmax * (1 - 0.45 * max(0, t - 0.4)) * (L / 180) ** 0.5)
+            r = rmin + (top - rmin) * u
             e = dist_to_poly((x, y), self.poly_local)
-            if e < r + 2.2:
+            if e < r + 2.2 or (x < 0 and e < r + 2.2 + small_margin):
                 continue
             if abs(x) < r + 1.8 and t > 0.02:  # keep midrib clear
                 continue
             ok = True
             for (qx, qy, qr) in pts:
-                if math.hypot(qx - x, qy - y) < r + qr + rnd.uniform(3.5, 9):
+                if math.hypot(qx - x, qy - y) < r + qr + rnd.uniform(4.5, 10):
                     ok = False
                     break
             if ok:
@@ -194,7 +231,7 @@ class AngelLeaf:
         buckets = {}
         for x, y, r in pts:
             bx, by = self.B((x, y))
-            q = round(r * 2 * 2) / 2  # diameter to 0.5 px
+            q = max(DOT_MIN, round(r * 2 * 2) / 2)  # diameter to 0.5 px, never under the floor
             buckets.setdefault(q, []).append(f"M{round(bx)} {round(by)}h0")
         return buckets
 
@@ -212,10 +249,8 @@ def leaf_svg(lf, x, y, rot, mirror=False, fill=None, face="top", dot_seed=1,
         o.append(f'<use href="#{pid}" fill="{P["burgundy"]}"/>')
         o.append(f'<g clip-path="url(#{cid})">')
         o.append(f'<path d="{lf.half("r")}" fill="{P["wine"]}"/>')
-        o.append(f'<path d="{lf.veins_d()}" fill="none" stroke="{P["rose"]}" stroke-width="1.3" '
-                 f'stroke-linecap="round" opacity=".55"/>')
-        o.append(f'<path d="{lf.midrib_d(0, 0.9)}" fill="none" stroke="{P["rose"]}" stroke-width="2.4" '
-                 f'stroke-linecap="round" opacity=".8"/>')
+        o.append(f'<path d="{lf.midrib_d(0, 0.9)}" fill="none" stroke="{mix(P["burgundy"], P["rose"], 0.7)}" '
+                 f'stroke-width="{LINE_W}" stroke-linecap="round"/>')
         o.append("</g></g>")
         return "".join(o)
     fill = P.get(fill, fill)
@@ -226,17 +261,20 @@ def leaf_svg(lf, x, y, rot, mirror=False, fill=None, face="top", dot_seed=1,
         o.append(f'<path d="{lf.half("l")}" fill="{P["burgundy"]}"/>')
     else:
         o.append(f'<path d="{lf.half(shade_side)}" fill="{shade}"/>')
-    o.append(f'<path d="{lf.veins_d()}" fill="none" stroke="{P["night"]}" stroke-width="1.2" '
-             f'stroke-linecap="round" opacity=".3"/>')
-    o.append(f'<path d="{lf.midrib_d(0, 0.88)}" fill="none" stroke="{P["sage"]}" stroke-width="1.6" '
-             f'stroke-linecap="round" opacity=".6"/>')
-    for dia, ds in sorted(lf.dots(density=density, seed=dot_seed).items()):
-        o.append(f'<path d="{"".join(ds)}" stroke="{P["spot"]}" stroke-width="{f(dia)}" stroke-linecap="round"/>')
+    # lateral veins dropped (they cannot be print-safe without crowding the dots); midrib opaque
+    o.append(f'<path d="{lf.midrib_d(0, 0.88)}" fill="none" stroke="{mix(fill, P["sage"], 0.42)}" '
+             f'stroke-width="{LINE_W}" stroke-linecap="round"/>')
+    sm = EDGE_DEPTH * lf.L + 1.5 if face == "edge" else 0.0     # keep dots off the turned-over band
+    for dia, ds in sorted(lf.dots(density=density, seed=dot_seed, small_margin=sm).items()):
+        o.append(f'<path d="{"".join(ds)}" stroke="{DOT}" stroke-width="{f(dia)}" stroke-linecap="round"/>')
     if face == "fold":
         # underside half gets a faint rose midrib edge only; hide the dots there
         o.append(f'<path d="{lf.half("l")}" fill="{P["burgundy"]}"/>')
-        o.append(f'<path d="{lf.midrib_d(0, 0.9)}" fill="none" stroke="{P["rose"]}" stroke-width="2" '
-                 f'stroke-linecap="round" opacity=".7"/>')
+        o.append(f'<path d="{lf.midrib_d(0, 0.9)}" fill="none" stroke="{mix(P["burgundy"], P["rose"], 0.6)}" '
+                 f'stroke-width="{LINE_W}" stroke-linecap="round"/>')
+    if face == "edge":
+        # small-side margin turned over: a narrow burgundy band of underside
+        o.append(f'<path d="{lf.turned_edge_d()}" fill="{P["burgundy"]}"/>')
     o.append("</g></g>")
     return "".join(o)
 
@@ -250,7 +288,7 @@ def cane_svg(pts, w0, w1, color, node_fr, node_col):
     for (p, a), fr in zip(along(pts, node_fr), node_fr):
         w = w0 + (w1 - w0) * fr
         rings.append(f'<path d="M{f(-w)} -0.4Q0 2.2 {f(w)} -0.4" transform="{T(p[0], p[1], a)}"/>')
-    o.append(f'<g clip-path="url(#{cid})" fill="none" stroke="{node_col}" stroke-width="2.2">{"".join(rings)}</g>')
+    o.append(f'<g clip-path="url(#{cid})" fill="none" stroke="{node_col}" stroke-width="{LINE_W}">{"".join(rings)}</g>')
     return "".join(o)
 
 
@@ -262,11 +300,15 @@ def petiole(node, attach, rot, w0, w1, color, tuck=10):
 
 
 # ------------------------------------------------------------------ flowers
-def flower_cluster(anchor, rot=0):
+def flower_cluster(anchor, rot=0, hub=None):
     """Pendant cyme: arching peduncle, then 3 open male flowers + 2 buds."""
     ax, ay = anchor
     o = []
-    ped = [(ax, ay), (ax + 16, ay - 10), (ax + 34, ay - 2), (ax + 42, ay + 22)]
+    if hub is None:
+        ped = [(ax, ay), (ax + 16, ay - 10), (ax + 34, ay - 2), (ax + 42, ay + 22)]
+    else:  # rises from the node ring, one arch out and down to the hub
+        hx, hy = hub
+        ped = [(ax, ay), (ax + (hx - ax) * 0.3, hy - 2), (ax + (hx - ax) * 0.68, hy - 10), (hx, hy)]
     o.append(f'<path d="{ribbon(ped, 3.4, 2.4, per=6)}" fill="{P["plum"]}"/>')
     hub = ped[-1]
     # (dx, dy, size, tilt, kind)
@@ -276,7 +318,7 @@ def flower_cluster(anchor, rot=0):
         cx, cy = hub[0] + dx, hub[1] + dy
         top = (cx, cy - sz * (0.95 if kind == "open" else 0.9))
         mid = ((hub[0] + top[0]) / 2 + dx * 0.12, (hub[1] + top[1]) / 2 - 5)
-        o.append(f'<path d="{ribbon([hub, mid, top], 1.9, 1.4, per=5)}" fill="{P["plum"]}"/>')
+        o.append(f'<path d="{ribbon([hub, mid, top], 2.5, 1.8, per=5)}" fill="{P["plum"]}"/>')
     for dx, dy, sz, tilt, kind in blooms:
         cx, cy = hub[0] + dx, hub[1] + dy
         g = [f'<g transform="{T(cx, cy, tilt)}">']
@@ -305,11 +347,14 @@ def build():
     CANE = P["sage"]
     NODE = P["plum"]
 
+    RX_TIP = (408, 292)
     canes = {
         "L": dict(pts=[(276, 606), (268, 520), (248, 430), (222, 350), (204, 288), (196, 258)],
                   w=(11.5, 6), nodes=[0.3, 0.52, 0.72, 0.88]),
         "R": dict(pts=[(314, 606), (324, 520), (348, 440), (378, 372), (396, 330)],
-                  w=(11, 5.8), nodes=[0.3, 0.55, 0.78, 0.92]),
+                  w=(11, 5.8), nodes=[0.3, 0.55, 0.78, 0.92],
+                  # drawn on past the big mid-green leaf so the small top leaf's join shows
+                  ext=[(RX_TIP[0] - 7, RX_TIP[1] + 22), RX_TIP]),
         "C": dict(pts=[(292, 606), (290, 520), (286, 430), (288, 340), (294, 250), (300, 175), (304, 140)],
                   w=(13, 6.5), nodes=[0.22, 0.4, 0.56, 0.7, 0.83, 0.93]),
     }
@@ -321,23 +366,23 @@ def build():
     specs = [
         ("C", 4, -66, 156, True, "night", "top", 0.1, 11, 0),
         ("C", 5, 60, 126, False, "deep", "top", 0.12, 12, 2),
-        ("L", "tip", -20, 94, True, "deep", "under", 0.1, 13, 1),
+        ("L", "tip", -20, 82, True, "deep", "under", 0.1, 13, 1),
         ("L", 2, -100, 170, True, "deep", "top", 0.13, 21, 1),
         ("L", 1, -134, 170, True, "forest", "top", 0.12, 23, 1),
-        ("L", 3, 106, 120, False, "deep", "top", 0.1, 22, 0),
-        ("R", "tip", 14, 100, False, "forest", "top", 0.08, 31, 1),
+        ("L", 3, 116, 102, False, "deep", "top", 0.1, 22, 0),
+        ("R", "tip", 14, 90, False, "forest", "top", 0.08, 31, 1),
         ("R", 3, 104, 166, False, "deep", "top", 0.13, 32, 1),
         ("R", 1, 128, 186, False, "forest", "top", 0.13, 33, 1),
         ("C", "tip", -4, 88, False, "mid", "top", 0.1, 41, 2),
         ("C", 3, 110, 172, False, "mid", "top", 0.12, 42, 2),
         ("C", 2, -114, 200, True, "mid", "top", 0.12, 43, 2),
-        ("C", 1, 154, 200, False, "mid", "fold", 0.06, 44, 3),
-        ("C", 0, -152, 138, True, "forest", "top", 0.1, 45, 3),
+        ("C", 1, 162, 218, False, "mid", "edge", 0.06, 44, 3),  # drapes in front: tip crosses the rim band, ends on the body
+        # ("C", 0, -152, 138, True, "forest", "top", 0.1, 45, 3),
     ]
 
     def node_of(c, i):
         if i == "tip":
-            p = canes[c]["pts"]
+            p = canes[c]["pts"] + canes[c].get("ext", [])
             a = math.degrees(math.atan2(p[-1][0] - p[-2][0], -(p[-1][1] - p[-2][1])))
             return p[-1], a
         return nodes[c][i]
@@ -363,12 +408,19 @@ def build():
     o += layer(0)
     for k in ("L", "R"):
         v = canes[k]
-        o.append(cane_svg(v["pts"], v["w"][0], v["w"][1], CANE, v["nodes"], NODE))
+        if "ext" in v:  # longer cane, same node rings (re-found on the extended curve)
+            pts = v["pts"] + v["ext"]
+            o.append(cane_svg(pts, v["w"][0], v["w"][1], CANE, refrac(pts, nodes[k]), NODE))
+        else:
+            o.append(cane_svg(v["pts"], v["w"][0], v["w"][1], CANE, v["nodes"], NODE))
     o += layer(1)
     v = canes["C"]
     o.append(cane_svg(v["pts"], v["w"][0], v["w"][1], CANE, v["nodes"], NODE))
     o += layer(2)
-    o.append(flower_cluster(nodes["R"][3][0]))
+    # peduncle from the lower node ring (R[2]), below the mid-green leaf; hub kept where
+    # it was (x+42, y+22 from node R[3]) so the flowers do not move
+    (n3x, n3y), _ = nodes["R"][3]
+    o.append(flower_cluster(nodes["R"][2][0], hub=(n3x + 42, n3y + 22)))
     o.append(front)
     o += layer(3)
     return "".join(o)

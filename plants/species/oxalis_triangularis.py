@@ -10,15 +10,19 @@ import os
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-from core import PAL, f, cr_path, ribbon, pot, svg_doc, uid, reset_ids  # noqa: E402
+from core import PAL, f, cr_path, cr_sample, ribbon, pot, svg_doc, uid, reset_ids  # noqa: E402
 
 P = PAL
 # leaf ramp, dark -> light (burgundy family); blotch uses the same ramp + 2
 RAMP = ["#43292F", "#4F3036", P["wine"], P["burgundy"], P["plum"], "#A0646C",
         P["rose"], "#C88B8C", P["blush"]]
-PET_BACK = "#9A636A"
-PET_FRONT = P["rose"]
-FL = ["#E2B8B3", "#ECCBC5", "#F5E0DA"]  # pale blush petal tones
+# petioles: a light pinkish-green, clearly apart from every leaf tone so they
+# read where they cross the foliage (the real stems are paler than the blades)
+PET_BACK = "#A08679"
+PET_FRONT = "#B39A8C"
+PEDUNCLE = "#B08A88"
+FL = ["#CD9A9B", "#DBAEAC", "#E6C0BC"]  # blush petal tones, deep enough to hold on ivory
+FL_EDGE = "#C38D8F"  # petal rim, one step darker
 LIGHT = (-0.45, -0.45, 0.77)
 
 
@@ -132,9 +136,15 @@ def col(i):
 
 
 def tone(v, under, off):
-    # v in [-1,1]: brightness of the half; off = per-trio depth/tone offset
-    i = 1.3 + v * 1.5 + off - (0.7 if under else 0)
-    return max(0.0, min(5.2, i))
+    # v in [-1,1]: brightness of the half; off = the trio's depth layer on the
+    # RAMP (explicit per trio, see LEAVES). The light swing inside one trio is
+    # kept modest so neighbouring layers stay >= 2 ramp steps apart where
+    # they overlap (verified pair by pair, not by eye).
+    i = 1.3 + v * TONE_SWING + off - (0.6 if under else 0)
+    return max(0.0, min(7.0, i))
+
+
+TONE_SWING = 1.1
 
 
 def leaflet(frame, L, W, off, asym=1.0, notch=0.87):
@@ -161,11 +171,6 @@ def leaflet(frame, L, W, off, asym=1.0, notch=0.87):
         b = blotch_segs(L, W * (asym if sg < 0 else 1), sg)
         bd = bez(frame, b, base) + f"L{f(base[0])} {f(base[1])}Z"
         inner.append(f'<path d="{bd}" fill="{col(t + 1.1)}"/>')
-    m0, m1 = frame.pt(0.05 * L, 0), frame.pt(0.80 * L, 0)
-    mc = frame.pt(0.45 * L, 0)
-    inner.append(f'<path d="M{f(m0[0])} {f(m0[1])}Q{f(mc[0])} {f(mc[1])} {f(m1[0])} {f(m1[1])}" '
-                 f'fill="none" stroke="{col(max(tr, tl) + 2)}" stroke-width="1.1" '
-                 f'stroke-linecap="round" opacity=".45"/>')
     out.append(f'<g clip-path="url(#{cid})">' + "".join(inner) + "</g>")
     return "".join(out)
 
@@ -187,8 +192,59 @@ def trio(tip, L, yaw, droop=0.35, fold=0.1, elev=0.9, lean=0.0, off=0, var=(1, 1
     return "".join(leaflet(fr, Li, W, off, asym) for _, fr, Li, W, asym in parts)
 
 
-def petiole(base, tip, bow=0.0, w0=5.2, w1=3.0, color=PET_FRONT):
-    """Wiry petiole: rises steeply out of the soil, then arches out to the tip."""
+def tail_ribbon(pts, w0, w1, tail, per=6):
+    """core.ribbon, but the last `tail` units narrow to a fine point, so the stalk
+    runs into the leaflet junction without a round end showing above it."""
+    s = cr_sample(pts, per)
+    n = len(s)
+    dist = [0.0] * n
+    for i in range(n - 2, -1, -1):
+        dist[i] = dist[i + 1] + math.dist(s[i], s[i + 1])
+    L, R = [], []
+    for i, p in enumerate(s):
+        a, b = s[max(i - 1, 0)], s[min(i + 1, n - 1)]
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        m = math.hypot(dx, dy) or 1
+        nx, ny = -dy / m, dx / m
+        w = (w0 + (w1 - w0) * (i / (n - 1))) / 2
+        if dist[i] < tail:
+            w *= 0.15 + 0.85 * math.sin(dist[i] / tail * math.pi / 2)  # smooth onset, pointed end
+        L.append((p[0] + nx * w, p[1] + ny * w))
+        R.append((p[0] - nx * w, p[1] - ny * w))
+    step = max(1, per // 2)
+    keep = sorted(set(list(range(0, n, step)) + [k for k in range(n) if dist[k] < tail * 1.5] + [n - 1]))
+    ring = [L[k] for k in keep] + [R[k] for k in keep][::-1]
+    return cr_path(ring, closed=True, sharp={0, len(ring) - 1})
+
+
+def base_stub(p0, p1, w, color):
+    """Hidden-crown extension below a stalk's start p0 (heading towards p1): it
+    curves down to a shared crown point under the rim's front edge, same width and
+    colour, so the stalks fan out of the soil as one bundle and no cut end sits on
+    the visible soil. Plain polygon (a smoothed ribbon bulges at its square end)."""
+    d = (p1[0] - p0[0], p1[1] - p0[1])
+    m = math.hypot(*d) or 1
+    d = (d[0] / m, d[1] / m)
+    c = (300 + (p0[0] - 300) * 0.35, 618)
+    k = math.hypot(p0[0] - c[0], p0[1] - c[1]) * 0.5
+    q = (p0[0] - d[0] * k, p0[1] - d[1] * k)
+    e = (p0[0] + d[0] * 1.5, p0[1] + d[1] * 1.5)
+    pts = [tuple((1 - t) ** 2 * c[j] + 2 * (1 - t) * t * q[j] + t * t * e[j] for j in (0, 1))
+           for t in (i / 16 for i in range(17))]
+    L, R = [], []
+    for i, pt in enumerate(pts):
+        a, b = pts[max(i - 1, 0)], pts[min(i + 1, len(pts) - 1)]
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        mm = math.hypot(dx, dy) or 1
+        L.append((pt[0] - dy / mm * w / 2, pt[1] + dx / mm * w / 2))
+        R.append((pt[0] + dy / mm * w / 2, pt[1] - dx / mm * w / 2))
+    ring = L + R[::-1]
+    return '<path d="M' + "L".join(f"{f(x)} {f(y)}" for x, y in ring) + f'Z" fill="{color}"/>'
+
+
+def petiole(base, tip, bow=0.0, w0=5.2, w1=3.0, color=PET_FRONT, tail=0.0):
+    """Wiry petiole: rises steeply out of the soil, then arches out to the tip.
+    tail: narrow the last stretch to a point that runs into the leaflet junction."""
     bx, by = base
     tx, ty = tip
     dx, dy = tx - bx, ty - by
@@ -196,7 +252,11 @@ def petiole(base, tip, bow=0.0, w0=5.2, w1=3.0, color=PET_FRONT):
     p1 = (bx + dx * 0.10 + bow * 0.4, by + dy * 0.34 - lift * 0.5)
     p2 = (bx + dx * 0.50 + bow, by + dy * 0.78 - lift)
     p3 = (tx - dx * 0.12 + bow * 0.2, ty - dy * 0.06 - lift * 0.12)
-    return f'<path d="{ribbon([base, p1, p2, p3, tip], w0, w1)}" fill="{color}"/>'
+    # match the ribbon's own start heading (first spline sample)
+    stub = base_stub(base, cr_sample([base, p1, p2, p3, tip], 6)[1], w0, color)
+    if tail:
+        return stub + f'<path d="{tail_ribbon([base, p1, p2, p3, tip], w0, w1, tail)}" fill="{color}"/>'
+    return stub + f'<path d="{ribbon([base, p1, p2, p3, tip], w0, w1)}" fill="{color}"/>'
 
 
 # ------------------------------------------------------------------ flowers
@@ -223,10 +283,11 @@ def flower(c, L, elev, lean, yaw, cup=-0.55):
         d = bez(fr, R + rev(Lh, (0, 0)), base) + "Z"
         v, under = fr.light(1)
         t = 0 if under else (2 if v > 0.55 else 1)
-        out.append(f'<path d="{d}" fill="{FL[t]}"/>')
-        m1 = fr.pt(0.55 * L, 0)
-        out.append(f'<path d="M{f(base[0])} {f(base[1])}L{f(m1[0])} {f(m1[1])}" stroke="{P["rose"]}" '
-                   f'stroke-width=".9" opacity=".35" stroke-linecap="round"/>')
+        # darker rim = the full petal in FL_EDGE, the face inset inside it
+        Ri = petal_segs(L * 0.9, L * 0.42 * 0.84, 1)
+        Li = petal_segs(L * 0.9, L * 0.42 * 0.84, -1)
+        di = bez(fr, Ri + rev(Li, (0, 0)), base) + "Z"
+        out.append(f'<path d="{d}" fill="{FL_EDGE if t else "#BE8889"}"/><path d="{di}" fill="{FL[t]}"/>')
     out.append(f'<circle cx="{f(c[0])}" cy="{f(c[1])}" r="{f(L * 0.16)}" fill="{P["yellow_edge"]}"/>')
     return "".join(out)
 
@@ -242,17 +303,17 @@ def bud(tip, L, ang):
            P2(L * 0.8, -L * 0.15), P2(L * 0.35, -L * 0.2)]
     d = cr_path(pts, closed=True, sharp={0, 3})
     s1, s2, s3 = P2(L * 0.1, L * 0.05), P2(L * 0.55, L * 0.12), P2(L * 0.95, 0)
-    return (f'<path d="{d}" fill="{FL[1]}"/>'
-            f'<path d="M{f(s1[0])} {f(s1[1])}Q{f(s2[0])} {f(s2[1])} {f(s3[0])} {f(s3[1])}" fill="none" '
-            f'stroke="{P["rose"]}" stroke-width="1.4" opacity=".55"/>')
+    half = cr_path([P2(0, 0), s2, s3, P2(L * 0.8, -L * 0.15), P2(L * 0.35, -L * 0.2)], closed=True,
+                   sharp={0, 2})
+    return f'<path d="{d}" fill="{FL[1]}"/><path d="{half}" fill="{FL_EDGE}"/>'
 
 
 def umbel(base, top, bow, heads):
     """Peduncle from soil to `top`, then short pedicels to flowers/buds."""
-    out = [petiole(base, top, bow, 3.6, 2.2, "#A7777A")]
+    out = [petiole(base, top, bow, 4.0, 3.0, PEDUNCLE)]
     for kind, (hx, hy), prm in heads:
         pts = [top, ((top[0] + hx) / 2 + prm.get("pb", 0), (top[1] + hy) / 2 - 3), (hx, hy)]
-        out.append(f'<path d="{ribbon(pts, 2.0, 1.6)}" fill="#A7777A"/>')
+        out.append(f'<path d="{ribbon(pts, 3.0, 2.6)}" fill="{PEDUNCLE}"/>')
     for kind, (hx, hy), prm in heads:
         if kind == "bud":
             out.append(bud((hx, hy), prm["L"], prm["ang"]))
@@ -264,32 +325,29 @@ def umbel(base, top, bow, heads):
 # ------------------------------------------------------------------ layout
 # (base_x, tip(x,y), L, yaw, droop, fold, elev, lean, tone_off, bow, var, folds)
 LEAVES = [
-    # back layer (darker)
-    (296, (286, 196), 76, 8, 0.30, 0.15, 0.95, -3, -0.9, -6, (1, 1.05, .95), None),
-    (284, (170, 222), 70, -14, 0.40, 0.30, 0.85, -12, -0.3, -10, (1, .95, 1.05), (0.1, 0.5, 0.2)),
-    (316, (424, 240), 68, 20, 0.35, 0.10, 0.90, 10, -1.2, 12, (.95, 1.05, 1), None),
-    (268, (88, 312), 62, -30, 0.45, 0.20, 0.75, -20, -0.2, -18, (1, 1, .9), (0.2, 0.2, 0.6)),
-    (334, (508, 338), 60, 32, 0.40, 0.45, 0.80, 18, -0.5, 18, (1, .9, 1), None),
-    # middle layer
-    (292, (224, 306), 74, -6, 0.32, 0.10, 0.88, -6, 0.6, -8, (1.05, 1, .95), None),
-    (310, (380, 284), 72, 14, 0.28, 0.25, 1.00, 7, -0.1, 6, (.95, 1, 1.05), (0.1, 0.1, 0.55)),
-    (276, (138, 400), 64, -22, 0.42, 0.15, 0.80, -16, 0.4, -14, (1, 1.05, 1), None),
-    (324, (470, 412), 62, 26, 0.40, 0.35, 0.82, 14, 0.4, 14, (1, 1, 1), (0.5, 0.1, 0.1)),
-    # front layer (lighter / warmer)
-    (302, (300, 382), 72, -2, 0.30, 0.10, 0.80, 2, 1.3, 4, (1, 1.05, 1), (0.15, 0.1, 0.45)),
-    (282, (212, 470), 62, -18, 0.40, 0.20, 0.72, -12, 1.2, -10, (1, 1, .95), None),
-    (320, (392, 474), 64, 18, 0.42, 0.15, 0.75, 10, 1.8, 10, (.95, 1, 1), (0.45, 0.1, 0.15)),
-    (270, (110, 518), 50, -34, 0.50, 0.30, 0.62, -22, 1.9, -16, (1, .95, 1), None),
-    (330, (490, 516), 52, 30, 0.50, 0.20, 0.62, 20, 1.4, 16, (1, 1, .95), None),
-    (288, (232, 552), 58, -10, 0.45, 0.25, 0.60, -6, 1.7, -4, (1, 1, 1), (0.3, 0.2, 0.2)),
-    (300, (304, 498), 58, 6, 0.42, 0.20, 0.66, 2, 2.3, 2, (1, 1, .95), (0.2, 0.35, 0.1)),
-    (312, (370, 556), 56, 16, 0.48, 0.20, 0.60, 8, 1.25, 4, (1, .95, 1), None),
+    # listed in draw order (back -> front); tone_off places each trio on RAMP.
+    # back: the top-centre crown and the two far outliers, darkest
+    (296, (286, 196), 76, 8, 0.30, 0.15, 0.95, -3, -1.1, -6, (1, 1.05, .95), None),
+    (268, (86, 300), 62, -30, 0.45, 0.20, 0.75, -20, -1.2, -18, (1.03, 1, .68), (0.2, 0.2, 0.6)),
+    (334, (510, 350), 60, 32, 0.40, 0.45, 0.80, 18, -0.6, 18, (1, .9, 1), None),
+    # second layer: the two upper side trios, mid burgundy -> breaks the top mass
+    (284, (170, 222), 70, -14, 0.40, 0.30, 0.85, -12, 1.2, -10, (1, .95, 1.05), (0.1, 0.5, 0.2)),
+    (316, (424, 240), 68, 20, 0.35, 0.10, 0.90, 10, 1.0, 12, (.95, 1.05, 1), None),
+    (276, (128, 406), 64, -22, 0.42, 0.15, 0.80, -16, 1.1, -14, (1, 1.05, 1), None),
+    (282, (226, 462), 62, -18, 0.40, 0.20, 0.72, -12, 2.9, -10, (1, 1, .95), None),
+    # front layer (lighter / rosier)
+    (302, (300, 382), 72, -2, 0.30, 0.10, 0.80, 2, 4.2, 4, (1, 1.05, 1), (0.15, 0.1, 0.45)),
+    (320, (398, 478), 64, 18, 0.42, 0.15, 0.75, 10, 3.0, 10, (.95, 1, 1), (0.45, 0.1, 0.15)),
+    (270, (104, 522), 50, -34, 0.50, 0.30, 0.62, -22, 3.2, -16, (1, .95, 1), None),
+    (330, (506, 526), 52, 30, 0.50, 0.20, 0.62, 20, 3.0, 16, (1, 1, .95), None),
+    # drapes over the rim: deep plum so it parts clearly from the terracotta
+    (288, (228, 560), 56, -10, 0.45, 0.25, 0.60, -6, 1.0, -4, (1, 1, 1), (0.3, 0.2, 0.2)),
 ]
 
 
 def build():
     reset_ids()
-    back, front = pot(kind="classic", cx=300, rim_y=592, bottom=752, rx=96, rim_h=30, base_w=70,
+    back, front = pot(kind="classic", cx=300, rim_y=592, bottom=752, rx=100, rim_h=30, base_w=72,
                       band=True)
     body = [back]
     # flowers sit behind most foliage in depth but rise above it
@@ -305,10 +363,10 @@ def build():
     body += [fl1, fl2]
     late = []
     for i, (bx, tip, L, yaw, droop, fold, elev, lean, off, bow, var, folds) in enumerate(LEAVES):
-        col = PET_BACK if off < 0.5 else PET_FRONT
-        w0 = 5.4 if off >= 0.5 else 4.8
+        col = PET_BACK if off < 2.0 else PET_FRONT
+        w0 = 5.6 if off >= 2.0 else 5.2
         bx = 300 + (tip[0] - 300) * 0.24 + (bx - 300) * 0.5
-        body.append(petiole((bx, 602), tip, bow, w0, 3.0, col))
+        body.append(petiole((bx, 602), tip, bow, w0, 4.0, col, tail=7.0))
         t = trio(tip, L, yaw, droop, fold, elev, lean, off, var, folds)
         (late if tip[1] > 540 else body).append(t)
     body.append(front)

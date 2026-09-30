@@ -1,11 +1,16 @@
 """Tradescantia zebrina (inch plant / wandering dude) -- v4 generator.
 
-A low, wide mound of jointed succulent plum stems. Ovate pointed leaves sit
-alternately at swollen nodes, their rounded bases clasping the stem. Upper
-surface: two broad silver stripes either side of a dark purple-green centre
-band, dark green margins. Some leaves are turned to show the plum underside.
-Strands trail over the rim (long right, medium left, short front-left) with
-their leaves turning up; two tiny three-petalled blush flowers sit at shoot tips.
+Growth logic: a handful of jointed, succulent plum stems leave the soil, arch
+outward and flop; the longest spill over the rim and trail down the pot. Along
+each stem the ovate pointed leaves alternate at swollen nodes, their clasping
+bases wrapping the stem, and they shrink toward the growing tip (internodes
+shorten there too), where a small folded pair of bracts may hold a flower.
+
+Upper surface: purple-green centre band, two broad silver stripes, a narrow
+green margin -- no dark outline; leaves are separated by tone instead (back
+tier dusky, front tier bright silver). A few leaves on the trailing strands
+twist to show their plum undersides. Three-petalled blush flowers sit at four
+shoot tips.
 
 Leaves are drawn once per (shape, tone) as templates in <defs> (unit length
 100, shaded half on local +x) and placed with <use>; flipping keeps the shaded
@@ -22,22 +27,22 @@ from core import PAL, cr_path, cr_sample, ribbon, f, pot, svg_doc, reset_ids  # 
 
 P = PAL
 SOIL_Y = 606
-LS = 1.12  # crown leaf scale
+SILVER_EDGE = {-1: 1.03, 1: 0.96}   # silver stripes run almost to the edge: margin is a seam
 
 # ---------------------------------------------------------------- tones
 # upper-surface tiers: margin lit/shade, centre band lit/shade, silver lit/shade
 TIERS = {
-    0: ("#2A342E", "#222B26", "#3E2E37", "#33262E", "#97A393", "#818D7F"),
-    1: ("#2F4435", "#26362B", "#4B3440", "#3E2B35", "#B7C0AC", "#9CA695"),
-    2: ("#3D5540", "#324636", P["wine"], "#4E3036", "#DCDDCD", "#C2C8B5"),
+    0: ("#5B6B5C", "#4F5E50", "#4A3441", "#3E2C37", "#8E9A8B", "#7D897A"),
+    1: ("#788A72", "#6B7C65", P["wine"], "#4E3036", "#BAC3AE", "#A3AD98"),
+    2: ("#94A48B", "#86957D", "#6C4150", "#5A3743", "#D9DCCD", "#C2C9B5"),  # silver L* 87.2 / its shade L* 79.9 (white stock: tints <= L* 88)
 }
 # undersides: lit, shade, midrib
 UNDER = {
     0: (P["burgundy"], P["wine"], P["rose"]),
     1: (P["plum"], P["burgundy"], P["blush"]),
 }
-STEM = {0: P["burgundy"], 1: P["plum"], 2: "#9A636A"}
-COLLAR = {0: P["wine"], 1: P["burgundy"], 2: P["plum"]}
+STEM = {0: P["wine"], 1: P["burgundy"], 2: P["plum"]}
+COLLAR = {0: "#4A2F35", 1: P["wine"], 2: P["burgundy"]}
 
 # ---------------------------------------------------------------- leaf template
 # half-width profile (t along axis from node 0 -> tip 1, w as fraction of length)
@@ -84,14 +89,14 @@ class Tmpl:
 
     def region(self, side, t0, t1, lo, hi, taper0=0.12, taper1=0.25, jit=None):
         """strip between fractions lo..hi of the half-width, tapering at both ends."""
-        n = 8
+        n = 6
         outer, inner = [], []
         for i in range(1, n):
             t = t0 + (t1 - t0) * i / n
             env = min(1.0, (t - t0) / taper0, (t1 - t) / taper1) ** 0.6
             c, h = (lo + hi) / 2, (hi - lo) / 2 * env
             j = jit[i] if jit else 0
-            outer.append(self.p(t, side * (c + h + j)))
+            outer.append(self.p(t, side * min(1.03, c + h + j)))
             inner.append(self.p(t, side * (c - h + j * 0.4)))
         a = self.p(t0, side * lo)
         b = self.p(t1, side * (lo + hi) / 2)
@@ -110,36 +115,43 @@ class Tmpl:
         return "M" + "L".join(f"{f(a)} {f(b)}" for a, b in pts)
 
 
-def tmpl_upper(tid, shape, tier, seed):
+# pattern proportions as fractions of the local half-width. Two size classes so the
+# green margin and plum band stay print-safe on the small tip leaves too
+# (large: L >= 60 world units, small: below that).
+PATTERN = {  # size: (band, silver_lo, silver_hi lit side, silver_hi shade side)
+    "": (0.37, 0.28, 0.84, 0.81),
+    "s": (0.34, 0.26, 0.72, 0.70),
+    "t": (0.44, 0.30, 1.03, 1.03),   # tiny tip leaves / bracts: no margin sliver
+}
+SMALL_L, TINY_L = 60, 40
+
+
+def tmpl_upper(tid, shape, tier, seed, size=""):
+    """All opaque fills, no strokes: green margin -> two broad silver stripes ->
+    plum centre band. Widths are chosen so every band is >= ~3 world units on
+    the leaves that use this template (print minimum at ~0.055 mm/unit)."""
     wide, curl = SHAPES[shape]
     lf = Tmpl(wide, curl)
     mg, mgs, bd, bds, sv, svs = TIERS[tier]
+    band, lo, hi_l, hi_s = PATTERN[size]
     rnd = random.Random(seed)
     g = [f'<g id="{tid}"><path d="{lf.outline()}" fill="{mg}"/>',
          f'<path d="{lf.half(1)}" fill="{mgs}"/>']
-    for side, col in ((-1, sv), (1, svs)):
-        jit = [rnd.uniform(-0.035, 0.035) for _ in range(9)]
-        g.append(f'<path d="{lf.region(side, 0.03, 0.88, 0.24, 0.7, jit=jit)}" fill="{col}"/>')
-    g.append(f'<path d="{lf.band(-1)}" fill="{bd}"/><path d="{lf.band(1)}" fill="{bds}"/>')
-    # fine parallel venation inside the silver (longitudinal, low contrast)
-    vl = "".join(lf.line(s * 0.52, 0.1, 0.8) for s in (-1, 1))
-    g.append(f'<path d="{vl}" fill="none" stroke="{bds}" stroke-width="1.5" '
-             f'stroke-linecap="round" opacity=".22"/>')
-    g.append(f'<path d="{lf.line(0, 0.0, 0.9)}" fill="none" stroke="{sv}" stroke-width="2" '
-             f'stroke-linecap="round" opacity=".4"/></g>')
+    for side, col, hi in ((-1, sv, hi_l), (1, svs, hi_s)):
+        jit = [rnd.uniform(-0.05, 0.04) for _ in range(9)]
+        g.append(f'<path d="{lf.region(side, 0.0, 0.93, lo, hi, taper0=0.2, taper1=0.4, jit=jit)}" fill="{col}"/>')
+    g.append(f'<path d="{lf.band(-1, band)}" fill="{bd}"/><path d="{lf.band(1, band)}" fill="{bds}"/></g>')
     return "".join(g)
 
 
 def tmpl_under(tid, shape, tone):
+    """Plum underside: flat lit / shaded halves only (the tonal split reads as
+    the midrib; no hairline strokes)."""
     wide, curl = SHAPES[shape]
     lf = Tmpl(wide, curl)
-    lit, shd, mid = UNDER[tone]
-    vl = "".join(lf.line(s * 0.5, 0.08, 0.82) for s in (-1, 1))
+    lit, shd, _ = UNDER[tone]
     return (f'<g id="{tid}"><path d="{lf.outline()}" fill="{lit}"/>'
-            f'<path d="{lf.half(1)}" fill="{shd}"/>'
-            f'<path d="{vl}" fill="none" stroke="{shd}" stroke-width="1.5" stroke-linecap="round" opacity=".35"/>'
-            f'<path d="{lf.line(0, 0.0, 0.9)}" fill="none" stroke="{mid}" stroke-width="2.2" '
-            f'stroke-linecap="round" opacity=".55"/></g>')
+            f'<path d="{lf.half(1)}" fill="{shd}"/></g>')
 
 
 def _ints(svg):
@@ -153,10 +165,9 @@ def defs():
     k = 0
     for tier in TIERS:
         for s in SHAPES:
-            if tier == 0 and s == "c":  # back tier only needs two shapes
-                continue
-            k += 1
-            out.append(tmpl_upper(f"z{tier}{s}", s, tier, k))
+            for size in PATTERN:
+                k += 1
+                out.append(tmpl_upper(f"z{tier}{s}{size}", s, tier, k, size))
     for tone in UNDER:
         for s in ("a", "b"):
             out.append(tmpl_under(f"u{tone}{s}", s, tone))
@@ -164,28 +175,31 @@ def defs():
     return _ints("".join(out))
 
 
-def place(tid, x, y, rot, L, wide=1.0):
+def place(tid, x, y, rot, L):
     """shaded half (+x local) must face world right; flip when it would not."""
     flip = math.cos(math.radians(rot)) < 0
-    sx = (-1 if flip else 1) * wide * L / 100
+    if tid.startswith("z") and L < SMALL_L:
+        if L < TINY_L:  # tiny leaves: two outline variants are plenty
+            tid = tid.replace("c", "a") + "t"
+        else:
+            tid += "s"
+    sx = (-1 if flip else 1) * L / 100
     return (f'<use href="#{tid}" transform="translate({f(x)} {f(y)}) rotate({f(rot)}) '
             f'scale({sx:.3f} {L / 100:.3f})"/>')
 
 
 # ---------------------------------------------------------------- flower
 def flower(x, y, r, rot=0):
-    """Three broad petals (blush), rose eye, cream anthers; tiny."""
+    """Three broad blush petals, rose eye, paper-white centre."""
     out = [f'<g transform="translate({f(x)} {f(y)}) rotate({f(rot)})">']
-    tones = ("#E8BDB8", P["blush"], "#E0AFAB")
-    pd = cr_path([(0, 0), (r * 0.5, -r * 0.3), (r * 0.56, -r * 0.72), (r * 0.26, -r * 1.02), (0, -r * 1.12),
-                  (-r * 0.26, -r * 1.02), (-r * 0.56, -r * 0.72), (-r * 0.5, -r * 0.3)], closed=True, sharp={0, 4})
+    tones = ("#EBC3BE", P["blush"], "#E2B1AD")
+    pd = cr_path([(0, 0), (r * 0.52, -r * 0.3), (r * 0.6, -r * 0.72), (r * 0.3, -r * 1.02), (0, -r * 1.1),
+                  (-r * 0.3, -r * 1.02), (-r * 0.6, -r * 0.72), (-r * 0.52, -r * 0.3)], closed=True, sharp={0})
     for i in range(3):
         out.append(f'<path d="{pd}" fill="{tones[i]}" transform="rotate({i * 120})"/>')
-    out.append(f'<circle r="{f(r * 0.27)}" fill="{P["rose"]}"/>')
-    for i in range(3):
-        a = math.radians(i * 120 + 60)
-        out.append(f'<circle cx="{f(math.sin(a) * r * 0.3)}" cy="{f(-math.cos(a) * r * 0.3)}" '
-                   f'r="{f(r * 0.11)}" fill="{P["ivory"]}"/>')
+    # rose eye with a single paper-white centre (>= 4.8 units across: print-safe knockout dot)
+    out.append(f'<circle r="{f(max(4.2, r * 0.32))}" fill="{P["rose"]}"/>')
+    out.append(f'<circle r="{f(max(2.4, r * 0.15))}" fill="#FFFFFF"/>')
     out.append("</g>")
     return "".join(out)
 
@@ -213,150 +227,170 @@ def along(s, frac):
     return s[-1], unit((s[-1][0] - s[-2][0], s[-1][1] - s[-2][1])), d[-1]
 
 
-def arc(x0, a0, a1, S, n=6, y0=SOIL_Y):
-    """stem path from the soil: heading (deg from vertical, + right) a0 -> a1."""
-    pts = [(x0, y0)]
-    x, y = x0, y0
-    k = 24
-    for i in range(1, k + 1):
-        a = math.radians(a0 + (a1 - a0) * (i - 0.5) / k)
-        x += math.sin(a) * S / k
-        y -= math.cos(a) * S / k
-        if i % (k // n) == 0:
-            pts.append((x, y))
-    return pts
+def leaf_dir(t, side, ang, up):
+    a = math.radians(ang * side)
+    dx = t[0] * math.cos(a) - t[1] * math.sin(a)
+    dy = t[0] * math.sin(a) + t[1] * math.cos(a)
+    return unit((dx, dy - up))
 
 
-def shoot(pts, w0, w1, st, nodes, leaf_tier=None):
-    """nodes: (frac, side, L, tid, ang, up). `ang` turns the leaf away from the
-    stem tangent to its side (deg); `up` blends the direction toward vertical."""
-    s = cr_sample(pts, 10)
-    total = along(s, 1.0)[2]
-    stems = [f'<path d="{ribbon(pts, w0, w1, per=4)}" fill="{STEM[st]}"/>']
-    leaves, collars = [], []
-    for fr, side, L, tid, ang, up in nodes:
-        p, t, _ = along(s, fr)
-        ww = w0 + (w1 - w0) * fr
-        # tubular sheath above the node: a short, fatter, darker collar
-        f1 = min(1.0, fr + 8 / total)
-        if f1 - fr > 0.004 and fr < 0.995:
-            q, _, _ = along(s, f1)
-            collars.append((f"M{f(p[0])} {f(p[1])}l{f(q[0] - p[0])} {f(q[1] - p[1])}", ww * 1.4))
-        a = math.radians(ang * side)
-        dx = t[0] * math.cos(a) - t[1] * math.sin(a)
-        dy = t[0] * math.sin(a) + t[1] * math.cos(a)
-        u = unit((dx, dy - up))
-        # leaf base sits a hair past the node so the clasping base wraps it
-        leaves.append(place(tid, p[0], p[1], rot_of(u), L))
-    if collars:
-        cw = sum(w for _, w in collars) / len(collars)
-        stems.append(f'<path d="{"".join(d for d, _ in collars)}" stroke="{COLLAR[st]}" stroke-width="{f(cw)}"/>')
-    return "".join(stems), "".join(leaves), s
+class Shoot:
+    """One jointed stem. nodes: (frac, side, L, tid, ang, up)."""
+
+    def __init__(self, pts, w0, w1, st, nodes, tip_flower=None, lead=None):
+        self.pts, self.w0, self.w1, self.st = pts, w0, w1, st
+        self.lead = lead  # extra stem points before pts[0] (stem only; nodes stay put)
+        self.nodes, self.tip_flower = nodes, tip_flower
+        self.s = cr_sample(pts, 10)
+        self.total = along(self.s, 1.0)[2]
+
+    def ribbon(self):
+        return ribbon((self.lead or []) + self.pts, self.w0, self.w1, per=4)
+
+    def stem(self, clip=None):
+        cp = f' clip-path="url(#{clip})"' if clip else ""
+        out = [f'<path d="{self.ribbon()}" fill="{STEM[self.st]}"{cp}/>']
+        coll = []
+        for fr, *_ in self.nodes:
+            if fr > 0.97:
+                continue
+            p, _, _ = along(self.s, fr)
+            q, _, _ = along(self.s, min(1.0, fr + 7 / self.total))
+            coll.append(f"M{f(p[0])} {f(p[1])}l{f(q[0] - p[0])} {f(q[1] - p[1])}")
+        if coll:
+            cw = (self.w0 + self.w1) / 2 * 1.35
+            out.append(f'<path d="{"".join(coll)}" stroke="{COLLAR[self.st]}" stroke-width="{f(cw)}" '
+                       f'stroke-linecap="round"/>')
+        return "".join(out)
+
+    def leaves(self):
+        out = []
+        for fr, side, L, tid, ang, up in self.nodes:
+            p, t, _ = along(self.s, fr)
+            out.append(place(tid, p[0], p[1], rot_of(leaf_dir(t, side, ang, up)), L))
+        return "".join(out)
+
+    def flower(self):
+        if not self.tip_flower:
+            return ""
+        r, lift, rot = self.tip_flower
+        p, t, _ = along(self.s, 1.0)
+        # the flower sits just past the terminal bracts, on the stem axis
+        return flower(p[0] + t[0] * lift, p[1] + t[1] * lift, r, rot)
 
 
-def auto_nodes(n, L0, tier, first, f0=0.26, shrink=0.78, ang=52, up=0.25, under=(), shapes="abcab",
-               seed=0, tip_ang=12):
+def grow(n, L0, L1, tier, first=1, f0=0.2, ang0=58, ang1=26, up=0.25, under=(), utone=1,
+         shapes="acbab", seed=0, tier_tip=None, bracts=False, drop=()):
+    """Alternating nodes, leaves shrinking toward the tip, internodes shortening.
+    drop: node indices left bare (leaf shed) -- thins the dense centre without
+    disturbing the rest of the shoot's sequence."""
     rnd = random.Random(seed)
     out = []
     side = first
     for i in range(n):
-        fr = 1.0 if i == n - 1 else f0 + (1 - f0) * i / (n - 1) + rnd.uniform(-0.03, 0.03)
-        L = L0 * (1 - (1 - shrink) * i / max(1, n - 1)) * rnd.uniform(0.88, 1.1)
-        a = tip_ang if i == n - 1 else ang * rnd.uniform(0.7, 1.3)
-        uu = up * rnd.uniform(0.6, 1.5)
+        u = i / max(1, n - 1)
+        fr = f0 + (1 - f0) * (1 - (1 - u) ** 1.35)
+        if 0 < i < n - 1:
+            fr += rnd.uniform(-0.02, 0.02)
+        L = (L0 + (L1 - L0) * u ** 0.9) * rnd.uniform(0.93, 1.07)
+        a = (ang0 + (ang1 - ang0) * u) * rnd.uniform(0.85, 1.15)
+        uu = up * rnd.uniform(0.7, 1.3)
         shp = shapes[i % len(shapes)]
-        if tier == 0 and shp == "c":
-            shp = "b"
-        tid = (f"u{under[1]}{'a' if shp == 'c' else shp}" if i in under[0] else f"z{tier}{shp}") \
-            if under else f"z{tier}{shp}"
-        out.append((fr, side, L, tid, a, uu))
+        tr = tier if (tier_tip is None or u < 0.6) else tier_tip
+        tid = f"u{utone}{'a' if shp == 'c' else shp}" if i in under else f"z{tr}{shp}"
+        if i not in drop:
+            out.append((min(fr, 1.0), side, L, tid, a, uu))
         side = -side
+    if bracts:  # terminal pair of small folded leaves cupping the flower
+        tr = tier if tier_tip is None else tier_tip
+        out.append((1.0, side, L1 * 0.86, f"z{tr}b", 34, up))
+        out.append((1.0, -side, L1 * 0.76, f"z{tr}a", 30, up))
     return out
 
 
 # ---------------------------------------------------------------- plant
 def build():
-    back, front = pot("classic", cx=300, rim_y=590, rx=102, base_w=72, band=True)
+    back, front = pot("classic", cx=300, rim_y=590, rx=92, base_w=65, band=True)
     out = [defs(), back]
+    Y = SOIL_Y
 
-    # crown shoots: (x0, a0, a1, S, stem tier, leaf tier, n, L0, first side, extras)
+    # crown, back to front. Stems arch outward and flop; the tallest stand in the
+    # back, low bushy ones in front hide the stem bases.
     crown = [
-        # back tier: tall centre and shoulders (darkest)
-        (298, -2, -12, 276, 0, 0, 7, 72, 1, dict(seed=1, under=({3}, 0), f0=0.22)),
-        (306, 12, 30, 272, 0, 0, 7, 72, -1, dict(seed=2, f0=0.22)),
-        (292, -20, -46, 248, 0, 0, 7, 72, -1, dict(seed=3, f0=0.22)),
-        (312, 32, 62, 236, 0, 0, 7, 70, 1, dict(seed=4, under=({2}, 0), f0=0.22)),
-        (288, -40, -76, 214, 0, 0, 6, 70, 1, dict(seed=12, f0=0.22)),
-        (310, 46, 84, 206, 0, 0, 6, 68, -1, dict(seed=16, f0=0.22)),
-        # middle tier
-        (284, -48, -104, 178, 1, 1, 6, 66, -1, dict(seed=5, up=0.5)),
-        (318, 50, 104, 174, 1, 1, 6, 66, 1, dict(seed=6, up=0.5, under=({3}, 1))),
-        (296, -10, -24, 220, 1, 1, 5, 70, 1, dict(seed=7)),
-        (306, 20, 40, 210, 1, 1, 5, 68, -1, dict(seed=8)),
-        (292, -32, -54, 200, 1, 1, 5, 68, 1, dict(seed=13)),
-        # front tier: low over the rim
-        (288, -68, -124, 132, 2, 2, 5, 62, -1, dict(seed=9, up=0.7)),
-        (314, 70, 124, 128, 2, 2, 5, 62, 1, dict(seed=10, up=0.7)),
-        (304, 30, 56, 150, 2, 2, 4, 62, -1, dict(seed=14)),
-        (296, -36, -60, 150, 2, 2, 4, 62, 1, dict(seed=15)),
-        (300, -6, 8, 140, 2, 2, 4, 64, 1, dict(seed=11, up=0.1)),
-        # two low leaves right at the rim, hiding the stem bases
-        (290, -6, -40, 64, 2, 2, 2, 56, -1, dict(seed=17, f0=0.6, ang=40, up=0.2, tip_ang=40)),
-        (314, 14, 52, 56, 2, 2, 2, 54, 1, dict(seed=18, f0=0.6, ang=40, up=0.2, tip_ang=40)),
+        # --- back tier (dusky)
+        Shoot([(297, Y), (292, 530), (282, 450), (278, 370), (286, 296), (304, 236)], 7.0, 3.8, 0,
+              grow(7, 96, 44, 0, first=1, f0=0.26, seed=1, ang0=56, up=0.1, tier_tip=1, drop={0, 1})),
+        Shoot([(308, Y), (320, 540), (346, 468), (388, 408), (436, 374), (484, 368)], 6.8, 3.6, 0,
+              # all upper sides: this shoot's leaves stand upright, so none is turned to show its underside
+              # (plum undersides are kept for the trailing / turned leaves)
+              grow(7, 94, 42, 0, first=-1, f0=0.26, seed=2, up=0.35, tier_tip=1, drop={0, 1})),
+        Shoot([(290, Y), (278, 544), (250, 476), (206, 424), (158, 404), (116, 412)], 6.8, 3.6, 0,
+              grow(7, 92, 40, 0, first=1, f0=0.28, seed=3, up=0.35, tier_tip=1, drop={0})),
+        # --- middle tier
+        Shoot([(313, Y), (340, 562), (392, 522), (446, 506), (494, 516), (524, 546)], 6.2, 3.4, 1,
+              grow(6, 90, 44, 1, first=1, f0=0.28, seed=4, up=0.55, ang0=64)),
+        Shoot([(286, Y), (262, 566), (214, 534), (160, 520), (112, 534), (76, 562)], 6.2, 3.4, 1,
+              grow(6, 88, 42, 1, first=-1, f0=0.3, seed=5, up=0.55, ang0=64, under={4}, utone=1)),
+        Shoot([(300, Y), (300, 550), (282, 486), (254, 424), (232, 364), (222, 318)], 6.2, 3.4, 1,
+              grow(6, 98, 44, 1, first=-1, f0=0.34, seed=6, up=0.15, tier_tip=2, bracts=True),
+              tip_flower=(21, 15, -12)),
+        Shoot([(305, Y), (314, 550), (340, 494), (374, 452), (404, 430)], 6.0, 3.4, 1,
+              grow(4, 96, 52, 1, first=1, f0=0.4, seed=7, up=0.2, tier_tip=2, bracts=True),
+              tip_flower=(19, 13, 14)),
+        # --- front tier (bright): low leaves covering the stem bases. The lowest leaf of
+        # the centre shoot and the two back-tier leaves behind it are shed (drop=): opens
+        # the densest part of the crown onto the stems, with no same-tier leaves meeting.
+        Shoot([(293, Y), (272, 590), (240, 578), (212, 576)], 5.8, 3.6, 2,
+              grow(3, 100, 72, 2, first=1, f0=0.42, seed=8, ang0=50, ang1=34, up=0.4, shapes="cab")),
+        Shoot([(309, Y), (334, 588), (366, 578), (396, 576)], 5.8, 3.6, 2,
+              grow(3, 98, 70, 2, first=-1, f0=0.42, seed=9, ang0=50, ang1=34, up=0.4, shapes="acb")),
+        Shoot([(301, Y), (304, 570), (314, 530), (330, 498)], 5.6, 3.6, 2,
+              grow(3, 104, 66, 2, first=-1, f0=0.45, seed=10, ang0=56, ang1=30, up=0.1, shapes="bca",
+                   drop={0}, under={1}, utone=1)),   # its leaning leaf is turned: solid plum rests the eye
     ]
-    tips = {}
-    for i, (x0, a0, a1, S, st, lt, n, L0, first, ex) in enumerate(crown):
-        # lift the dome (upright shoots longer), keep the sides within the card
-        tall = abs(a1) < 60 and S > 100
-        S *= 1.2 if tall else 0.9
-        n += 1 if tall and S > 240 else 0
-        L0 *= LS
-        x0 = 300 + (x0 - 300) * 0.4 + max(-56, min(56, a0 * 0.8))  # spread over the soil
-        pts = arc(x0, a0, a1, S)
-        w0 = 7.2 - st * 0.6
-        nodes = auto_nodes(n, L0, lt, first, **ex)
-        s, l, samp = shoot(pts, w0, w0 * 0.62, st, nodes)
-        out += [s, l]
-        tips[i] = samp
-
-    # flowers nestled at two shoot tips
-    out.append(flower(*along(tips[15], 0.93)[0], 13, 20))
-    out.append(flower(*along(tips[7], 0.9)[0], 12, -15))
+    # trailing strands leave the soil behind the crown: their first stretch (inside the
+    # pot opening) is drawn here, under the crown; the part crossing the rim is drawn
+    # again over the pot front, clipped to outside the opening -- seamless at the lip.
+    trails = trail_shoots()
+    out += [f'<path d="{sh.ribbon()}" fill="{STEM[sh.st]}"/>' for sh in trails if sh.lead]
+    for sh in crown:
+        out += [sh.stem(), sh.leaves()]
+    out += [sh.flower() for sh in crown]
 
     out.append(front)
 
-    # trailing strands over the rim (drawn in front of the pot)
-    trails = [
-        # long right strand
-        ([(352, 596), (392, 588), (428, 598), (458, 632), (476, 684), (486, 730), (490, 768)],
-         5.2, 3.2, 1, [
-             (0.12, 1, 50, "z2a", 64, 0.5), (0.27, -1, 46, "z1b", 70, 0.8),
-             (0.42, 1, 44, "u1a", 74, 0.9), (0.56, -1, 42, "z2c", 78, 1.0),
-             (0.70, 1, 40, "z1a", 78, 1.1), (0.84, -1, 38, "z2b", 80, 1.2),
-             (1.0, 1, 34, "z1a", 70, 1.8)]),
-        # medium left strand
-        ([(250, 596), (212, 590), (180, 600), (156, 632), (142, 676), (134, 712)],
-         5.0, 3.2, 1, [
-             (0.14, -1, 48, "z2c", 64, 0.5), (0.33, 1, 44, "z1a", 72, 0.8),
-             (0.52, -1, 42, "z2a", 78, 1.0), (0.7, 1, 40, "u1b", 80, 1.0),
-             (0.86, -1, 38, "z1b", 80, 1.2), (1.0, 1, 34, "z2a", 66, 1.8)]),
-        # short centre-front drape
-        ([(334, 597), (348, 606), (356, 626), (358, 652)],
-         4.4, 3.2, 2, [
-             (0.6, 1, 40, "z1b", 64, 0.3), (1.0, -1, 36, "z2c", 50, 1.4)]),
-        # short strand over the front-left of the rim
-        ([(276, 597), (254, 614), (242, 640), (240, 668)],
-         4.4, 3.0, 2, [
-             (0.35, -1, 42, "z2b", 80, 0.9), (0.68, 1, 38, "z1c", 80, 1.1),
-             (1.0, -1, 34, "z2a", 60, 1.8)]),
+    # front copy: only beyond the lip crossing (x side of the strand) and outside the opening
+    ell = f"M{f(300 - 92)} 590A92 13.8 0 1 0 {f(300 + 92)} 590A92 13.8 0 1 0 {f(300 - 92)} 590Z"
+    for i, (x0, x1) in enumerate(((0, 245), (357, 600))):
+        out.append(f'<clipPath id="rimout{i}"><path clip-rule="evenodd" '
+                   f'd="M{x0} 0H{x1}V800H{x0}Z{ell}"/></clipPath>')
+    out += [sh.stem(f"rimout{i}" if sh.lead else None) for i, sh in enumerate(trails)]
+    out += [sh.leaves() for sh in trails]
+    out += [sh.flower() for sh in trails]
+    body = "".join(out)
+    # drop templates no <use> references (keeps the file small)
+    used = set(re.findall(r'href="#(\w+)"', body))
+    return re.sub(r'<g id="(\w+)">.*?</g>', lambda m: m.group(0) if m.group(1) in used else "", body)
+
+
+def trail_shoots():
+    """trailing strands, drawn over the pot. Leaves turn outward/up off the
+    hanging stems; some twist to show the plum underside."""
+    return [
+        # long left strand: hangs down the pot side, tip turning out well above the ground line
+        Shoot([(239, 600), (208, 594), (172, 610), (150, 644), (134, 674), (116, 694), (98, 700)], 5.4, 2.8, 2,
+              grow(8, 74, 34, 2, first=-1, f0=0.08, seed=11, ang0=78, ang1=44, up=0.9, under={2, 5},
+                   utone=1, shapes="abcab", tier_tip=1, bracts=True),
+              tip_flower=(15, 10, 10), lead=[(272, 614), (268, 597), (254, 592)]),
+        # medium right strand: tip lifted ~26 units so its last leaves clear the card's bottom-right marks
+        Shoot([(363, 600), (396, 594), (432, 610), (453, 644), (461, 680), (463, 704)], 5.2, 2.8, 2,
+              grow(7, 72, 34, 2, first=1, f0=0.08, seed=12, ang0=78, ang1=44, up=0.9, under={3},
+                   utone=0, shapes="cabca", tier_tip=1), lead=[(318, 614), (325, 596), (345, 592)]),
+        # short front drape
+        Shoot([(326, 602), (344, 614), (352, 638), (352, 662)], 4.4, 2.8, 2,
+              grow(3, 58, 36, 2, first=1, f0=0.35, seed=13, ang0=74, ang1=50, up=0.8, under={1},
+                   utone=0, shapes="bac")),
     ]
-    ts, tl = [], []
-    for pts, w0, w1, st, nodes in trails:
-        s, l, _ = shoot(pts, w0, w1, st, nodes)
-        ts.append(s)
-        tl.append(l)
-    out += ts + tl
-    return "".join(out)
 
 
 if __name__ == "__main__":

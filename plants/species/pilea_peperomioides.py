@@ -14,15 +14,19 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 from core import PAL, SHADE, cr_path, stem, pot, svg_doc, uid, reset_ids, f  # noqa: E402
 
 P = PAL
-# tone ladder, dark -> light, with (fill, cup-shade, vein colour, vein opacity, dot colour)
+# tone ladder, dark -> light: (fill, cup-shade, vein, dot). Veins are opaque and
+# only ~one step lighter than the blade (subtle), drawn as tapered wedges >= 4.4
+# units wide at the dot so they print on every leaf.
 TONES = {
-    "deep":   (P["deep"],   SHADE[P["deep"]],   P["pale"], .30, P["light"]),
-    "forest": (P["forest"], SHADE[P["forest"]], P["pale"], .32, P["pale"]),
-    "mid":    (P["mid"],    SHADE[P["mid"]],    P["pale"], .36, P["pale"]),
-    "sage":   (P["sage"],   SHADE[P["sage"]],   P["deep"], .22, P["spot"]),
-    "light":  (P["light"],  SHADE[P["light"]],  P["deep"], .20, P["ivory"]),
-    "pale":   (P["pale"],   SHADE[P["pale"]],   P["forest"], .20, P["ivory"]),
+    "deep":   (P["deep"],   SHADE[P["deep"]],   "#4A634D", P["light"]),
+    "forest": (P["forest"], SHADE[P["forest"]], "#587558", P["pale"]),
+    "mid":    (P["mid"],    SHADE[P["mid"]],    "#728A6C", P["pale"]),
+    "sage":   (P["sage"],   SHADE[P["sage"]],   "#95A688", "#D7DDCC"),  # pale green tint, L* 87.3 (<= 88 on white stock)
+    "light":  (P["light"],  SHADE[P["light"]],  "#B9C4AB", "#FFFFFF"),  # paper-white dot (white stock)
+    "pale":   (P["pale"],   SHADE[P["pale"]],   "#D7DDCC", "#FFFFFF"),  # vein tint L* 87.3
 }
+VEIN_W0, VEIN_W1 = 4.4, 1.0   # world units at the dot / at the vein end
+DOT_MIN_R = 2.5               # world minor radius of the attachment dot (>= 4.5 across)
 
 
 class Coin:
@@ -30,12 +34,13 @@ class Coin:
     (minor/major), rot = degrees of the major axis, node = petiole origin."""
 
     def __init__(self, c, R, sq, rot, tone, node, via, pet_w=(5.5, 3.2), cup=1.0,
-                 attach=0.2, nveins=8, vrot=0.0):
+                 attach=0.2, nveins=6, vrot=0.0):
         self.c, self.R, self.sq, self.rot = c, R, sq, math.radians(rot)
         self.tone, self.node, self.via = tone, node, via
         self.pet_w, self.cup, self.nveins, self.vrot = pet_w, cup, nveins, vrot
         # petiole direction in local (unsquashed) leaf coordinates
-        dx, dy = node[0] - c[0], node[1] - c[1]
+        src = via[-1] if via else node
+        dx, dy = src[0] - c[0], src[1] - c[1]
         lx, ly = self.to_local(dx, dy)
         m = math.hypot(lx, ly) or 1
         self.pdir = (lx / m, ly / m)
@@ -75,17 +80,67 @@ class Coin:
     # ------------------------------------------------------------ render
     def petiole(self):
         fill = getattr(self, "pet_col", None) or P["light"]
-        pts = [self.node] + list(self.via) + [self.attach_world()]
+        A = self.attach_world()
+        prev = self.via[-1] if self.via else self.node
+        # the visible petiole must enter the rim aimed straight at the centre
+        # dot, then run on (hidden under the blade) to end beneath it
+        rim = self.w(*self.rim_local())
+        ux, uy = prev[0] - A[0], prev[1] - A[1]
+        m = math.hypot(ux, uy) or 1
+        dq = math.hypot(rim[0] - A[0], rim[1] - A[1]) + 14
+        pts = [self.node] + list(self.via)
+        if m > dq + 10:
+            pts.append((A[0] + ux / m * dq, A[1] + uy / m * dq))
+        pts.append(A)
         return stem(pts, self.pet_w[0], self.pet_w[1], fill)
 
+    def rim_local(self, phi=None):
+        """point on the rim from the attachment point A along phi (default:
+        toward the petiole), local coords."""
+        ax, ay = self.A
+        if phi is None:
+            phi = math.atan2(self.pdir[1], self.pdir[0])
+        ux, uy = math.cos(phi), math.sin(phi)
+        b = ax * ux + ay * uy
+        cc = ax * ax + ay * ay - (self.R * 0.97) ** 2
+        L = -b + math.sqrt(b * b - cc)
+        return ax + ux * L, ay + uy * L
+
     def svg(self):
-        fill, shade, vcol, vop, dot = TONES[self.tone]
+        fill, shade, vcol, dot = TONES[self.tone]
         d = self.outline()
         cid = uid("pl")
         out = [f'<clipPath id="{cid}"><path id="{cid}p" d="{d}"/></clipPath>', f'<use href="#{cid}p" fill="{fill}"/>']
         inner = []
-        # cupping: flat darker crescent on the lower-right rim, lighter one
-        # just inside the upper-left rim
+        # veins: opaque tapered wedges radiating from the attachment point; the
+        # first one runs toward the petiole, so stalk -> rim -> vein -> dot reads
+        # as one line. Built in world space so the width survives foreshortening.
+        ax, ay = self.A
+        Aw = self.w(ax, ay)
+        n = self.nveins
+        base = math.atan2(self.pdir[1], self.pdir[0]) + self.vrot
+        vv = []
+        for k in range(n):
+            phi = base + 2 * math.pi * k / n
+            e = self.rim_local(phi)
+            frac = 0.86 if k == 0 else (0.80 if k % 2 else 0.64)
+            el = (ax + (e[0] - ax) * frac, ay + (e[1] - ay) * frac)
+            mid = ((ax + el[0]) / 2, (ay + el[1]) / 2)
+            ux, uy = el[0] - ax, el[1] - ay
+            bend = 0.08 if k % 2 else -0.06
+            mid = (mid[0] - uy * bend, mid[1] + ux * bend)
+            E, M = self.w(*el), self.w(*mid)
+            tx, ty = E[0] - Aw[0], E[1] - Aw[1]
+            tm = math.hypot(tx, ty) or 1
+            nx, ny = -ty / tm, tx / tm
+            h0, h1 = VEIN_W0 / 2, VEIN_W1 / 2
+            hm = (h0 + h1) / 2 * 1.3
+            vv.append(f"M{f(Aw[0] + nx * h0)} {f(Aw[1] + ny * h0)}"
+                      f"Q{f(M[0] + nx * hm)} {f(M[1] + ny * hm)} {f(E[0] + nx * h1)} {f(E[1] + ny * h1)}"
+                      f"L{f(E[0] - nx * h1)} {f(E[1] - ny * h1)}"
+                      f"Q{f(M[0] - nx * hm)} {f(M[1] - ny * hm)} {f(Aw[0] - nx * h0)} {f(Aw[1] - ny * h0)}Z")
+        inner.append(f'<path d="{"".join(vv)}" fill="{vcol}"/>')
+        # cupping: flat darker crescent on the lower-right rim (over the vein ends)
         if self.cup:
             lx, ly = self.to_local(0.55, 0.85)
             m = math.hypot(lx, ly)
@@ -93,33 +148,11 @@ class Coin:
             sh = (-lx / m * s, -ly / m * s)
             cres = d + self.outline(shift=sh, scale=1.0)
             inner.append(f'<path d="{cres}" fill="{shade}" fill-rule="evenodd"/>')
-        # veins radiating from the attachment point
-        ax, ay = self.A
-        vv = []
-        n = self.nveins
-        base = math.atan2(self.pdir[1], self.pdir[0]) + math.pi / n + self.vrot
-        for k in range(n):
-            phi = base + 2 * math.pi * k / n
-            # distance from A to rim along phi (solve on circle)
-            ux, uy = math.cos(phi), math.sin(phi)
-            b = ax * ux + ay * uy
-            cc = ax * ax + ay * ay - (self.R * 0.97) ** 2
-            L = -b + math.sqrt(b * b - cc)
-            L *= 0.80 if k % 2 == 0 else 0.62
-            bend = 0.10 * L
-            p1 = (ax + ux * L * 0.5 - uy * bend, ay + uy * L * 0.5 + ux * bend)
-            p2 = (ax + ux * L, ay + uy * L)
-            a, q, e = self.w(ax, ay), self.w(*p1), self.w(*p2)
-            vv.append(f"M{f(a[0])} {f(a[1])}Q{f(q[0])} {f(q[1])} {f(e[0])} {f(e[1])}")
-        vw = max(1.2, min(2.0, self.R / 34))
-        inner.append(f'<path d="{"".join(vv)}" fill="none" stroke="{vcol}" stroke-width="{f(vw)}" '
-                     f'stroke-linecap="round" opacity="{vop}"/>')
-        # pale attachment dot (a small squashed disc)
-        rr = max(2.6, self.R * 0.08)
-        dp = []
-        for i in range(10):
-            t = 2 * math.pi * i / 10
-            dp.append(self.w(ax + rr * math.cos(t), ay + rr * math.sin(t)))
+        # pale attachment dot: foreshortened, but never thinner than the dot minimum
+        ru = max(2.8, self.R * 0.08)
+        rv = max(ru, DOT_MIN_R / self.sq)
+        dp = [self.w(ax + ru * math.cos(t), ay + rv * math.sin(t))
+              for t in (2 * math.pi * i / 10 for i in range(10))]
         inner.append(f'<path d="{cr_path(dp)}" fill="{dot}"/>')
         out.append(f'<g clip-path="url(#{cid})">' + "".join(inner) + "</g>")
         return "".join(out)
@@ -141,12 +174,14 @@ def leaves():
         L.append(c)
 
     # ---- crown: young, pale leaves at the stem apex, peeking over the top leaf
-    add((256, 130), 31, .50, -16, "light", (298, 318), [(290, 250), (266, 168)], pet_w=(3.6, 2.4), pet="sage")
-    add((340, 114), 25, .44, 14, "pale", (299, 318), [(312, 250), (334, 148)], pet_w=(3.4, 2.2), pet="sage")
+    # (lifted a little up-left off the centre leaf so a short stretch of its stalk
+    # shows between the two, entering the rim aimed at the centre dot)
+    add((247, 121), 31, .50, -16, "light", (298, 318), [(290, 252), (256, 186)], pet_w=(3.8, 2.6), pet="sage", nveins=5)
+    add((340, 114), 25, .44, 14, "pale", (299, 318), [(312, 250), (334, 148)], pet_w=(3.4, 2.2), pet="sage", nveins=5)
     # ---- back layer: big, dark leaves
-    add((164, 322), 72, .88, -12, "deep", (297, 470), [(252, 420), (200, 360)], pet_w=(6, 3.4), pet="sage")
+    add((164, 322), 72, .88, -12, "deep", (298, 434), [], pet_w=(6, 3.4), pet="sage")
     add((430, 300), 76, .84, 10, "forest", (299, 456), [(346, 400), (404, 336)], pet_w=(6, 3.4), pet="sage")
-    add((122, 486), 54, .54, -26, "forest", (298, 548), [(232, 512), (172, 494)], pet_w=(6, 3.4), pet="sage")
+    add((122, 486), 54, .54, -26, "forest", (298, 548), [(236, 516), (176, 503)], pet_w=(6, 3.4), pet="sage")
     add((474, 432), 58, .76, 14, "deep", (300, 534), [(370, 478), (436, 446)], pet_w=(6, 3.4), pet="sage")
     add((302, 186), 72, .80, -4, "mid", (300, 318), [(301, 260)], pet_w=(6, 3.6), pet="light")
     L.append("STEM")
@@ -163,8 +198,8 @@ def leaves():
 def pup():
     """A small offset pup in the soil, left of the main stem."""
     out = []
-    a = Coin((230, 546), 21, .70, -18, "light", (250, 602), [(244, 574)], pet_w=(3.8, 2.4), cup=.6, nveins=6)
-    b = Coin((266, 556), 15, .55, 22, "sage", (254, 602), [(262, 580)], pet_w=(3.2, 2.2), cup=.6, nveins=6)
+    a = Coin((230, 546), 21, .70, -18, "light", (250, 602), [(244, 574)], pet_w=(3.8, 2.4), cup=.6, nveins=5)
+    b = Coin((266, 556), 15, .55, 22, "sage", (254, 602), [(262, 580)], pet_w=(3.2, 2.2), cup=.6, nveins=5)
     a.pet_col = b.pet_col = P["sage"]
     for c in (b, a):
         out.append(c.petiole())
@@ -173,11 +208,8 @@ def pup():
 
 
 def central_stem():
-    s = stem(STEM, 14, 7, P["forest"])
-    # a few faint leaf scars on the bare lower stem
-    scars = "".join(f"M{f(STEM_X - 4)} {y}q4 {q} 8 0" for y, q in ((582, 2.5), (560, -2.5), (538, 2.5)))
-    return s + (f'<path d="{scars}" fill="none" stroke="{P["mid"]}" stroke-width="1.5" '
-                f'stroke-linecap="round"/>')
+    # (leaf scars on the bare lower stem were hairlines: dropped for print)
+    return stem(STEM, 14, 7, P["forest"])
 
 
 def build():

@@ -17,12 +17,24 @@ BARK = "#6A5943"
 BARK_DK = P["soil"]
 BARK_HI = "#8A7659"
 
+
+def mix(a, b, t):
+    """Opaque pre-blend of hex colours a -> b (t = 0..1)."""
+    ca = [int(a[i:i + 2], 16) for i in (1, 3, 5)]
+    cb = [int(b[i:i + 2], 16) for i in (1, 3, 5)]
+    return "#" + "".join(f"{round(x + (y - x) * t):02X}" for x, y in zip(ca, cb))
+
+
+VEIN_W = 4.8     # light-on-dark lateral veins at their base (tapered ribbons, print-safe widest point)
+VEIN_TS = [0.14, 0.31, 0.48, 0.65]   # four sub-opposite pairs of laterals
+
 # half-width profile of the violin-shaped blade (t along midrib, w as fraction of L)
-PROFILE = [(0.00, 0.075), (0.06, 0.150), (0.16, 0.205), (0.28, 0.228), (0.40, 0.212),
-           (0.52, 0.255), (0.64, 0.325), (0.76, 0.365), (0.86, 0.345), (0.935, 0.255),
-           (0.985, 0.095)]
+# Few, evenly spread nodes -> smooth margin: narrow base, one gentle waist (~0.42),
+# broadest at ~0.8, broad rounded apex with only a tiny point.
+PROFILE = [(0.00, 0.045), (0.11, 0.125), (0.26, 0.180), (0.41, 0.176), (0.58, 0.262),
+           (0.77, 0.345), (0.905, 0.312), (0.972, 0.165)]
 SINUS_T = 0.035
-TIP_T = 0.972
+TIP_T = 0.995
 
 
 class Fig:
@@ -31,15 +43,15 @@ class Fig:
         self.rot = math.radians(rot)
         self.L, self.sx, self.sy, self.bend = L, sx, sy, bend
         rnd = random.Random(seed)
-        waist = rnd.uniform(0.86, 1.04)   # how pinched the "fiddle" waist is
-        crown = rnd.uniform(0.94, 1.08)   # breadth of the rounded upper blade
+        waist = rnd.uniform(0.94, 1.0)    # how pinched the "fiddle" waist is
+        crown = rnd.uniform(0.96, 1.04)   # breadth of the rounded upper blade
         self.prof = {}
         for side in ("r", "l"):
-            asym = rnd.uniform(-0.025, 0.025)
+            asym = rnd.uniform(-0.014, 0.014)
             pr = []
             for i, (t, w) in enumerate(PROFILE):
-                wig = rnd.uniform(-0.016, 0.016) if 2 <= i <= 9 else 0
-                k = waist if 0.3 <= t <= 0.5 else (crown if t >= 0.6 else 1.0)
+                wig = 0  # (random margin wiggle removed: it made the blades lumpy)
+                k = waist if 0.35 <= t <= 0.45 else (crown if t >= 0.6 else 1.0)
                 pr.append((t, (w * k + wig + (asym if t > 0.45 else 0)) * fat))
             self.prof[side] = pr
 
@@ -93,20 +105,28 @@ class Fig:
         b = self.M(0.3, -0.5)
         return (b[0] - a[0]) + 0.35 * (b[1] - a[1]) > 0
 
-    def veins(self, ts, reach=0.82, dt=0.13):
+    def veins(self, ts, reach=0.8, dt=0.17, w0=4.8, w1=1.8, stagger=0.035):
+        """Lateral veins as tapered ribbons (page coords, so widths are print-true).
+        Each one leaves the midrib at ~60 deg, then bends gently toward the apex
+        and thins out before the margin. Left/right are sub-opposite (staggered)
+        so a pair never joins into one arc across the midrib."""
         d = []
         for t in ts:
             for side, sg in (("r", 1), ("l", -1)):
-                t2 = min(t + dt, 0.95)
-                p0 = self.M(*self.ax(t))
-                p1 = self.M(*self.lp(t + dt * 0.35, sg * self.wid(t + dt * 0.35, side) * reach * 0.62))
-                p2 = self.M(*self.lp(t2, sg * self.wid(t2, side) * reach))
-                d.append(f"M{f(p0[0])} {f(p0[1])}Q{f(p1[0])} {f(p1[1])} {f(p2[0])} {f(p2[1])}")
+                t0 = t + (stagger if side == "l" else 0.0)
+                t2 = min(t0 + dt, 0.93)
+                ex = sg * self.wid(t2, side) * reach
+                p0 = self.ax(t0)
+                # control: most of the lateral run happens early (steep take-off),
+                # the last stretch turns up toward the tip
+                c = self.lp(t0 + (t2 - t0) * 0.42, ex * 0.72)
+                p2 = self.lp(t2, ex)
+                d.append(taper(self.M(*p0), self.M(*c), self.M(*p2), w0, w1))
         return "".join(d)
 
     def rib_shape(self, w):
         ts = [-0.03, 0.3, 0.6, 0.9]
-        ws = [w / 2, w * 0.36, w * 0.24, 0.35]
+        ws = [w / 2, w * 0.45, w * 0.38, w * 0.3]
         R, Lf = [], []
         for t, hw in zip(ts, ws):
             a, n = self.M(*self.ax(t)), self.M(*self.lp(t, 1)),
@@ -122,21 +142,39 @@ class Fig:
         pts = [self.M(*self.ax(t0 + (t1 - t0) * i / 6)) for i in range(7)]
         return pts
 
-    def svg(self, fill, vein_col=None, vein_op=0.42, rib_op=0.8, rib_w=3.2, under=False):
+    def svg(self, fill, vein_col, rib_col, rib_w=6.0):
+        """Every leaf carries the same bold, opaque vein system: a tapered
+        midrib + three pairs of pale laterals (the fiddle-leaf pattern), all
+        at print-safe weight."""
         d = self.path()
         cid = uid("fl")
         shade = SHADE.get(fill, fill)
         sg = 1 if self.right_is_away() else -1
-        vc = vein_col or P["pale"]
         o = [f'<clipPath id="{cid}"><path d="{d}"/></clipPath>',
              f'<path d="{d}" fill="{fill}"/>',
              f'<g clip-path="url(#{cid})">',
              f'<path d="{self.half(sg)}" fill="{shade}"/>',
-             f'<path d="{self.veins([0.15, 0.30, 0.45, 0.59, 0.72])}" fill="none" stroke="{vc}" '
-             f'stroke-width="1.4" stroke-linecap="round" opacity="{vein_op}"/>',
-             f'<path d="{self.rib_shape(rib_w)}" fill="{vc}" opacity="{rib_op}"/>',
+             f'<path d="{self.veins(VEIN_TS)}" fill="{vein_col}"/>',
+             f'<path d="{self.rib_shape(rib_w)}" fill="{rib_col}"/>',
              "</g>"]
         return "".join(o)
+
+
+def taper(p0, c, p2, w0, w1):
+    """Compact tapered vein: a quadratic (p0, control c, p2) widened w0 -> w1,
+    written as two offset quadratics (keeps the file small)."""
+    def nrm(a, b):
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        m = math.hypot(dx, dy) or 1
+        return (-dy / m, dx / m)
+    n0, n2, nc = nrm(p0, c), nrm(c, p2), nrm(p0, p2)
+    wc = (w0 + w1) / 4
+    A = [(p0[0] + n0[0] * w0 / 2, p0[1] + n0[1] * w0 / 2), (c[0] + nc[0] * wc, c[1] + nc[1] * wc),
+         (p2[0] + n2[0] * w1 / 2, p2[1] + n2[1] * w1 / 2)]
+    B = [(p0[0] - n0[0] * w0 / 2, p0[1] - n0[1] * w0 / 2), (c[0] - nc[0] * wc, c[1] - nc[1] * wc),
+         (p2[0] - n2[0] * w1 / 2, p2[1] - n2[1] * w1 / 2)]
+    q = lambda P: f"{f(P[0])} {f(P[1])}"
+    return f"M{q(A[0])}Q{q(A[1])} {q(A[2])}L{q(B[2])}Q{q(B[1])} {q(B[0])}Z"
 
 
 def petiole(stem_pt, fig, length_in=0.06, w0=5.0, w1=3.6, col=BARK):
@@ -155,7 +193,7 @@ def offset(p, rot, dist):
 # ------------------------------------------------------------------ scene
 TRUNK = [(297, 600), (295, 540), (298, 475), (304, 410), (306, 340), (301, 270), (296, 205),
          (297, 160)]
-BRANCH = [(304, 425), (292, 400), (276, 374), (259, 352), (246, 338)]
+BRANCH = [(303, 440), (290, 414), (270, 391), (246, 374), (226, 364)]
 
 
 def on(pts, fr):
@@ -174,31 +212,32 @@ def on(pts, fr):
 
 
 # leaf spec: (layer, stem, frac, rot, petiole_len, L, sx, sy, bend, fill, seed)
-# layer 0 = behind the trunk, 1 = in front of trunk
+# layer 0 = behind the trunk, 1 = in front of trunk.
+# Depth logic: a dark back ring (deep) gives the silhouette; a few mid-tone
+# leaves sit between; the three pale front leaves only ever overlap deep
+# leaves (never each other or the mid tones), so every overlap is >= 2 tone
+# steps and the crown reads as layers even at thumbnail size.
 LEAVES = [
-    # ---- back crown (darkest), behind the trunk
-    (0, "T", 0.80, -58, 7, 155, 0.95, 1.0, -0.05, "deep", 3),
-    (0, "T", 0.78, 66, 7, 160, 0.92, 1.0, 0.06, "deep", 4),
-    (0, "T", 0.95, -18, 6, 135, 0.92, 0.95, -0.03, "forest", 5),
-    (0, "T", 0.93, 36, 6, 130, 0.88, 1.0, 0.03, "forest", 6),
-    (0, "B", 1.00, -80, 6, 140, 0.95, 1.0, -0.08, "forest", 7),
-    (0, "T", 0.62, 112, 7, 135, 0.9, 1.0, 0.10, "deep", 15),
-    (0, "B", 0.70, -122, 6, 125, 0.9, 1.0, 0.08, "deep", 17),
-    # ---- middle
-    (1, "T", 0.99, 10, 5, 115, 0.95, 0.95, 0.03, "light", 8),    # newest top leaf
-    (1, "T", 0.78, 38, 7, 150, 0.8, 1.0, -0.05, "mid", 12),
-    (1, "T", 0.82, -30, 7, 150, 1.0, 0.9, 0.03, "sage", 11),
-    (1, "T", 0.68, 78, 8, 140, 0.56, 1.0, 0.16, "mid", 9),       # right, turned
-    (1, "B", 0.85, -106, 7, 132, 0.7, 1.0, 0.12, "sage", 10),    # left, from branch
-    # ---- front
-    (1, "T", 0.57, -4, 7, 158, 1.0, 0.74, 0.02, "light", 13),   # facing viewer, foreshortened
-    (1, "T", 0.60, 138, 7, 112, 0.8, 0.9, -0.06, "sage", 14),   # drooping toward viewer
+    # ---- back ring (darkest), behind the trunk
+    (0, "T", 0.60, -96, 8, 152, 0.92, 1.0, -0.07, "deep", 3),     # left, lower and drooping
+    (0, "T", 0.80, 76, 8, 138, 0.90, 1.0, 0.07, "deep", 4),       # right, higher and smaller
+    (0, "T", 0.95, -22, 7, 136, 0.90, 1.0, -0.04, "deep", 5),     # upper left
+    (0, "T", 0.92, 30, 7, 140, 0.88, 1.0, 0.04, "deep", 6),       # upper right
+    (0, "T", 0.56, 118, 8, 128, 0.86, 1.0, 0.10, "deep", 15),     # low right, drooping
+    (0, "B", 0.72, -136, 15, 118, 0.88, 1.0, 0.08, "deep", 17),   # branch, drooping (visible petiole)
+    # ---- middle tones
+    (1, "T", 1.00, 12, 5, 118, 0.92, 0.95, 0.03, "mid", 8),        # newest top leaf
+    (1, "B", 1.00, -62, 6, 132, 0.86, 1.0, -0.05, "mid", 10),     # branch terminal leaf
+    # ---- front (lightest)
+    (1, "T", 0.82, -58, 7, 134, 0.95, 0.95, 0.03, "sage", 11),    # upper left, facing
+    (1, "T", 0.88, 60, 7, 136, 0.62, 1.0, 0.14, "sage", 9),       # right, turned edge-on
+    (1, "T", 0.52, 8, 7, 150, 1.0, 0.76, 0.02, "light", 13),     # facing viewer, foreshortened
 ]
 
 
 def build():
     reset_ids()
-    back, front = pot(kind="classic", rx=96, rim_y=588, base_w=66, band=True)
+    back, front = pot(kind="classic", rx=99, rim_y=588, base_w=68, band=True)
     out = [back]
     stems = {"T": TRUNK, "B": BRANCH}
     layers = {0: [], 1: []}
@@ -207,11 +246,13 @@ def build():
         base = offset(sp, rot, pl)
         fig = Fig(base, rot, L, sx, sy, bend, seed)
         dark = tone in ("deep", "forest")
-        vein = P["light"] if dark else P["ivory"]
+        # opaque pre-blended vein tones: pale tint of the blade colour
+        # (kept ~25 % below the silhouette contrast so vein detail reads as detail)
+        vein = mix(P[tone], P["light"] if dark else P["ivory"], 0.17 if dark else 0.25)
+        rib = mix(P[tone], P["light"] if dark else P["ivory"], 0.3 if dark else 0.45)
         pw = 5.5 if L > 150 else 4.6
         s = petiole(sp, fig, w0=pw, w1=pw * 0.7)
-        s += fig.svg(P[tone], vein_col=vein, vein_op=0.3 if dark else 0.38,
-                     rib_op=0.6 if dark else 0.72)
+        s += fig.svg(P[tone], vein, rib)
         if os.environ.get("DBG"):
             c = fig.M(0, -0.5)
             s += f'<text x="{f(c[0])}" y="{f(c[1])}" font-size="22" fill="red">{len(layers[0]) + len(layers[1])}</text>'
@@ -221,18 +262,13 @@ def build():
     # trunk + branch
     out.append(f'<path d="{ribbon(BRANCH, 8, 4.5)}" fill="{BARK}"/>')
     out.append(f'<path d="{ribbon(TRUNK, 15, 6)}" fill="{BARK}"/>')
-    # bark shading: darker right edge, faint highlight left, small leaf scars
+    # bark shading: darker right edge (opaque pre-blend) + a print-safe
+    # highlight rising from the soil and tapering out into the branch fork; hairline scars dropped
     tid = uid("tk")
     out.append(f'<clipPath id="{tid}"><path d="{ribbon(TRUNK, 15, 6)}"/></clipPath>'
                f'<g clip-path="url(#{tid})">'
-               f'<path d="{ribbon([(p[0] + 5, p[1]) for p in TRUNK], 9, 3)}" fill="{BARK_DK}" opacity=".55"/>'
-               f'<path d="{cr_path([(p[0] - 3.2, p[1]) for p in TRUNK[:5]], closed=False)}" fill="none" '
-               f'stroke="{BARK_HI}" stroke-width="2" stroke-linecap="round" opacity=".7"/>'
-               + "".join(f'<path d="M{f(x - 4)} {f(y)} q4 -2.5 8 0" fill="none" stroke="{BARK_DK}" '
-                         f'stroke-width="1.6" stroke-linecap="round" opacity=".8"/>'
-                         for x, y in [(on(TRUNK, 0.12)[0], on(TRUNK, 0.12)[1]),
-                                      (on(TRUNK, 0.25)[0], on(TRUNK, 0.25)[1]),
-                                      (on(TRUNK, 0.37)[0], on(TRUNK, 0.37)[1])])
+               f'<path d="{ribbon([(p[0] + 5, p[1]) for p in TRUNK], 9, 3)}" fill="{mix(BARK, BARK_DK, 0.55)}"/>'
+               f'<path d="{ribbon([(p[0] - 3.4, p[1]) for p in TRUNK[:3]] + [(297.6, 440), (297.2, 426)], 4.6, 0.6, per=4)}" fill="{BARK_HI}"/>'
                + "</g>")
     out += layers[1]
     out.append(front)

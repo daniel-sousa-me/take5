@@ -42,6 +42,16 @@ def poly_d(geom, tol=0.22):
     return "".join(out)
 
 
+def mix(a, b, t):
+    """Opaque pre-blend of hex colour b over a at strength t."""
+    return "#" + "".join(f"{round(int(a[i:i + 2], 16) * (1 - t) + int(b[i:i + 2], 16) * t):02X}" for i in (1, 3, 5))
+
+
+def lum(c):
+    r, g, b = (int(c[i:i + 2], 16) / 255 for i in (1, 3, 5))
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
 def line_d(pts):
     return "M" + "L".join(f"{f(x)} {f(y)}" for x, y in pts)
 
@@ -49,7 +59,13 @@ def line_d(pts):
 class MLeaf:
     """Monstera blade. Local frame: sinus/petiole at (0,0), tip at (0,-1) (unit L)."""
 
-    def __init__(self, L, seed, slits=(6, 6), holes=True, bend=0.0, young=False, wscale=1.0):
+    def __init__(self, L, seed, slits=(6, 6), holes=True, bend=0.0, young=False, wscale=1.0, trim=None):
+        # trim: {(side, i): (start, end[, dt])} per-slit override of where a slit starts and ends along its vein
+        # (units of L; side 1 = right, -1 = left, i counted from the base; end None = runs out through the
+        # margin, a number = stops short of it as a closed hole; (None, None) = no slit; dt shifts the slit
+        # along the midrib; {("hole", side, k): None} leaves out the midrib hole after slit k). Used where a
+        # leaf behind would otherwise show through only part of a slit (a hard leaf/paper break in one slit).
+        trim = trim or {}
         self.L, self.bend = L, bend
         rnd = random.Random(seed)
         self.rnd = rnd
@@ -84,7 +100,10 @@ class MLeaf:
                 inner = 0.175 - 0.055 * math.sin(u * math.pi) + rnd.uniform(-0.018, 0.018)
                 if young:
                     inner = 0.22
-                pts = self._vein(side, t, inner, 1.0)
+                start, end, dt = (tuple(trim.get((side, i), (inner, None))) + (0.0,))[:3]
+                if start is None:  # slit left out (one hidden under a front leaf)
+                    continue
+                pts = self._vein(side, t + dt, start, 1.0 if end is None else end - start)
                 cuts.append(LineString(pts).buffer(wid / 2 * (0.85 if young else 1), cap_style=1,
                                                    resolution=8))
             # vein centres between the slits
@@ -93,8 +112,8 @@ class MLeaf:
             self.fingers += [self._vein(side, t, 0.0, 0.9) for t in mids if 0.03 < t < 0.95]
             if holes and not young:
                 # a few small holes in the band near the midrib, between slits
-                for a, b in zip(ts, ts[1:]):
-                    if rnd.random() < 0.55:
+                for k, (a, b) in enumerate(zip(ts, ts[1:])):
+                    if rnd.random() < 0.55 and trim.get(("hole", side, k), True):
                         tm = (a + b) / 2
                         c = self._vein(side, tm, 0.0, 0.2)
                         p0 = self._at(c, 0.05)
@@ -159,9 +178,9 @@ class MLeaf:
         return (x + px * math.cos(a) - py * math.sin(a), y + px * math.sin(a) + py * math.cos(a))
 
 
-def draw_leaf(spec):
+def draw_leaf(spec, trim=None):
     (x, y, rot, L, fill, seed, slits, flip, bend, young, vein_col) = spec
-    lf = MLeaf(L, seed, slits=slits, bend=bend, young=young, holes=not young)
+    lf = MLeaf(L, seed, slits=slits, bend=bend, young=young, holes=not young, trim=trim)
     G = lf.place(lf.geom, x, y, rot, flip)
     d = poly_d(G)
     cid = uid("mc")
@@ -179,14 +198,13 @@ def draw_leaf(spec):
     sh = halves[-1]
     if not sh.is_empty and SHADE.get(fill):
         inner.append(f'<path d="{poly_d(sh)}" fill="{SHADE[fill]}" fill-rule="evenodd"/>')
-    # lateral veins (along each finger) + midrib
-    vw = max(0.9, L * 0.0065)
-    vd = "".join(line_d([lf.place_pt(p, x, y, rot, flip) for p in v[::2] + [v[-1]]]) for v in lf.fingers)
-    inner.append(f'<path d="{vd}" fill="none" stroke="{vein_col}" stroke-width="{f(vw)}" '
-                 f'stroke-linecap="round" stroke-linejoin="round" opacity=".2"/>')
+    # Print policy: the faint lateral veins could not be print-safe without striping the fingers (the slits
+    # already carry the vein rhythm), so they are gone; the midrib stays, opaque (pre-blended), >= print min.
+    col = mix(fill, vein_col, 0.5)
+    mw = max(L * 0.012, 4.0 if lum(col) > 0.55 else 3.0)
     mr = [lf.place_pt(lf.axis(t), x, y, rot, flip) for t in [0.0, 0.2, 0.4, 0.6, 0.8, 0.95]]
-    inner.append(f'<path d="{line_d(mr)}" fill="none" stroke="{vein_col}" stroke-width="{f(L * 0.012)}" '
-                 f'stroke-linecap="round" opacity=".5"/>')
+    inner.append(f'<path d="{line_d(mr)}" fill="none" stroke="{col}" stroke-width="{f(mw)}" '
+                 f'stroke-linecap="round"/>')
     out.append(f'<g clip-path="url(#{cid})">' + "".join(inner) + "</g>")
     sinus = lf.place_pt((0, 0), x, y, rot, flip)
     tuck = lf.place_pt(lf.axis(0.09), x, y, rot, flip)
@@ -202,22 +220,33 @@ def petiole(src, ctrl, sinus, tuck, w0, w1, col):
 LEAVES = [
     # A: big top leaf, back, leaning left
     dict(leaf=(284, 318, -13, 218, P["deep"], 3, (6, 6), 1, 0.05, False, P["light"]),
-         src=(294, 596), ctrl=(292, 430), w=(12, 8), col=P["mid"]),
+         src=(294, 596), ctrl=(292, 430), w=(12, 8), col=P["mid"],
+         trim={(1, 0): (None, None)}),  # lowest right slit lies under B: it only showed through B's slits
     # C: left, mid height
     dict(leaf=(232, 420, -68, 168, P["mid"], 5, (5, 5), -1, 0.07, False, P["pale"]),
-         src=(286, 598), ctrl=(262, 492), w=(10.5, 7), col=P["forest"]),
+         src=(286, 598), ctrl=(262, 492), w=(10.5, 7), col=P["forest"],
+         # (1, 0) lies under E; the two basal left slits stop short of A's edge, so they show paper only
+         trim={(1, 0): (None, None), (-1, 0): (0.156, 0.30), (-1, 1): (0.126, 0.31)}),
     # B: big right leaf rising, overlapping A
     dict(leaf=(356, 372, 42, 206, P["sage"], 7, (6, 5), 1, -0.06, False, P["pale"]),
-         src=(306, 598), ctrl=(334, 470), w=(11.5, 7.5), col=P["forest"]),
+         src=(306, 598), ctrl=(334, 470), w=(11.5, 7.5), col=P["forest"],
+         # the two lowest left slits start inside A's outline (all dark); the third is moved a little up the
+         # midrib, off A's tip, so no dark sliver runs down one side of it
+         trim={(-1, 0): (0.18, None), (-1, 1): (0.19, None), (-1, 2): (0.130, None, 0.035)}),
     # E: lower-left front, drooping
     dict(leaf=(248, 478, -106, 130, P["light"], 11, (4, 4), 1, -0.07, False, P["mid"]),
-         src=(292, 600), ctrl=(266, 552), w=(9, 6), col=P["mid"]),
+         src=(292, 600), ctrl=(266, 552), w=(9, 6), col=P["mid"],
+         # (1, 2) starts and stops inside C's outline (all C), and the midrib hole C's margin cut in half
+         # is left out
+         trim={(1, 2): (0.16, 0.35), ("hole", 1, 1): None}),
     # D: lower-right front
     dict(leaf=(362, 474, 96, 150, P["deep"], 13, (4, 5), -1, 0.07, False, P["light"]),
-         src=(308, 600), ctrl=(340, 546), w=(9.5, 6.5), col=P["mid"]),
+         src=(308, 600), ctrl=(340, 546), w=(9.5, 6.5), col=P["mid"],
+         trim={(1, 0): (0.33, None), (1, 1): (0.142, 0.32)}),  # all over B / all over paper
     # F: young leaf, few splits
     dict(leaf=(318, 470, 16, 98, P["pale"], 17, (1, 2), 1, 0.08, True, P["sage"]),
-         src=(302, 600), ctrl=(312, 530), w=(7, 5), col=P["sage"]),
+         src=(302, 600), ctrl=(312, 530), w=(7, 5), col=P["sage"],
+         trim={(1, 0): (None, None)}),  # its one right split showed paper, D and B's edge in a few units
 ]
 
 
@@ -226,7 +255,7 @@ def build():
     back, front = pot("classic", rx=106, base_w=76)
     g = []
     for spec in LEAVES:
-        svg, sinus, tuck = draw_leaf(spec["leaf"])
+        svg, sinus, tuck = draw_leaf(spec["leaf"], spec.get("trim"))
         g.append(petiole(spec["src"], spec["ctrl"], sinus, tuck, *spec["w"], spec["col"]))
         g.append(svg)
     return back + "".join(g) + front

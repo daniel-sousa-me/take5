@@ -262,11 +262,26 @@ def pot(kind="classic", cx=300, rim_y=584, bottom=752, rx=104, rim_h=32, base_w=
     front = rim band + body (draw after plant)."""
     P = PAL
     ry = rx * 0.15
+
+    def mix(a, b, t):  # pre-blend: b laid over a at opacity t, as one opaque colour
+        return "#" + "".join(f"{round(int(a[i:i + 2], 16) * (1 - t) + int(b[i:i + 2], 16) * t):02X}" for i in (1, 3, 5))
+
+    # every tone below is an opaque pre-blend of the old translucent overlays (same look, no transparency)
+    body_sh = mix(P["terra"], P["terra_dark"], 0.30)          # body shade (terra_dark @ .30)
+    top_band = mix(P["terra"], P["terra_dark"], 0.38)         # shadow under the rim (terra_dark @ .38)
+    top_band_sh = mix(body_sh, P["terra_dark"], 0.38)         # ... where it crosses the body shade
+    body_hi = mix(P["terra"], P["terra_hi"], 0.55)            # body highlight stroke (terra_hi @ .55)
+    body_hi_band = mix(top_band, P["terra_hi"], 0.55)         # ... where it crosses the rim shadow
+    rim_sh = mix(P["terra2"], P["terra"], 0.55)               # rim shade (terra @ .55)
+    rim_arc = mix(P["terra2"], P["terra_hi"], 0.75)           # rim top highlight (terra_hi @ .75)
+    rim_arc_sh = mix(rim_sh, P["terra_hi"], 0.75)             # ... over the rim shade
+    rim_hi = mix(P["terra2"], P["terra_hi"], 0.60)            # rim vertical glint (terra_hi @ .60)
+    soil_line = mix(P["soil"], "#4A3527", 0.70)               # soil edge (#4A3527 @ .70)
     # --- back: inner lip + soil
     back = (f'<ellipse cx="{f(cx)}" cy="{f(rim_y)}" rx="{f(rx)}" ry="{f(ry)}" fill="{P["terra_dark"]}"/>'
             f'<ellipse cx="{f(cx)}" cy="{f(rim_y + 2.5)}" rx="{f(rx - 8)}" ry="{f(ry - 3.2)}" fill="{P["soil"]}"/>'
             f'<path d="M{f(cx - rx + 14)} {f(rim_y + 1)} Q{f(cx)} {f(rim_y - ry * 0.55)} {f(cx + rx - 14)} {f(rim_y + 1)}" '
-            f'fill="none" stroke="#4A3527" stroke-width="3" opacity=".7"/>')
+            f'fill="none" stroke="{soil_line}" stroke-width="3"/>')
     # --- rim band
     rb = rim_y + rim_h
     body_top_w = rx - 7
@@ -295,27 +310,50 @@ def pot(kind="classic", cx=300, rim_y=584, bottom=752, rx=104, rim_h=32, base_w=
              f"L{f(cx + 200)} {f(bottom + 10)} L{f(cx + 200)} {f(by0)}Z")
     hi = (f"M{f(cx - body_top_w * 0.70)} {f(by0 + 14)} Q{f(cx - bw * 0.78)} {f((by0 + bottom) / 2)} {f(cx - bw * 0.62)} {f(bottom - 12)}")
     front = [
-        f'<ellipse cx="{f(cx)}" cy="{f(bottom + 3)}" rx="{f(bw + 42)}" ry="9" fill="{P["deep"]}" opacity=".11"/>',
+        # ground shadow: opaque pre-blend (deep over white paper @ ~18 %, L* 87.4) -- white card stock
+        # prints an even tint only at L* <= ~90, so it sits with margin (<= 88) below the speckle band;
+        # a touch smaller than the old 11 % translucent ellipse so the solid tone stays quiet
+        f'<ellipse cx="{f(cx)}" cy="{f(bottom + 3)}" rx="{f(bw + 34)}" ry="8" fill="#D8DCD9"/>',
         f'<clipPath id="{bid}"><path d="{body}"/></clipPath>',
         f'<path d="{body}" fill="{P["terra"]}"/>',
         f'<g clip-path="url(#{bid})">',
-        f'<path d="{shade}" fill="{P["terra_dark"]}" opacity=".30"/>',
-        f'<path d="M{f(cx - 200)} {f(by0 - 6)} H{f(cx + 200)} V{f(by0 + 10)} Q{f(cx)} {f(by0 + 22)} {f(cx - 200)} {f(by0 + 10)}Z" fill="{P["terra_dark"]}" opacity=".38"/>',
-        f'<path d="{hi}" fill="none" stroke="{P["terra_hi"]}" stroke-width="7" stroke-linecap="round" opacity=".55"/>',
+        f'<path d="{shade}" fill="{body_sh}"/>',
     ]
     if band:
+        # a subtle band round the body: an OPAQUE pre-blended line (terra_dark at ~40 % over the body colour,
+        # and over the shaded side a step darker) 4 units wide, so it survives print_prep unchanged
+        on_body = mix(P["terra"], P["terra_dark"], 0.40)
+        on_shade = mix(mix(P["terra"], P["terra_dark"], 0.30), P["terra_dark"], 0.40)
         yb = by0 + (bottom - by0) * 0.55
-        front.append(f'<path d="M{f(cx - 200)} {f(yb)} Q{f(cx)} {f(yb + 16)} {f(cx + 200)} {f(yb)}" fill="none" '
-                     f'stroke="{P["terra_dark"]}" stroke-width="4" opacity=".28"/>')
-    front.append("</g>")
-    rid = uid("rc")
+        bd = f"M{f(cx - 200)} {f(yb)} Q{f(cx)} {f(yb + 16)} {f(cx + 200)} {f(yb)}"
+        sid = uid("ps")
+        front += [f'<path d="{bd}" fill="none" stroke="{on_body}" stroke-width="4"/>',
+                  f'<clipPath id="{sid}"><path d="{shade}"/></clipPath>',
+                  f'<path d="{bd}" fill="none" stroke="{on_shade}" stroke-width="4" clip-path="url(#{sid})"/>']
+    tb = f"M{f(cx - 200)} {f(by0 - 6)} H{f(cx + 200)} V{f(by0 + 10)} Q{f(cx)} {f(by0 + 22)} {f(cx - 200)} {f(by0 + 10)}Z"
+    tbid, shid = uid("pt"), uid("pt")
     front += [
+        f'<clipPath id="{tbid}"><path d="{tb}"/></clipPath><clipPath id="{shid}"><path d="{shade}"/></clipPath>',
+        f'<path d="{tb}" fill="{top_band}"/>',
+        f'<path d="{tb}" fill="{top_band_sh}" clip-path="url(#{shid})"/>',
+        f'<path d="{hi}" fill="none" stroke="{body_hi}" stroke-width="7" stroke-linecap="round"/>',
+        f'<path d="{hi}" fill="none" stroke="{body_hi_band}" stroke-width="7" stroke-linecap="round" clip-path="url(#{tbid})"/>',
+    ]
+    front.append("</g>")
+    rid, rsid = uid("rc"), uid("rs")
+    rs = (f"M{f(cx + rx * 0.55)} {f(rim_y - 20)} Q{f(cx + rx * 0.62)} {f(rb)} {f(cx + rx * 0.5)} {f(rb + 30)} "
+          f"L{f(cx + 200)} {f(rb + 30)} L{f(cx + 200)} {f(rim_y - 20)}Z")
+    arc = f"M{f(cx - rx - 5)} {f(rim_y + 1)} A{f(rx + 5)} {f(ry + 1)} 0 0 0 {f(cx + rx + 5)} {f(rim_y + 1)}"
+    front += [
+        f'<clipPath id="{rsid}"><path d="{rs}"/></clipPath>',
         f'<clipPath id="{rid}"><path d="{rim}"/></clipPath>',
         f'<path d="{rim}" fill="{P["terra2"]}"/>',
         f'<g clip-path="url(#{rid})">',
-        f'<path d="M{f(cx + rx * 0.55)} {f(rim_y - 20)} Q{f(cx + rx * 0.62)} {f(rb)} {f(cx + rx * 0.5)} {f(rb + 30)} L{f(cx + 200)} {f(rb + 30)} L{f(cx + 200)} {f(rim_y - 20)}Z" fill="{P["terra"]}" opacity=".55"/>',
-        f'<path d="M{f(cx - rx - 5)} {f(rim_y + 1)} A{f(rx + 5)} {f(ry + 1)} 0 0 0 {f(cx + rx + 5)} {f(rim_y + 1)}" fill="none" stroke="{P["terra_hi"]}" stroke-width="5" opacity=".75"/>',
-        f'<path d="M{f(cx - rx * 0.78)} {f(rim_y + 12)} L{f(cx - rx * 0.80)} {f(rb - 4)}" stroke="{P["terra_hi"]}" stroke-width="6" stroke-linecap="round" opacity=".6"/>',
+        f'<path d="{rs}" fill="{rim_sh}"/>',
+        # the vertical glint goes under the top highlight (their tiny overlap shows the arc tone)
+        f'<path d="M{f(cx - rx * 0.78)} {f(rim_y + 12)} L{f(cx - rx * 0.80)} {f(rb - 4)}" stroke="{rim_hi}" stroke-width="6" stroke-linecap="round"/>',
+        f'<path d="{arc}" fill="none" stroke="{rim_arc}" stroke-width="5"/>',
+        f'<path d="{arc}" fill="none" stroke="{rim_arc_sh}" stroke-width="5" clip-path="url(#{rsid})"/>',
         "</g>",
     ]
     return back, "".join(front)

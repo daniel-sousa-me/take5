@@ -1,4 +1,4 @@
-"""A4 sheet of 6 card backs, positioned to match the front sheets for a LONG-EDGE flip
+"""A4 sheet of 8 card backs, positioned to match the front sheets for a LONG-EDGE flip
 (sheet turned over left-to-right, same edge leading into the rear tray)."""
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -14,9 +14,12 @@ def page():
         x, y = deck.slot(i)
         # mirror the column for a long-edge flip (the layout is symmetric left/right, so this is exact)
         x = deck.PW - x - deck.CH
-        g.append(f'<g transform="translate({x + deck.CH:.3f} {y:.3f}) rotate(90)"><g clip-path="url(#bc)"><use href="#backart"/></g></g>')
-    g.append(f'<text x="{deck.MX}" y="{deck.MY - 5.2:.2f}" font-family="DejaVu Sans" font-size="2.0" fill="#777">'
-             f'Take 5 · Botanical · card backs · print on the reverse of each deck sheet · flip on the long edge · 100%, borderless off</text>')
+        # the fronts are rotated +90 (card top toward the right edge of the page); turning the sheet over on its long
+        # edge puts that same physical edge on the LEFT, so the backs are rotated -90 (card top toward the left)
+        g.append(f'<g transform="translate({x:.3f} {y + deck.CW:.3f}) rotate(-90)"><g clip-path="url(#bc)"><use href="#backart"/></g></g>')
+    g.append(deck.crop_marks(gap=deck.CROP_GAP, length=deck.CROP_LEN))   # the block is symmetric, so the marks
+                                                                        # sit on the same lines as the fronts'
+    g.append(deck.sheet_header('Take 5 · card backs · long-edge flip · 100%'))
     g.append("</svg>")
     return "".join(g)
 
@@ -24,4 +27,13 @@ if __name__ == "__main__":
     svg = page()
     paths.BUILD.mkdir(exist_ok=True)
     open(paths.BUILD / "backs_sheet.svg", "w").write(svg)
-    cairosvg.svg2pdf(bytestring=svg.encode(), write_to=str(paths.BUILD / "take5_card_backs_63x88_A4.pdf"))
+    # the deck PDF: every front sheet followed by the backs sheet, ready for double-sided printing (long-edge flip)
+    import io, glob, cairosvg
+    from pypdf import PdfWriter, PdfReader
+    back_pdf = cairosvg.svg2pdf(bytestring=svg.encode())
+    w = PdfWriter()
+    for f in sorted(glob.glob(str(paths.BUILD / "deck_sheets" / "sheet_*.pdf"))):
+        w.append(PdfReader(f))
+        w.append(PdfReader(io.BytesIO(back_pdf)))
+    w.add_metadata({"/Title": "Take 5 Botanical — 104 cards, 13 sheets, fronts with backs (duplex, long-edge flip)"})
+    w.write(str(paths.BUILD / "take5_botanical_deck_63x88_A4.pdf"))

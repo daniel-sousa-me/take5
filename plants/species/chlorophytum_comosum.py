@@ -24,19 +24,26 @@ from core import PAL, cr_path, ribbon, f, uid, pot, svg_doc, reset_ids  # noqa: 
 P = PAL
 CX = 300
 RIM_Y = 586
-RX = 100
+RX = 92
 CROWN = (300, 614)      # leaf bases converge here (hidden by the rim front)
+
+# White card stock: the cream stripe IS the paper (#FFFFFF, no ink) on every tier that has one,
+# so front, middle and plantlet stripes all print the same clean white; the channel (shade) half
+# carries the form as a visible pale green tint (L* <= 90, clear of the 90-95 speckle band).
+PAPER = "#FFFFFF"
+STRIPE_SH_FRONT = "#D3DCC6"   # L* 86.6: pale-sage shade half for the lightest (front) tiers
 
 # tiers: margin, margin shade, stripe, stripe shade
 TIER = {
     "back":  (P["deep"], P["night"], P["pale"], P["light"]),
-    "midd":  (P["forest"], "#34503A", P["spot"], P["pale"]),
-    "front": (P["mid"], "#4B6349", P["spot"], P["pale"]),
-    "fore":  (P["sage"], "#6A7E60", P["ivory"], P["spot"]),
-    "top":   (P["light"], "#8E9E80", P["ivory"], P["spot"]),
-    "baby":  (P["mid"], "#4B6349", P["ivory"], P["spot"]),
-    "babyb": (P["forest"], "#34503A", P["spot"], P["pale"]),
-    "babyf": (P["sage"], "#6A7E60", P["ivory"], P["spot"]),
+    "midd":  (P["forest"], "#34503A", PAPER, P["pale"]),
+    "front": (P["mid"], "#4B6349", PAPER, P["pale"]),
+    "fore":  (P["sage"], "#6A7E60", PAPER, STRIPE_SH_FRONT),
+    "top":   (P["light"], "#8E9E80", PAPER, STRIPE_SH_FRONT),
+    # plantlets: same paper-white stripe as the main leaves, pale-sage shade half
+    "baby":  (P["mid"], "#4B6349", PAPER, P["pale"]),
+    "babyb": (P["forest"], "#34503A", PAPER, P["pale"]),
+    "babyf": (P["sage"], "#6A7E60", PAPER, P["pale"]),
 }
 
 
@@ -151,8 +158,8 @@ LEAVES = {
         (2, (312, 530), (372, 460), (420, 540), 12.5, "fore"),
     ],
     "drape": [   # drawn over the pot front; bases clipped by the rim
-        (-3, (284, 540), (214, 484), (208, 730), 12.5, "top"),
-        (4, (320, 575), (385, 540), (418, 690), 12, "front"),
+        (-3, (282, 540), (204, 484), (200, 730), 12.5, "top"),
+        (4, (322, 575), (396, 540), (424, 690), 12, "front"),
     ],
 }
 
@@ -183,39 +190,53 @@ def rim_hide_clip():
     they come out of the soil) while letting the drape over the rim show."""
     cid = uid("rh")
     ry = RX * 0.15
-    x0, x1 = CX - 62, CX + 62
+    # right end stops at x 350: just past the right runner's base, but short of
+    # where the right drape leaf's underside dips over the rim edge (x ~353), so
+    # the notch never cuts that leaf (a cut there showed as a hard vertical edge)
+    x0, x1 = CX - 62, CX + 50
     arc = []
-    for i in range(9):
-        x = x0 + (x1 - x0) * i / 8
+    # dense and only a hair below the true edge, so the drape bases end level
+    # with the leaves drawn behind the pot front (+1 left a 1-unit step there)
+    for i in range(33):
+        x = x0 + (x1 - x0) * i / 32
         u = (x - CX) / RX
-        arc.append(f"{f(x)} {f(RIM_Y + ry * math.sqrt(1 - u * u) + 1)}")
+        arc.append(f"{f(x)} {f(RIM_Y + ry * math.sqrt(1 - u * u) + 0.2)}")
     # one simple contour: the canvas with a notch cut up to the rim's front edge
     d = f"M0 0H600V800H{f(x1)}L" + "L".join(arc[::-1]) + f"L{f(x0)} 800H0Z"
     return cid, f'<clipPath id="{cid}"><path d="{d}"/></clipPath>'
 
 
 # ------------------------------------------------------------------ runners
-RUN_COL = P["sage"]
+RUN_COL = "#CBD3AA"     # pale cream-green stolon (L* ~83, C* ~20: live, not straw; off the speckle band)
+RUN_SH = "#9DAA82"      # its shaded underside (L* ~68)
 
 
-def runner(pts, w0=3.4, w1=2.4):
-    return f'<path d="{ribbon(pts, w0, w1, per=6)}" fill="{RUN_COL}"/>'
+def runner(pts, w0=6.2, w1=4.4):
+    """Wiry stolon: a solid filled ribbon (not a hairline stroke) so it keeps
+    ~0.2-0.3 mm on the printed card, with a darker underside strip so it still
+    separates from the pale cream ground and from the leaves it crosses."""
+    return (f'<path d="{ribbon(pts, w0, w1, per=8)}" fill="{RUN_SH}"/>'
+            f'<path d="{ribbon([(x - 0.9, y - 0.9) for x, y in pts], w0 * 0.62, w1 * 0.55, per=8)}" fill="{RUN_COL}"/>')
 
 
 def plantlet(x, y, spec, roots):
     """Small rosette: leaves radiating from (x,y); root nubs hanging below."""
     out = []
     for dx, rl in roots:
-        out.append(f'<path d="{ribbon([(x, y - 2), (x + dx * 0.4, y + rl * 0.55), (x + dx, y + rl)], 3.0, 1.0, per=4)}" '
+        out.append(f'<path d="{ribbon([(x, y - 2), (x + dx * 0.4, y + rl * 0.55), (x + dx, y + rl)], 3.6, 1.4, per=4)}" '
                    f'fill="{P["light"]}"/>')
     for a0, a1, L, W, tier in spec:
-        out.append(arc_leaf((x, y + 3), a0, a1, L, W * 1.12).svg(tier, 0.4, 0.86, stripe_shade=False))
+        # wider pup leaves get the main leaves' stripe build (cream + pale shade half);
+        # the narrowest get a plain cream stripe (a shade half there would be a sub-print sliver)
+        w = W * 1.35
+        big = w >= 8.3
+        out.append(arc_leaf((x, y + 3), a0, a1, L * 1.3, w).svg(tier, 0.36 if big else 0.38, 0.84, stripe_shade=big))
     return "".join(out)
 
 
 # ------------------------------------------------------------------ build
 def build(report=False):
-    back, front = pot("classic", cx=CX, rim_y=RIM_Y, rx=RX, base_w=70, band=False)
+    back, front = pot("classic", cx=CX, rim_y=RIM_Y, rx=RX, base_w=65, band=False)
     layers = {}
     for k, specs in LEAVES.items():
         svgs = []
@@ -226,29 +247,34 @@ def build(report=False):
             svgs.append(s.svg(tier))
         layers[k] = "".join(svgs)
 
-    # runners: crown -> arch -> plantlet
-    LB = (92, 672)
-    RB = (498, 652)
-    runL = [(296, 620), (272, 520), (220, 430), (160, 420), (104, 512), LB]
-    runR = [(304, 620), (330, 520), (400, 445), (455, 425), (494, 474), (504, 566), RB]
+    # runners: leave the crown at the rim, arch up and out, then hang
+    LB = (104, 668)
+    RS = 0.78         # right pup's leaf-length scale
+    RB = (508, 680)   # right pup hangs lower and is smaller than the left one (no mirrored pair)
+    runL = [(262, 614), (250, 586), (236, 556), (214, 526), (186, 504), (156, 496), (132, 506),
+            (116, 530), (107, 564), (104, 604), (104, 640), LB]
+    runR = [(338, 614), (350, 588), (368, 562), (396, 540), (430, 530), (462, 536), (484, 556),
+            (498, 584), (505, 616), (508, 650), RB]
     babyL = plantlet(*LB, [
-        (-58, -134, 52, 6.0, "babyb"), (50, 140, 42, 5.6, "babyb"),
-        (-24, -104, 80, 6.6, "baby"), (18, 92, 62, 6.4, "baby"),
-        (-2, -40, 64, 6.6, "babyf"), (-90, -172, 34, 5.0, "baby"),
-        (86, 170, 34, 5.0, "baby")], [(-6, 22), (6, 18), (0, 30)])
+        (-52, -124, 46, 6.0, "babyb"), (54, 134, 35, 5.6, "babyb"),
+        (-24, -100, 64, 6.6, "baby"), (20, 76, 48, 6.4, "baby"),
+        (-14, -58, 60, 6.6, "babyf"), (-98, -150, 36, 5.2, "baby"),
+        (74, 128, 24, 4.8, "baby")], [(-6, 22), (6, 18), (0, 30)])
     babyR = plantlet(*RB, [
-        (-58, -136, 60, 5.6, "babyb"), (54, 142, 58, 5.6, "babyb"),
-        (-18, -92, 70, 6.0, "baby"), (16, 84, 66, 6.0, "babyf"),
-        (-88, -166, 42, 5.0, "baby"), (84, 166, 40, 5.0, "baby")],
-        [(-5, 20), (6, 24)])
+        (-58, -136, 60 * RS, 5.6, "babyb"), (54, 142, 58 * RS, 5.6, "babyb"),
+        (-18, -92, 70 * RS, 6.0, "baby"), (22, 88, 66 * RS, 6.0, "babyf"),
+        (-88, -166, 42 * RS, 5.0, "baby"), (84, 166, 40 * RS, 5.0, "baby")],
+        [(-4, 16), (5, 19)])
 
     cid, clip = rim_hide_clip()
     # the right runner leaves the crown behind all foliage and only shows
     # where it drops clear of the leaves; the left one arches over the back
     # leaves and under the middle ones.
-    body = [back, runner(runR, 3.2, 2.2), layers["back"], runner(runL),
-            layers["midd"], layers["front"], front,
-            clip, f'<g clip-path="url(#{cid})">{layers["drape"]}</g>',
+    # both runners sit on the top layer, in front of every leaf; the same rim
+    # clip hides their bases so they visibly rise out of the soil at the rim.
+    body = [back, layers["back"], layers["midd"], layers["front"], front,
+            clip, f'<g clip-path="url(#{cid})">{layers["drape"]}',
+            runner(runL, 5.6, 4.0), runner(runR, 5.6, 4.0), "</g>",
             babyL, babyR]
     return "".join(body)
 

@@ -14,6 +14,14 @@ P = PAL
 SOIL_Y = 612          # petioles start here, below the rim front (hidden by the pot)
 SPADIX = "#E4D493"    # cream-yellow (between PAL cream and yellow_edge)
 SPADIX_SH = "#CDBB6C"
+# White card stock: the spathe's lit half IS the paper (#FFFFFF, no ink) -- a white flower on
+# white paper. Its form is carried by the cupped half (a cool pale grey-green, L* <= 90) and by
+# the dark leaves placed behind every spathe; no outline.
+SPATHE_LT = "#FFFFFF"    # paper white
+SPATHE_SH = "#D3D9CB"    # cupped half
+SPATHE_VEIN = "#C3C8B0"
+SPATHE_FREE_LT = "#DDDCCB"  # cool cream tint (L* 87.4, <= 88 on white stock) for a spathe seen against bare paper
+SPATHE_FREE_SH = "#C0C7B4"  # its cupped half (L* 79.2, same ~8 L* step)  # pale green midvein, pre-blended solid
 
 
 def rot_pt(x, y, deg):
@@ -47,15 +55,58 @@ def half(lf, side, reach=3.0):
     return cr_path(pts, closed=True, sharp={0, len(mid) - 1, len(mid), len(pts) - 1})
 
 
+def mix(a, b, k):
+    """pre-blend hex a toward b by k (flat opaque colour)."""
+    ca = [int(a[i:i + 2], 16) for i in (1, 3, 5)]
+    cb = [int(b[i:i + 2], 16) for i in (1, 3, 5)]
+    return "#" + "".join(f"{round(x + (y - x) * k):02X}" for x, y in zip(ca, cb))
+
+
+SHADE_X = dict(SHADE, **{P["night"]: "#1F3024"})
+VEIN_T = (0.2, 0.4, 0.6)      # three laterals per side on every leaf
+VEIN_W = 3.4                  # widest point (at the midrib), dark-on-light min is 3.0
+MIDRIB_W = (4.6, 1.4)         # light (knockout) midrib: >= 4 at the base
+
+
+def taper(p0, p1, p2, w0, w1):
+    """Quadratic centre line drawn as a filled taper, w0 at p0 -> w1 at p2."""
+    def nrm(a, b, h):
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        m = math.hypot(dx, dy) or 1
+        return -dy / m * h, dx / m * h
+    n0, n2 = nrm(p0, p1, w0 / 2), nrm(p1, p2, w1 / 2)
+    nm = nrm(p0, p2, (w0 + w1) / 2)
+    return (f"M{f(p0[0] + n0[0])} {f(p0[1] + n0[1])}Q{f(p1[0] + nm[0])} {f(p1[1] + nm[1])} "
+            f"{f(p2[0] + n2[0])} {f(p2[1] + n2[1])}L{f(p2[0] - n2[0])} {f(p2[1] - n2[1])}"
+            f"Q{f(p1[0] - nm[0])} {f(p1[1] - nm[1])} {f(p0[0] - n0[0])} {f(p0[1] - n0[1])}Z")
+
+
+def veins(lf, fill, side):
+    """Opaque vein system, identical on every leaf: three curved laterals per side,
+    one tone step darker than the half they sit on, plus a light midrib."""
+    sh = SHADE_X.get(fill, "#1F3024")
+    tone = {side: mix(sh, "#000000", 0.16), ("l" if side == "r" else "r"): sh}
+    out = []
+    for s, sg in (("r", 1), ("l", -1)):
+        d = []
+        for t in VEIN_T:
+            dt = 0.17
+            t2 = min(t + dt, 0.98)
+            p0 = lf.axis(t)
+            p1 = lf.pt(t + dt * 0.45, sg * lf.width(t + dt * 0.45, s) * 0.5)
+            p2 = lf.pt(t2, sg * lf.width(t2, s) * 0.86)
+            d.append(taper(p0, p1, p2, VEIN_W, 1.0))
+        out.append(f'<path d="{"".join(d)}" fill="{tone[s]}"/>')
+    rib = mix(fill, P["pale"], 0.45)
+    a, b, c = lf.axis(0.0), lf.axis(0.45), lf.axis(0.9)
+    out.append(f'<path d="{taper(a, b, c, *MIDRIB_W)}" fill="{rib}"/>')
+    return "".join(out)
+
+
 def leaf_svg(lf, bx, by, deg, fill, side, sx=1.0):
-    sh = SHADE.get(fill, "#1F3024")
-    rib = P["pale"] if fill in (P["deep"], P["forest"], P["night"]) else P["pale"]
-    vcol = P["night"] if fill != P["night"] else "#1E2D22"
+    sh = SHADE_X.get(fill, "#1F3024")
     return leaf_g(
-        lf, fill, extra=lambda l: f'<path d="{half(l, side)}" fill="{sh}"/>',
-        # faint curved laterals running up toward the margin
-        veins=(vcol, 0.9, 0.2, [0.14, 0.27, 0.40, 0.53, 0.66], 0.9, 0.16),
-        midrib=(rib, max(1.6, lf.L * 0.011), 0.45, 0.03, 0.9),
+        lf, fill, extra=lambda l: f'<path d="{half(l, side)}" fill="{sh}"/>' + veins(l, fill, side),
         transform=T(bx, by, deg, 1, sx))
 
 
@@ -79,7 +130,7 @@ class Plant:
 
 
 # ------------------------------------------------------------------ flower
-def spathe_svg(bx, by, deg, H, bend=0.06, flip=False, open_=1.0):
+def spathe_svg(bx, by, deg, H, bend=0.06, flip=False, open_=1.0, lt=SPATHE_LT, sh=SPATHE_SH):
     """White spathe (hood) with cream-yellow spadix. base at (bx,by)."""
     wr = 0.245 * open_
     right = [(0.0, 0.03), (0.1, 0.12), (0.32, wr), (0.52, wr * 1.02),
@@ -92,24 +143,19 @@ def spathe_svg(bx, by, deg, H, bend=0.06, flip=False, open_=1.0):
     cid = uid("sp")
     g = [f'<g transform="{T(bx, by, deg, 1, sx)}">',
          f'<clipPath id="{cid}"><path d="{d}"/></clipPath>',
-         f'<path d="{d}" fill="{P["ivory"]}"/>',
+         f'<path d="{d}" fill="{lt}"/>',
          f'<g clip-path="url(#{cid})">']
     # cupped half: warm off-white shade on one side of the midvein
-    g.append(f'<path d="{half(sp, "r")}" fill="{P["spot"]}"/>')
-    # sage-green throat: a tint rising from the base and fading up the midvein
-    tw = lambda t: sp.width(t, "r") * 0.9
-    throat = cr_path([sp.axis(-0.05), sp.pt(0.06, 0.1), sp.pt(0.18, 0.1), sp.axis(0.38),
-                      sp.pt(0.18, -0.1), sp.pt(0.06, -0.1)], closed=True, sharp={0, 3})
-    g.append(f'<path d="{throat}" fill="{P["pale"]}"/>')
-    throat2 = cr_path([sp.axis(-0.05), sp.pt(0.05, 0.055), sp.axis(0.2), sp.pt(0.05, -0.055)],
-                      closed=True, sharp={0, 2})
-    g.append(f'<path d="{throat2}" fill="{P["light"]}" opacity=".8"/>')
-    # pale green midvein fading up the spathe + two faint parallel veins
-    mv = [sp.axis(0.02 + 0.8 * i / 6) for i in range(7)]
-    g.append(line(mv, 1.6, P["sage"], 0.45))
-    for s in (1, -1):
-        vv = [sp.pt(t, s * sp.width(t, "r" if s > 0 else "l") * 0.5) for t in (0.08, 0.3, 0.55, 0.75)]
-        g.append(line(vv, 1.0, P["sage"], 0.28))
+    g.append(f'<path d="{half(sp, "r")}" fill="{sh}"/>')
+    # green throat: a slim wedge from the spathe base narrowing up the midvein into the
+    # midvein itself (straight-ish concave sides, no rounded blob behind the spadix)
+    b0, bl, br, tp = sp.axis(-0.05), sp.pt(0.0, -0.085), sp.pt(0.0, 0.085), sp.axis(0.4)
+    ql, qr = sp.pt(0.14, -0.03), sp.pt(0.14, 0.03)
+    throat = (f"M{f(bl[0])} {f(bl[1])}Q{f(ql[0])} {f(ql[1])} {f(tp[0])} {f(tp[1])}"
+              f"Q{f(qr[0])} {f(qr[1])} {f(br[0])} {f(br[1])}L{f(b0[0])} {f(b0[1])}Z")
+    g.append(f'<path d="{throat}" fill="{SPATHE_VEIN}"/>')
+    # pale green midvein up the spathe
+    g.append(f'<path d="{taper(sp.axis(0.02), sp.axis(0.42), sp.axis(0.82), 3.4, 1.0)}" fill="{SPATHE_VEIN}"/>')
     g.append("</g>")
     # spadix: upright capsule rising from the throat, slightly off-axis
     sl, sw = H * 0.36, H * 0.062
@@ -126,13 +172,13 @@ def spathe_svg(bx, by, deg, H, bend=0.06, flip=False, open_=1.0):
     return "".join(g)
 
 
-def flower(x0, pts, H, deg, bend=0.06, flip=False, open_=1.0, w=(5.2, 3.4), col=None):
+def flower(x0, pts, H, deg, bend=0.06, flip=False, open_=1.0, w=(5.2, 3.4), col=None, **kw):
     """Stalk from soil through pts, spathe base at pts[-1]; stalk ends under the base."""
     bx, by = pts[-1]
     d = rot_pt(0, -1, deg)
     inside = (bx + d[0] * H * 0.06, by + d[1] * H * 0.06)
     stalk = f'<path d="{ribbon([(x0, SOIL_Y)] + pts + [inside], w[0], w[1], per=4)}" fill="{col or P["light"]}"/>'
-    return stalk, spathe_svg(bx, by, deg, H, bend, flip, open_)
+    return stalk, spathe_svg(bx, by, deg, H, bend, flip, open_, **kw)
 
 
 # ------------------------------------------------------------------ build
@@ -160,13 +206,22 @@ def build():
     # --- back: tall dark leaves, the backdrop for the spathes
     fan("back", -34, 222, 180, D, 0.07, lean=1.62, pet=F)
     fan("back", 44, 196, 160, D, 0.06, lean=1.45, pet=F)
-    add("back", pl.leaf(292, 252, 362, -29, 182, N, bend=-0.03, side="l", pet=F))
+    add("back", pl.leaf(292, 252, 362, -29, 196, N, bend=-0.03, side="l", pet=F))
     add("back", pl.leaf(310, 386, 366, 38, 196, N, bend=0.04, side="r", pet=F))
-    add("back", pl.leaf(300, 308, 334, 9, 228, D, bend=-0.03, side="r", pet=F, wide=0.92))
+    add("back", pl.leaf(300, 300, 350, -7, 186, D, bend=-0.03, side="r", pet=F, wide=0.95))
     # --- flowers (stalks behind the foliage, spathes on top of it)
-    add("flow", flower(294, [(278, 480), (250, 350), (230, 266)], 108, -17, bend=0.06, flip=True))
-    add("flow", flower(308, [(320, 470), (316, 340), (292, 218)], 126, -4, bend=-0.05))
-    add("flow", flower(310, [(352, 500), (416, 414), (430, 336)], 90, 20, bend=0.07, open_=0.85))
+    add("flow", flower(296, [(290, 470), (268, 384), (238, 332), (224, 303)], 98, -31, bend=0.06, flip=True,
+                       lt=SPATHE_FREE_LT, sh=SPATHE_FREE_SH))
+    # the tallest spathe rises clear of the foliage into open paper: its stalk runs behind the
+    # centre leaf and emerges from its right edge; on bare paper the lit half is a cream tint
+    # (paper white would vanish) and the cupped half a step deeper
+    tall = flower(316, [(326, 470), (338, 340), (350, 230), (354, 196)], 112, 4, bend=-0.05, open_=0.9,
+                  lt=SPATHE_FREE_LT, sh=SPATHE_FREE_SH)
+    layers["back"].insert(0, (tall[0], ""))
+    layers["flow"].append(("", tall[1]))
+    # the third spathe only half overlaps its leaf: base on the blade, hood in the open gap
+    add("flow", flower(310, [(352, 500), (398, 420), (418, 318)], 92, 6, bend=0.07, open_=0.85,
+                       lt=SPATHE_FREE_LT, sh=SPATHE_FREE_SH))
     # --- mid: forest leaves filling the clump
     fan("mid", -25, 192, 164, M, 0.05, lean=1.3, pet=M)
     fan("mid", 15, 184, 156, F, 0.05, lean=1.55, pet=M)
@@ -177,10 +232,12 @@ def build():
     fan("front", 60, 118, 150, S, 0.15, lean=1.38, pet=S)
     # --- drape: short leaves flopping over the rim, hiding the crown
     fan("front", 8, 76, 96, P["light"], 0.05, lean=2.7, pet=S)
-    add("drape", pl.leaf(274, 266, 590, -122, 118, S, bend=0.1, side="r", pet=S, pw=(7, 5),
-                         ctrl=(272, 602), pre_k=0.02))
-    add("drape", pl.leaf(330, 338, 588, 118, 104, M, bend=-0.09, side="l", pet=S, pw=(7, 5),
-                         ctrl=(334, 600), pre_k=0.02))
+    # deliberately unequal: a long leaf flopping low over the left rim, a short one
+    # pushing out almost level on the right (no mirrored "bow tie")
+    add("drape", pl.leaf(276, 262, 592, -128, 132, S, bend=0.12, side="r", pet=S, pw=(7, 5),
+                         ctrl=(272, 604), pre_k=0.02))
+    add("drape", pl.leaf(328, 350, 584, 106, 98, M, bend=-0.06, side="l", pet=S, pw=(6.5, 4.5),
+                         ctrl=(334, 596), pre_k=0.02))
 
     g = []
     for layer in ("back", "flow", "mid", "front"):

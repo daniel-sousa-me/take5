@@ -23,6 +23,16 @@ def qpt(p0, p1, p2, s):
     return tuple((1 - s) ** 2 * p0[j] + 2 * (1 - s) * s * p1[j] + s * s * p2[j] for j in (0, 1))
 
 
+def mix(a, b, t):
+    """Opaque pre-blend of hex colour b over a at strength t (print policy: no translucent detail)."""
+    return "#" + "".join(f"{round(int(a[i:i + 2], 16) * (1 - t) + int(b[i:i + 2], 16) * t):02X}" for i in (1, 3, 5))
+
+
+def lum(c):
+    r, g, b = (int(c[i:i + 2], 16) / 255 for i in (1, 3, 5))
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
 def world(x, y, rot, p):
     a = math.radians(rot)
     c, s = math.cos(a), math.sin(a)
@@ -82,29 +92,28 @@ def blade(x, y, rot, L, fill, bend=0.0, tears=(), vein_col=None, sx=1.0, flip=Fa
     d = blade_outline(lf, tears)
     cid = uid("lc")
     shade = SHADE.get(fill, fill)
-    vc = vein_col or P["pale"]
-    vv = []
-    t = 0.06
-    while t < 0.84:
-        for side, sg in (("r", 1), ("l", -1)):
-            p0, p1, p2 = vein_ctrl(lf, t, sg, side)
-            vv.append(f"M{f(p0[0])} {f(p0[1])}Q{f(p1[0])} {f(p1[1])} {f(p2[0])} {f(p2[1])}")
-        t += 0.031
-    # a few stronger "fold" lines, irregularly spaced, like the real leaf's pleats
-    folds = []
+    # Print policy: the dense hairline lateral veins cannot print, so they are gone; the few irregular
+    # pleat folds carry the leaf's texture instead, opaque (pre-blended per half) at print-safe weight.
+    folds = {}
     for side, sg, ts in (("r", 1, (0.21, 0.43, 0.58)), ("l", -1, (0.30, 0.52, 0.71))):
         for t0 in ts:
             p0, p1, p2 = vein_ctrl(lf, t0, sg, side)
-            folds.append(f"M{f(p0[0])} {f(p0[1])}Q{f(p1[0])} {f(p1[1])} {f(p2[0])} {f(p2[1])}")
+            folds.setdefault(side, []).append(f"M{f(p0[0])} {f(p0[1])}Q{f(p1[0])} {f(p1[1])} {f(p2[0])} {f(p2[1])}")
+    fold_svg = ""
+    for sd, base in (("r", shade), ("l", fill)):
+        col = mix(base, P["night"], 0.13)
+        # print_prep grades any line lighter than lum 0.55 as a knockout (needs 4 units)
+        fw = 4 if lum(col) > 0.55 else 3
+        fold_svg += (f'<path d="{"".join(folds[sd])}" fill="none" stroke="{col}" '
+                     f'stroke-width="{fw}" stroke-linecap="round"/>')
     mid = [lf.axis(i / 8 * 0.97) for i in range(9)]
     out = [f'<g transform="{T(x, y, rot, 1.0, sx)}">',
            f'<clipPath id="{cid}"><path d="{d}"/></clipPath>',
            f'<path d="{d}" fill="{fill}"/>',
            f'<g clip-path="url(#{cid})">',
            f'<path d="{lf.half_region("r")}" fill="{shade}"/>',
-           f'<path d="{"".join(vv)}" fill="none" stroke="{vc}" stroke-width="0.8" opacity=".15"/>',
-           f'<path d="{"".join(folds)}" fill="none" stroke="{P["night"]}" stroke-width="1.1" opacity=".16"/>',
-           f'<path d="{ribbon(mid, 5.2, 1.0)}" fill="{P["pale"]}" opacity=".78"/>',
+           fold_svg,
+           f'<path d="{ribbon(mid, 5.2, 1.0)}" fill="{mix(fill, P["pale"], 0.78)}"/>',
            "</g></g>"]
     return "".join(out), lf
 
@@ -143,46 +152,66 @@ def leaf_unit(base, joint, rot, L, fill, pet_col, bend=0.0, tears=(), pw=(9, 6),
 
 
 # ------------------------------------------------------------------ flower
+SEPAL_SH = P["terra_dark"]
+# sepals, back -> front: a clear bird-of-paradise orange ramp (warmer/yellower and more saturated
+# than the terracotta pot, so the flower out-shouts the card's orange corner field); same
+# terra/amber family, same dark -> light order as before (L* ~42 / 58 / 65 / 71)
+SEPAL_1 = "#CF733C"   # was terra  #B96E4A
+SEPAL_2 = "#E48943"   # was terra2 #CB825D
+SEPAL_3 = "#EC9A4A"   # was amber  #D48A4C (lifted one step to stay the lightest, front sepal)
+TONGUE, TONGUE_SH = P["sky"], "#56707E"
+
+
+def sepal(bx, by, ang, Ls, hw, col, lean=0.0):
+    """Lanceolate, slightly keeled sepal; base at (bx, by), pointing `ang` deg from up."""
+    pts = [(0, 8), (hw * 0.8, -Ls * 0.16), (hw, -Ls * 0.42), (hw * 0.62 + lean * 0.5, -Ls * 0.76),
+           (lean, -Ls), (-hw * 0.5 + lean * 0.5, -Ls * 0.78), (-hw * 0.88, -Ls * 0.45), (-hw * 0.72, -Ls * 0.16)]
+    d = cr_path(pts, closed=True, sharp={0, 4})
+    cl = uid("sc")
+    keel = cr_path([(0, 6), (lean * 0.3, -Ls * 0.5), (lean, -Ls * 0.99)], closed=False)
+    return (f'<g transform="{T(bx, by, ang)}"><clipPath id="{cl}"><path d="{d}"/></clipPath>'
+            f'<path d="{d}" fill="{col}"/><g clip-path="url(#{cl})">'
+            f'<path d="{keel}L{f(hw * 2)} {f(-Ls)}L{f(hw * 2)} 10Z" fill="{mix(col, SEPAL_SH, 0.2)}"/>'
+            # keel line: opaque, 2.0 local = 3.0 units at the flower's 1.5 scale (print minimum); 40 % toward
+            # the sepal shade so even the brightest (front) sepal's keel stays a dark-on-light line
+            f'<path d="{keel}" fill="none" stroke="{mix(col, SEPAL_SH, 0.40)}" stroke-width="2"/>'
+            f"</g></g>")
+
+
 def flower(x, y, rot, s=1.0):
-    """Flower head in local coords: peduncle meets the spathe at (0,0); the beak
-    points to +x. Returns svg group."""
-    spathe = [(-4, 3), (12, 8), (45, 9), (82, 3), (126, -12),
-              (84, -12), (48, -17), (14, -20), (-6, -16), (-12, -6)]
+    """Crane-head flower in local coords: the peduncle meets the spathe heel at
+    (0,0); the beak points to +x. Returns svg group."""
+    # long boat-shaped spathe: rounded heel, gently rising keel, slender beak
+    spathe = [(-6, 6), (14, 11), (50, 11), (92, 4), (138, -12),
+              (96, -11), (58, -16), (20, -21), (-4, -19), (-14, -8)]
     sp = cr_path(spathe, closed=True, sharp={4})
     sid = uid("sp")
     # burgundy flush along the keel + a pale lip on the upper edge
-    keel = cr_path([(-30, -1), (-8, 1), (20, 1), (60, 0), (100, -5), (140, -12), (140, 30), (-30, 30)],
+    keel = cr_path([(-30, 0), (-8, 3), (24, 4), (66, 1), (108, -5), (150, -14), (150, 30), (-30, 30)],
                    closed=True, sharp={0, 5, 6, 7})
-    lip = cr_path([(-30, -12), (-6, -17), (16, -20), (50, -16), (86, -11), (130, -13)], closed=False)
-    # sepals: (base, angle, length, half-width, colour) -- back to front
-    sep = [((18, -16), -18, 76, 12, P["terra"]),
-           ((26, -17), 6, 88, 13, P["terra2"]),
-           ((38, -16), 36, 74, 11.5, P["amber"])]
+    lip = cr_path([(-30, -13), (-4, -19), (20, -21), (58, -16), (96, -11), (140, -13)], closed=False)
     parts = []
-    for (bx, by), ang, Ls, hw, col in sep:
-        pts = [(0, 6), (hw * 0.75, -Ls * 0.18), (hw, -Ls * 0.45), (hw * 0.6, -Ls * 0.78), (0, -Ls),
-               (-hw * 0.55, -Ls * 0.78), (-hw * 0.9, -Ls * 0.45), (-hw * 0.7, -Ls * 0.18)]
-        d = cr_path(pts, closed=True, sharp={0, 4})
-        cl = uid("sc")
-        parts.append(f'<g transform="{T(bx, by, ang)}"><clipPath id="{cl}"><path d="{d}"/></clipPath>'
-                     f'<path d="{d}" fill="{col}"/>'
-                     f'<path clip-path="url(#{cl})" d="M0 4L0 {f(-Ls * 0.95)}" stroke="{P["terra_dark"]}" '
-                     f'stroke-width="1.2" opacity=".35" fill="none"/>'
-                     f'<path clip-path="url(#{cl})" d="M{f(hw * 0.2)} 0L{f(hw * 1.5)} 0L{f(hw * 1.5)} {f(-Ls)}L{f(hw * 0.2)} {f(-Ls)}Z" '
-                     f'fill="{P["terra_dark"]}" opacity=".18"/></g>')
-    # blue arrow petal, emerging between the front sepals, pointing up-forward
-    arrow = [(0, 4), (4, -22), (4.5, -44), (7, -47), (1.5, -66), (0, -70), (-1.5, -66), (-4.5, -50),
-             (-3.5, -44), (-3.5, -22)]
-    ad = cr_path(arrow, closed=True, sharp={0, 3, 5, 8})
-    arrow_g = (f'<g transform="{T(34, -17, 17)}"><path d="{ad}" fill="{P["sky"]}"/>'
-               f'<path d="M0.3 -4L0.3 -64" stroke="{P["ivory"]}" stroke-width="1.2" opacity=".35"/></g>')
+    # sepals: back to front, fanning up and forward out of the spathe mouth
+    parts.append(sepal(14, -17, -30, 68, 10, P["terra_dark"], lean=-3))
+    parts.append(sepal(22, -18, -9, 92, 12.5, SEPAL_1, lean=-2))
+    parts.append(sepal(32, -18, 13, 90, 12, SEPAL_2, lean=2))
+    parts.append(sepal(42, -17, 34, 76, 11, SEPAL_3, lean=3))
+    # blue petal tongue in front of the sepals, arrow-headed, pointing forward
+    # softly spear-shaped (no barbs): swells gently toward the upper third and
+    # narrows to a blunt point, curving a little forward like the real petal
+    arrow = [(0, 6), (3.2, -14), (4.6, -34), (5.4, -50), (3.6, -62), (0.8, -70), (-2.6, -62),
+             (-4.4, -48), (-3.8, -30), (-2.8, -12)]
+    ad = cr_path(arrow, closed=True, sharp={0, 5})
+    half = "M0 6L0 -70L10 -70L10 6Z"
+    aid = uid("ac")
+    parts.append(f'<g transform="{T(50, -16, 50)}"><clipPath id="{aid}"><path d="{ad}"/></clipPath>'
+                 f'<path d="{ad}" fill="{TONGUE}"/><path clip-path="url(#{aid})" d="{half}" fill="{TONGUE_SH}"/></g>')
     out = [f'<g transform="{T(x, y, rot, s)}">']
     out += parts
-    out.append(arrow_g)
     out += [f'<clipPath id="{sid}"><path d="{sp}"/></clipPath>',
             f'<path d="{sp}" fill="{P["sage"]}"/>',
-            f'<g clip-path="url(#{sid})"><path d="{keel}" fill="{P["plum"]}" opacity=".85"/>'
-            f'<path d="{lip}" fill="none" stroke="{P["pale"]}" stroke-width="3" opacity=".7"/></g>',
+            f'<g clip-path="url(#{sid})"><path d="{keel}" fill="{mix(P["sage"], P["plum"], 0.85)}"/>'
+            f'<path d="{lip}" fill="none" stroke="{mix(P["sage"], P["pale"], 0.7)}" stroke-width="3"/></g>',
             "</g>"]
     return "".join(out)
 
@@ -191,38 +220,52 @@ def flower(x, y, rot, s=1.0):
 def build():
     reset_ids()
     back, front = pot("classic", cx=CX, rim_y=RIM_Y, rx=100, base_w=70, band=True)
-    Y0 = RIM_Y + 8  # petioles start inside the soil opening
+    Y0 = RIM_Y + 18  # petioles start below the rim front edge (ends never show)
     G = []
-    # --- back layer (dark)
-    G.append(leaf_unit((292, Y0), (270, 318), -9, 252, P["deep"], P["forest"], bend=-0.04,
+
+    # clasping leaf bases at soil level: each one is its own petiole swelling
+    # toward the soil (same colour, same centre line), so it tapers seamlessly
+    # into the petiole instead of standing up as a separate pale "tooth"
+    def sheath(base, joint, rot, a0, col, w_soil, w_top, y_top):
+        pts = [p for p in arc_pts(base, joint, rot, a0)[:-1]]
+        dense = cr_sample(pts, 12)
+        run = [q for q in dense if q[1] >= y_top]
+        run = [(run[0][0] - (run[1][0] - run[0][0]) * 2.5, base[1] + 14)] + run
+        return f'<path d="{ribbon(run[::8] + [run[-1]], w_soil, w_top, per=3)}" fill="{col}"/>'
+    # --- back layer (dark): the tall leaf fills the upper left; the upper right
+    # is kept open for the flower
+    G.append(leaf_unit((292, Y0), (262, 322), -12, 254, P["deep"], P["forest"], bend=-0.04,
                        tears=(("r", 0.46, 0.62, 5), ("r", 0.63, 0.5, 4)), pw=(10, 7), a0=-2))
-    G.append(leaf_unit((310, Y0), (356, 332), 24, 238, P["forest"], P["mid"], bend=0.05, pw=(10, 7),
-                       flip=True, a0=6))
+    G.append(leaf_unit((310, Y0), (392, 452), 50, 196, P["forest"], P["mid"], bend=-0.05, pw=(10, 7),
+                       flip=True, a0=8, tears=(("l", 0.55, 0.55, 5),)))
+    # swollen bases of the two back leaves (same depth as their petioles)
+    G.append(sheath((292, Y0), (262, 322), -12, -2, P["forest"], 30, 7, 540))
+    G.append(sheath((310, Y0), (392, 452), 50, 8, P["mid"], 26, 7, 552))
     # --- mid layer
-    G.append(leaf_unit((284, Y0), (196, 424), -49, 196, P["deep"], P["mid"], bend=-0.07, pw=(9, 6),
+    G.append(leaf_unit((284, Y0), (200, 432), -52, 200, P["deep"], P["mid"], bend=-0.07, pw=(9, 6),
                        a0=-10))
-    G.append(leaf_unit((316, Y0), (410, 446), 58, 170, P["mid"], P["sage"], bend=0.08, pw=(9, 6),
-                       tears=(("l", 0.50, 0.62, 6),), flip=True, a0=12))
+    G.append(leaf_unit((316, Y0), (398, 502), 74, 160, P["mid"], P["sage"], bend=0.07, pw=(9, 6),
+                       flip=True, a0=14))
+    # --- flower stalk: rises almost straight between the leaves, clear of them
+    # at the top, and meets the spathe heel from below
+    HX, HY = 356, 262
+    stalk = arc_pts((312, Y0), (HX, HY + 6), 6, a0=3, k0=0.4, k1=0.35)[:-1]
+    G.append(petiole(stalk, 10, 7.5, P["light"]))
+    # the peduncle swells slightly where it turns into the spathe heel
+    tail = stalk[-4:]
+    G.append(petiole(tail + [(HX - 3, HY - 2)], 7.5, 17, P["light"]))
     # --- front layer (light / warm)
-    G.append(leaf_unit((294, Y0), (232, 396), -26, 214, P["mid"], P["sage"], bend=-0.03, pw=(10, 7),
+    G.append(leaf_unit((294, Y0), (236, 400), -30, 214, P["mid"], P["sage"], bend=-0.03, pw=(10, 7),
                        a0=-6))
-    G.append(leaf_unit((304, Y0), (318, 408), 9, 196, P["sage"], P["light"], bend=0.04, pw=(10, 7),
-                       flip=True, a0=2))
-    stalk = petiole(arc_pts((318, Y0), (392, 354), 55, a0=6, k0=0.55, k1=0.22)[:-1], 8, 6.5, P["light"])
-    G.append(stalk)
+    G.append(leaf_unit((302, Y0), (290, 420), -10, 188, P["sage"], P["light"], bend=0.05, pw=(10, 7),
+                       flip=True, a0=-1))
     # --- young front leaf, low, covers the petiole bundle
-    G.append(leaf_unit((308, Y0), (332, 512), 47, 150, P["light"], P["sage"], bend=0.05, pw=(8, 6),
+    G.append(leaf_unit((308, Y0), (338, 516), 44, 150, P["light"], P["sage"], bend=0.05, pw=(8, 6),
                        a0=10, flip=True))
     plant = "".join(G)
-    # flower stalk + head (peduncle leaves the soil, arcs out, meets the spathe's heel)
-    head = flower(392, 352, -10, 1.28)
-    # clasping leaf-base sheaths at soil level (lanceolate, pointed)
-    def sheath(x0, x1, tipx, tipy, col):
-        d = cr_path([(x0, 604), (x0 + (tipx - x0) * 0.6 - 2, 560), (tipx, tipy), (x1 - (x1 - tipx) * 0.45 + 1, 562), (x1, 604)],
-                    closed=True, sharp={0, 2, 4})
-        return f'<path d="{d}" fill="{col}"/>'
-    sheaths = (sheath(278, 302, 285, 544, P["light"]) + sheath(298, 328, 317, 552, P["pale"]))
-    body = back + plant + head + sheaths + front
+    head = flower(HX, HY, -10, 1.5)
+
+    body = back + plant + head + front
     return body
 
 
