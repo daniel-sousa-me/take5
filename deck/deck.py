@@ -394,7 +394,7 @@ def uniq(body, tag):
     return re.sub(r'(id="|url\(#|href="#)([^"\)]+)', lambda m: f"{m.group(1)}{tag}{m.group(2)}", body)
 
 # ------------------------------------------------------------------ card face
-FIELD_REF_B = 0.0   # where the field's own corner sits relative to the trim corner (mm, outward). 0: the whole shape
+FIELD_REF_B = -1.0  # where the field's own corner sits relative to the trim corner (mm, outward). 0: the whole shape
                     # (as it used to look including its bleed) now lies inside the cut, and only straight extensions of
                     # its outlines, which meet the cut steeply, run out through the bleed, so a mis-cut barely shows
 
@@ -402,8 +402,10 @@ FIELD_REF_B = 0.0   # where the field's own corner sits relative to the trim cor
 def field_blob(col, acc, e=1.0):
     """Organic colour field crossing the top-left corner (card-local coords incl. bleed); e = how far (field units)
     its outer edges reach past its own origin."""
-    return (f'<path d="M{-e} {-e} H36 V-1 C33 6 27 9 20 11.5 C12 14.5 7 19 5 27 C4 31 2 34 -1 35 H{-e} Z" fill="{col}"/>'
-            f'<path d="M{-e} 22 H-1 C3 21 6 17.5 7.5 13 C9.5 7.5 14 4 21 2.5 C24 1.8 27 0.8 29 -1 V{-e} H{-e}Z" fill="{acc}"/>')
+    # every outline reaches the field's own edge at exactly 90 degrees and runs straight on from there (no tail
+    # leaning outward along the cut), so a mis-cut only slides straight stubs
+    return (f'<path d="M{-e} {-e} H35 V0 C35 4 27 9 20 11.5 C12 14.5 7 19 5 27 C4.2 30.6 3 34.3 0 34.3 H{-e} Z" fill="{col}"/>'
+            f'<path d="M{-e} 21.6 H0 C3.5 21.6 6 17.5 7.5 13 C9.5 7.5 14 4 21 2.5 C24.5 1.7 28 2.2 28 0 V{-e} H{-e}Z" fill="{acc}"/>')
 
 
 def field_group(tint, acc, sprig_col):
