@@ -46,6 +46,14 @@ for history; where it disagrees with this file, this file wins (card size and pr
 - Showy plants go on the high-penalty cards (bird of paradise on 55; flowering/striking plants on the other
   multiples of 11). Other plants cycle; no two consecutive numbers share a plant; each plant appears 4–5 times.
 
+## Player aid
+
+- 104 cards leave 4 spare slots on sheet 18; all 4 get the same player aid: penalty key (leaves, tier tint,
+  which cards, points) and a one-glance rules summary. No corner number or corner field, so it can't be
+  mistaken for a game card from the front.
+- Same 5 mm clear edge as the card face; `aid_card()` asserts the text fits.
+- They currently get the normal card back (the back sheet is still printed 18×).
+
 ## Card back
 
 - Asymmetric spray: one sweep in from the top-right corner, one arrangement rising from the bottom-left,

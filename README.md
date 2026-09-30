@@ -1,6 +1,6 @@
 # Take 5 · Botanical — print-and-play source package
 
-Everything needed to rebuild the 104-card deck, the card backs, the printer proof and the
+Everything needed to rebuild the 104-card deck (plus 4 player aids), the card backs, the printer proof and the
 24 plant illustrations from source. Nothing is downloaded at build time.
 
 ## Quick start
@@ -25,7 +25,7 @@ A clean rebuild reproduces the files in `dist/` exactly.
 | `plants/build_plants.py` | Runs every generator, namespaces SVG ids, draws `build/plants_contact_sheet.png` |
 | `plants/out/*.svg` | **Master plant art** (600 × 800, transparent, flat colour) |
 | `plants/BRIEF.md` | The illustration brief the plants were drawn to (style rules + craft checklist) |
-| `deck/deck.py` | Card face + A4 sheet layout, rules (penalties), plant assignment, plant names |
+| `deck/deck.py` | Card face + A4 sheet layout, rules (penalties), plant assignment, plant names, player aid |
 | `deck/print_prep.py` | Print pass for pigment ink on uncoated card (line minimums, drops faint hairlines) |
 | `deck/back.py` | Card back artwork |
 | `deck/backs_sheet.py` | A4 sheet of 6 backs, positioned for a long-edge flip |
@@ -44,6 +44,7 @@ A clean rebuild reproduces the files in `dist/` exactly.
 - **Which plant is on which card** — `ORDER`, `SHOWY_55`, `SHOWY_11` and `assign()` in `deck/deck.py`.
 - **Plant names** — `NAMES` in `deck/deck.py`.
 - **Penalty colours** — `TIER` in `deck/deck.py`.
+- **Player aid text** — `AID_KEY`, `AID_STEPS`, `AID_SETUP`, `AID_END` in `deck/deck.py`.
 - **Cream background instead of bare paper** — set `PAPER_BG = "#F5EDDD"` in `deck/deck.py`
   (not recommended for print; use ivory stock instead — see docs).
 - **A plant drawing** — edit `plants/species/<name>.py`, then `python plants/build_plants.py <name>` and

@@ -365,6 +365,74 @@ def card(n, species):
             + f'<g transform="rotate(180 {CW / 2} {CH / 2})">{half}</g>'
             + plant + label)
 
+# ------------------------------------------------------------------ player aid (fills the 4 spare slots on the last sheet)
+AID = "aid"          # stands in for a card number in page()
+AID_KEY = [          # (penalty, which cards)
+    (7, "55"),
+    (5, "11, 22, 33 … 99"),
+    (3, "10, 20, 30 … 100"),
+    (2, "5, 15, 25 … 95"),
+    (1, "every other card"),
+]
+AID_STEPS = [
+    "Everyone picks a card; all reveal at once.",
+    "Lowest card first: add it to the row whose last card is the highest number below it.",
+    "Your card would be 6th? Take the five; yours starts the row.",
+    "Lower than every row? Take any row; your card starts it.",
+]
+AID_SETUP = "Deal 10 each · 4 cards start 4 rows"
+AID_END = ["Play out all 10, then deal again.", "At 66 points the game ends: fewest wins."]
+
+
+def wrap(font, text, size, width):
+    lines, cur = [], ""
+    for w in text.split():
+        t = f"{cur} {w}".strip()
+        if cur and font.width(t, size) > width:
+            lines.append(cur); cur = w
+        else:
+            cur = t
+    return lines + [cur]
+
+
+def aid_card():
+    """Player aid: penalty key + one-glance rules. No corner number or tier field, so it can't pass for a game card."""
+    x0, x1 = B + EDGE, CW - B - EDGE                    # text column, 5 mm clear of the cut
+    num = PathFont(FONT)
+    ink, soft = C["ink"], "#7A6A58"
+    o = [f'<g fill="{C["deep"]}">' + num.path("Take 5", 7.2, CW / 2, B + EDGE + 5.4) + "</g>",
+         f'<g fill="{soft}">' + LATIN_FONT.path("Botanical · player aid", 2.5, CW / 2, B + EDGE + 9.1) + "</g>"]
+    y = B + EDGE + 11.6
+    # penalty key: one tinted band per tier, leaves on the left, cards in the middle, points on the right
+    bh, gs, gap = 4.7, 3.1, 0.55
+    for p, which in AID_KEY:
+        tint, _, ncol, gcol = TIER[p]
+        o.append(f'<rect x="{x0:.2f}" y="{y:.2f}" width="{x1 - x0:.2f}" height="{bh}" rx="1.2" fill="{tint}"/>')
+        cy = y + bh / 2
+        for i in range(p):
+            o.append(wilt_at(x0 + 1.2 + gs / 2 + i * (gs + gap), cy, gs, 0, gcol))
+        o.append(f'<g fill="{ncol}">' + LABEL_FONT.path(which, 2.4, x0 + 7 * gs + 6 * gap + 2.6, cy + 0.85, anchor="start") + "</g>")
+        o.append(f'<g fill="{ncol}">' + num.path(str(p), 3.6, x1 - 2.6, cy + 1.3) + "</g>")
+        y += bh + 0.7
+    # rules summary
+    size, lead, w = 2.35, 2.95, x1 - x0
+    y += 3.6
+    o.append(f'<g fill="{soft}">' + LATIN_FONT.path(AID_SETUP, 2.25, CW / 2, y) + "</g>")
+    y += 1.0
+    for k, step in enumerate(AID_STEPS, 1):
+        top = y + 1.3
+        o.append(f'<g fill="{C["terra_dark"]}">' + num.path(str(k), 3.2, x0 + 1.4, top + 2.95) + "</g>")
+        for line in wrap(LABEL_FONT, step, size, w - 4.6):
+            y += lead
+            o.append(f'<g fill="{ink}">' + LABEL_FONT.path(line, size, x0 + 4.6, y + 1.3, anchor="start") + "</g>")
+        y += 1.3
+    y += 1.6
+    for line in AID_END:
+        y += 2.9
+        o.append(f'<g fill="{soft}">' + LATIN_FONT.path(line, 2.25, CW / 2, y) + "</g>")
+    assert y <= CH - B - EDGE, f"player aid overflows: {y:.1f} mm"
+    return "".join(o)
+
 # ------------------------------------------------------------------ sheets
 def slot(i):
     """Top-left of slot i on the page (slot is CH wide x CW tall)."""
@@ -389,10 +457,13 @@ def page(cards, idx, total):
     for i, (n, sp) in enumerate(cards):
         x, y = slot(i)
         # rotate 90 deg: card-local (u, v) -> page (x + CH - v, y + u)
-        g.append(f'<g transform="translate({x + CH:.3f} {y:.3f}) rotate(90)"><g clip-path="url(#cc)">{card(n, sp)}</g></g>')
+        face = aid_card() if n == AID else card(n, sp)
+        g.append(f'<g transform="translate({x + CH:.3f} {y:.3f}) rotate(90)"><g clip-path="url(#cc)">{face}</g></g>')
     g.append(crop_marks(gap=1.5, length=3.0))
+    nums = [n for n, _ in cards if n != AID]
+    what = f"cards {nums[0]}–{nums[-1]}" + (f" + {len(cards) - len(nums)} player aids" if len(nums) < len(cards) else "")
     g.append(f'<text x="{MX}" y="{MY - 5.2:.2f}" font-family="DejaVu Sans" font-size="2.0" fill="#777">'
-             f'Take 5 · Botanical · sheet {idx}/{total} · cards {cards[0][0]}–{cards[-1][0]} · 63.5 × 88 mm · print at 100%, borderless off</text>')
+             f'Take 5 · Botanical · sheet {idx}/{total} · {what} · 63.5 × 88 mm · print at 100%, borderless off</text>')
     g.append("</svg>")
     return "".join(g)
 
@@ -404,6 +475,7 @@ if __name__ == "__main__":
     os.makedirs(outdir, exist_ok=True)
     A = assign()
     allc = [(n, A[n]) for n in range(1, 105)]
+    allc += [(AID, None)] * (-len(allc) % (COLS * ROWS))     # 104 cards leave 4 spare slots on the last sheet
     pages = [allc[i:i + 6] for i in range(0, len(allc), 6)]
     w = PdfWriter()
     for k, pc in enumerate(pages, 1):
@@ -411,7 +483,7 @@ if __name__ == "__main__":
         open(f"{outdir}/sheet_{k:02d}.svg", "w").write(svg)
         cairosvg.svg2pdf(bytestring=svg.encode(), write_to=f"{outdir}/sheet_{k:02d}.pdf")
         w.append(PdfReader(f"{outdir}/sheet_{k:02d}.pdf"))
-    w.add_metadata({"/Title": "Take 5 Botanical — 104-card print-and-play deck (63.5x88 mm poker)"})
+    w.add_metadata({"/Title": "Take 5 Botanical — 104-card print-and-play deck + 4 player aids (63.5x88 mm poker)"})
     w.write(str(paths.BUILD / "take5_botanical_deck_63x88_A4.pdf"))
     from collections import Counter
     print(Counter(A.values()))
