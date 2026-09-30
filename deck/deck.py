@@ -19,7 +19,10 @@ PW, PH = 210.0, 297.0
 # 45.8 mm at the top and 36.8 mm at the bottom (feeding precision / quality "may be affected").
 REC_TOP, REC_BOT = 45.8, PH - 36.8
 MX = (PW - COLS * CH) / 2                              # 14.0
-MY = (REC_TOP + REC_BOT) / 2 - ROWS * CW / 2           # 53.25 -> block 53.25..252.75, inside 45.8..260.2
+CROP_GAP, CROP_LEN = 1.5, 3.0                          # crop marks: gap from the bleed edge, length (mm)
+MY = REC_TOP + CROP_GAP + CROP_LEN                     # 50.3: block at the top of the recommended area (its top crop
+                                                       # marks start on REC_TOP), 50.3..249.8, so the unused paper is
+                                                       # one strip at the bottom (header + ~40 mm free below it)
 
 C = dict(cream="#F5EDDD", deep="#314B37", forest="#405D43", burgundy="#74464D",
          terra_dark="#92543D", terra="#B96E4A", ink="#2B3F2F")
@@ -253,12 +256,13 @@ def text_font():
 
 
 def sheet_header(s, size=2.0, col="#777"):
-    """One line of sheet header, in Fraunces as paths, left-aligned 5.2 mm above the card block (inside the
-    recommended area: top of the caps ~46.6 mm > REC_TOP 45.8 mm) and ending inside the block's right edge."""
+    """One line of sheet header, in Fraunces as paths, left-aligned just below the card block's bottom crop marks
+    (inside the recommended area) and ending inside the block's right edge."""
     f = text_font()
+    y = MY + ROWS * CW + CROP_GAP + CROP_LEN + 3.5
     assert MX + f.width(s, size) <= PW - MX, f"sheet header overruns: {s!r}"
-    assert MY - 5.2 - size * 0.75 >= REC_TOP
-    return f'<g fill="{col}">' + f.path(s, size, MX, MY - 5.2, anchor="start") + "</g>"
+    assert y + size * 0.25 <= REC_BOT, y
+    return f'<g fill="{col}">' + f.path(s, size, MX, y, anchor="start") + "</g>"
 LATIN_COL = "#625444"    # botanical name: warm grey-brown, a step darker than the old #7A6A58 (too faint on uncoated card)
 LATIN_FONT = text_font()   # upright Fraunces at the 9 pt optical size: far more legible at 2.5 mm than the italic;
                            # the smaller size and softer colour already set it apart from the common name
@@ -746,8 +750,8 @@ def slot(i):
     return MX + (i % COLS) * CH, MY + (i // COLS) * CW
 
 
-BLOCK_RIGHT, BLOCK_BOT = MX + COLS * CH, MY + ROWS * CW   # far edges of the card block (incl. bleed); the block is
-                                                         # centred in the recommended area, not on the page
+BLOCK_RIGHT, BLOCK_BOT = MX + COLS * CH, MY + ROWS * CW   # far edges of the card block (incl. bleed); the block sits
+                                                         # at the top of the recommended area, not centred on the page
 
 
 def crop_marks(gap=2.0, length=4.0):
@@ -769,7 +773,7 @@ def page(cards, idx, total):
         x, y = slot(i)
         # rotate 90 deg: card-local (u, v) -> page (x + CH - v, y + u)
         g.append(f'<g transform="translate({x + CH:.3f} {y:.3f}) rotate(90)"><g clip-path="url(#cc)">{card(n, sp)}</g></g>')
-    g.append(crop_marks(gap=1.5, length=3.0))
+    g.append(crop_marks(gap=CROP_GAP, length=CROP_LEN))
     g.append(sheet_header(f'Take 5 · Botanical · sheet {idx}/{total} · cards {cards[0][0]}–{cards[-1][0]} · '
                           '63.5 × 88 mm · print at 100%'))
     g.append("</svg>")

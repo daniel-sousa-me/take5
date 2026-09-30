@@ -18,8 +18,9 @@ for history; where it disagrees with this file, this file wins (card size and pr
 ## Card size and sheet layout
 
 - Poker size, 63.5 × 88 mm, 1.5 mm bleed on every side → 66.5 × 91 mm per card.
-- 6 per A4: 2 columns × 3 rows, cards turned 90°. Block 182 × 199.5 mm, centred in the recommended area
-  (x 14–196 mm, y 53.25–252.75 mm). 18 sheets for 104 cards.
+- 6 per A4: 2 columns × 3 rows, cards turned 90°. Block 182 × 199.5 mm at the top of the recommended area
+  (x 14–196 mm, y 50.3–249.8 mm; the top crop marks start on the 45.8 mm line), so the unused paper is a single
+  strip at the bottom: the sheet header just under the bottom crop marks, then ~40 mm free. 18 sheets for 104 cards.
 - Poker is the largest standard size that fits 6-up inside the recommended area. Sleeves: 66 × 91 mm.
 - Crop marks (3 mm long, 1.5 mm off the art) sit outside the cards; neighbouring cards keep their own bleed.
 
