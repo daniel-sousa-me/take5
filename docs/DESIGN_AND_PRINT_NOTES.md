@@ -232,7 +232,7 @@ for history; where it disagrees with this file, this file wins (card size and pr
 2. Deck sheet 1 on the chosen setting; cut one card, try it in a 66 × 91 mm sleeve.
 3. Before committing card, test the duplex path on plain paper: print pages 1–2 of the deck PDF double-sided
    (or by hand: page 1, turn the sheet over left-to-right, same edge leading, page 2) and check the alignment
-   against a light. `take5_card_backs_63x88_A4.pdf` is the back sheet on its own for this test and for reprints.
+   against a light.
 4. `take5_botanical_deck_63x88_A4.pdf`: 26 pages, each front sheet followed by its back, laid out for a
    **long-edge** flip. By hand: print the odd pages, let them dry fully, turn the stack over left-to-right with
    the same edge leading into the rear tray, print the even pages.

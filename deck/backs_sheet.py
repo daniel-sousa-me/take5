@@ -25,7 +25,6 @@ if __name__ == "__main__":
     svg = page()
     paths.BUILD.mkdir(exist_ok=True)
     open(paths.BUILD / "backs_sheet.svg", "w").write(svg)
-    deck.write_pdf(svg, paths.BUILD / "take5_card_backs_63x88_A4.pdf", "Take 5 Botanical — card backs (print on the reverse of every deck sheet)")
     # the deck PDF: every front sheet followed by the backs sheet, ready for double-sided printing (long-edge flip)
     import io, glob, cairosvg
     from pypdf import PdfWriter, PdfReader

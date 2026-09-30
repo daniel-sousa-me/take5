@@ -3,7 +3,6 @@
 
 Outputs land in build/:
   take5_botanical_deck_63x88_A4.pdf   104 cards, 13 A4 sheets of 8: front, back, front, back ... (26 pages, duplex)
-  take5_card_backs_63x88_A4.pdf        one A4 sheet of 8 backs on its own (for reprints / a duplex test)
   take5_print_proof_A4.pdf             one-page printer/paper proof
   card_back.svg / card_back_preview.png
   plants_print/                        print-prepped plant SVGs used on the cards
