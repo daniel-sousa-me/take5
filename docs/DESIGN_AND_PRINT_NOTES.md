@@ -102,7 +102,10 @@ for history; where it disagrees with this file, this file wins (card size and pr
 
 - Number (DM Serif Display, ~13.6 mm cap) centred on an axis 0.5 mm outside the ¼ line (`NUM_AXIS`; the most
   that keeps 88/99 off the 5 mm EDGE, and it moves the bottom-right block that much further from the pot),
-  5 mm from the top cut; its 180° twin at the bottom right. 100–104 are too wide and shift in just enough to
+  5 mm from the top cut; its 180° twin at the bottom right, drawn at 80 % (`TWIN_NUM_SCALE`; the penalty marks
+  keep their full size). The top-left index is the one seen in a hand fan; the twin is read from across the
+  table, where 80 % (cap ≈ 10.9 mm) is still large, and it frees the corner beside the pot: spider plant, Boston
+  fern and peace lily no longer slide left, wax plant slides 1 mm instead of 3. 100–104 are too wide and shift in just enough to
   keep 5 mm clear. 100–104 use a size step smaller (`NUM_SIZE_3` 18.5, cap ~12 mm) with tighter tracking,
   and their plant is lifted (≈ 0.5 mm) so the pot clears the bottom-right number by `POT_GAP` = 4 mm; before, the
   wide numeral sat ~2 mm under the pot as if the pot stood on it.
@@ -154,13 +157,13 @@ for history; where it disagrees with this file, this file wins (card size and pr
   7 marks), which sits right beside the pot on the busiest card (currently ≈ 1.05×, pot on the standard base point;
   ≈ 4.6 mm of ink-to-ink paper to the bottom-right marks, ≈ 3.4 mm from the pot rim to the nearest mark column,
   ≈ 3.7 mm to the top-left marks; before, at 1.08× with the pot 1 mm right, the bottom-right corner felt crowded).
-- Plant name (common + botanical, Fraunces) runs up the right edge, 5 mm from the cut. Common name in forest
-  green `#405D43`; botanical name in italic warm grey-brown `#625444` (darker than the first `#7A6A58`, which was
-  too faint on uncoated card). Common name 3.0 mm (Medium), botanical 2.5 mm (italic), baselines `LATIN_OFFSET` =
-  3.35 mm apart: at 2.95 the common name's descenders came within 0.44–0.55 mm of the botanical line's caps and
-  ascenders (begonia, jade, string of pearls, Swiss cheese, bird of paradise, Chinese money plant); now ≥ 0.82 mm
-  on every label (`deck.name_label_gap()`, asserted ≥ `LABEL_MIN_GAP` = 0.8 on every build). The common name's
-  ascenders end on the 5 mm EDGE line (`LABEL_ASC`); the extra 0.4 mm goes inward, and no plant had to shrink.
+- Plant name (common + botanical, Fraunces) runs up the right edge, 5 mm from the cut. Common name 3.3 mm
+  (`COMMON_SIZE`, ≈ 9.4 pt, Fraunces Medium) in forest green `#405D43`; botanical name 2.5 mm (`LATIN_SIZE`,
+  ≈ 7 pt) in upright Fraunces Regular at its 9 pt optical size, warm grey-brown `#625444`. Upright rather than
+  the conventional italic: at this size the italic's thin, sloped strokes soften on uncoated card, and the smaller
+  size and softer colour already set it apart. Baselines `LATIN_OFFSET` = 3.55 mm apart, leaving ≥ 0.9 mm of
+  paper between the lines on every label (`deck.name_label_gap()`, asserted ≥ `LABEL_MIN_GAP` = 0.8 on every
+  build). The common name's ascenders end on the 5 mm EDGE line (`LABEL_ASC`).
 - Showy plants go on the high-penalty cards (bird of paradise on 55; flowering/striking plants on the other
   multiples of 11, `SHOWY_11`). Other plants cycle; no two consecutive numbers share a plant; each plant appears
   4–5 times. A predominantly burgundy/pink plant (purple shamrock, inch plant: `NOT_ON_ROSE`) never goes on a

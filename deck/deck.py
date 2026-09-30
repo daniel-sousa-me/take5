@@ -260,7 +260,8 @@ def sheet_header(s, size=2.0, col="#777"):
     assert MY - 5.2 - size * 0.75 >= REC_TOP
     return f'<g fill="{col}">' + f.path(s, size, MX, MY - 5.2, anchor="start") + "</g>"
 LATIN_COL = "#625444"    # botanical name: warm grey-brown, a step darker than the old #7A6A58 (too faint on uncoated card)
-LATIN_FONT = PathFont(str(paths.FRAUNCES_ITALIC))
+LATIN_FONT = text_font()   # upright Fraunces at the 9 pt optical size: far more legible at 2.5 mm than the italic;
+                           # the smaller size and softer colour already set it apart from the common name
 
 NAMES = {  # common name, currently accepted botanical name
     "aloe_vera": ("Aloe", "Aloe vera"),
@@ -290,10 +291,11 @@ NAMES = {  # common name, currently accepted botanical name
 }
 
 
-LATIN_OFFSET = 3.35   # botanical baseline, mm below the common name's (was 2.95: the common name's descenders came within
-                      # 0.44-0.55 mm of the botanical caps/ascenders on begonia, jade, string of pearls, Swiss cheese,
-                      # bird of paradise and Chinese money plant; now >= 0.83 mm on every label, name_label_gap())
-LABEL_ASC = 2.25      # common-name ascender height (ink reaches 2.23 mm above its baseline)
+COMMON_SIZE = 3.3     # common name font size (mm): a step up so it leads the (often longer) botanical name
+LATIN_SIZE = 2.5      # botanical name font size (mm)
+LATIN_OFFSET = 3.55   # botanical baseline, mm below the common name's; keeps >= LABEL_MIN_GAP paper between the
+                      # common name's descenders and the botanical caps/ascenders on every label (name_label_gap())
+LABEL_ASC = 2.25 * COMMON_SIZE / 3.0   # common-name ascender height (Fraunces Medium ink reaches 0.745 em above baseline)
 LABEL_MIN_GAP = 0.8   # min paper between the two lines' ink (mm), asserted on every build
 
 
@@ -301,8 +303,8 @@ def name_label(species, cy, x_base, col_common, col_latin, rot=-90):
     """Vertical label centred on cy, first baseline at x_base (card-local).
     rot=-90 reads bottom-to-top (caps toward the left edge); rot=90 reads top-to-bottom (caps toward the right edge)."""
     common, latin = NAMES[species]
-    g = (f'<g fill="{col_common}">' + LABEL_FONT.path(common, 3.0, 0, 0, track=0.02) + "</g>"
-         f'<g fill="{col_latin}">' + LATIN_FONT.path(latin, 2.5, 0, LATIN_OFFSET) + "</g>")
+    g = (f'<g fill="{col_common}">' + LABEL_FONT.path(common, COMMON_SIZE, 0, 0, track=0.02) + "</g>"
+         f'<g fill="{col_latin}">' + LATIN_FONT.path(latin, LATIN_SIZE, 0, LATIN_OFFSET) + "</g>")
     return f'<g transform="translate({x_base:.2f} {cy:.2f}) rotate({rot})">{g}</g>'
 
 
@@ -313,14 +315,14 @@ def name_label_gap(species, k=40):
     import io, cairosvg, numpy as np
     from PIL import Image
     common, latin = NAMES[species]
-    w = max(LABEL_FONT.width(common, 3.0, 0.02), LATIN_FONT.width(latin, 2.5)) + 2
+    w = max(LABEL_FONT.width(common, COMMON_SIZE, 0.02), LATIN_FONT.width(latin, LATIN_SIZE)) + 2
 
     def ink(g):
         svg = (f'<svg xmlns="http://www.w3.org/2000/svg" width="{w * k:.0f}" height="{8 * k}" '
                f'viewBox="{-w / 2} -3 {w} 8">{g}</svg>')
         return np.array(Image.open(io.BytesIO(cairosvg.svg2png(bytestring=svg.encode()))).convert("RGBA"))[..., 3] > 127
-    a = ink(LABEL_FONT.path(common, 3.0, 0, 0, track=0.02))
-    b = ink(LATIN_FONT.path(latin, 2.5, 0, LATIN_OFFSET))
+    a = ink(LABEL_FONT.path(common, COMMON_SIZE, 0, 0, track=0.02))
+    b = ink(LATIN_FONT.path(latin, LATIN_SIZE, 0, LATIN_OFFSET))
     ca, cb = np.nonzero(a.any(0))[0], np.nonzero(b.any(0))[0]
     bot = a.shape[0] - 1 - np.argmax(a[::-1, ca], axis=0)          # lowest ink row of each common-name column
     top = np.argmax(b[:, cb], axis=0)                              # highest ink row of each botanical column
@@ -500,7 +502,7 @@ GLYPH_Q = 4.0      # penalty mark size in the "quarter" layout (mm)
 UL_INSET = 0.3     # underline = numeral ink width minus this at each end
 
 
-TWIN_NUM_SCALE = 1.0   # size of the bottom-right (180-degree twin) number relative to the top-left one; the
+TWIN_NUM_SCALE = 0.8   # size of the bottom-right (180-degree twin) number relative to the top-left one; the
                        # penalty marks keep their size. <1 frees room beside the pot (the twin is only read from
                        # across the table, the top-left index is the one seen in a hand fan).
 
@@ -589,7 +591,7 @@ def plant_design_scale(name):
 
 def label_box(species, cy, x_base):
     common, latin = NAMES[species]
-    half = max(LABEL_FONT.width(common, 3.0, 0.02), LATIN_FONT.width(latin, 2.5)) / 2
+    half = max(LABEL_FONT.width(common, COMMON_SIZE, 0.02), LATIN_FONT.width(latin, LATIN_SIZE)) / 2
     return (x_base - LATIN_OFFSET - 0.65, cy - half, x_base + LABEL_ASC, cy + half)   # latin descenders ~0.63 mm
 
 

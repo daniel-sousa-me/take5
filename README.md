@@ -39,7 +39,7 @@ A clean rebuild reproduces the files in `dist/` exactly.
 ## Common edits
 
 - **Card face layout** — constants at the top of the card section in `deck/deck.py`:
-  `EDGE` (clear space to the cut, 5 mm), `NUM_SIZE` / `NUM_SIZE_3` (100–104), `DIGIT_GAP` (min paper between digits), `NUM_AXIS`, `POT_GAP`, `GLYPH_Q` (mark size), `FIELD_SCALE`, `PEN_STYLE`
+  `EDGE` (clear space to the cut, 5 mm), `NUM_SIZE` / `NUM_SIZE_3` (100–104), `TWIN_NUM_SCALE` (bottom-right number, 0.8), `COMMON_SIZE` / `LATIN_SIZE` (name label), `DIGIT_GAP` (min paper between digits), `NUM_AXIS`, `POT_GAP`, `GLYPH_Q` (mark size), `FIELD_SCALE`, `PEN_STYLE`
   (`"quarter"` is current; `"under"`, `"beside"`, `"rosette"`, `"corner"` are the explored alternatives).
 - **Which plant is on which card** — `ORDER`, `SHOWY_55`, `SHOWY_11` and `assign()` in `deck/deck.py`
   (`NOT_ON_ROSE`: burgundy/pink plants that must never land on a tier-5 or tier-7 card, asserted);
