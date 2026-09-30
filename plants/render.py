@@ -2,7 +2,7 @@ import sys, io, glob, os
 import cairosvg
 from PIL import Image, ImageDraw, ImageFont
 
-def sheet(files, out, cols=4, cell=(300, 400), bg=(245, 237, 221), label=True):
+def sheet(files, out, cols=4, cell=(300, 400), bg=(255, 255, 255), label=True):
     rows = (len(files) + cols - 1) // cols
     lab = 26 if label else 0
     W, H = cols * cell[0], rows * (cell[1] + lab)

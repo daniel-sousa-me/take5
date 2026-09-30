@@ -24,4 +24,4 @@ if __name__ == "__main__":
     svg = page()
     paths.BUILD.mkdir(exist_ok=True)
     open(paths.BUILD / "backs_sheet.svg", "w").write(svg)
-    cairosvg.svg2pdf(bytestring=svg.encode(), write_to=str(paths.BUILD / "take5_card_backs_63x88_A4.pdf"))
+    deck.write_pdf(svg, paths.BUILD / "take5_card_backs_63x88_A4.pdf", "Take 5 Botanical — card backs (print on the reverse of every deck sheet)")

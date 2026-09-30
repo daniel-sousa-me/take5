@@ -760,6 +760,16 @@ def page(cards, idx, total):
     return "".join(g)
 
 
+def write_pdf(svg, path, title):
+    """SVG -> PDF through pypdf, which drops cairo's CreationDate so rebuilds are byte-identical."""
+    import io, cairosvg
+    from pypdf import PdfWriter, PdfReader
+    w = PdfWriter()
+    w.append(PdfReader(io.BytesIO(cairosvg.svg2pdf(bytestring=svg.encode()))))
+    w.add_metadata({"/Title": title})
+    w.write(str(path))
+
+
 if __name__ == "__main__":
     import cairosvg
     from pypdf import PdfWriter, PdfReader

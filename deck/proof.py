@@ -235,4 +235,4 @@ def build():
 if __name__ == "__main__":
     svg = build()
     paths.BUILD.mkdir(exist_ok=True)
-    cairosvg.svg2pdf(bytestring=svg.encode(), write_to=str(paths.BUILD / "take5_print_proof_A4.pdf"))
+    deck.write_pdf(svg, paths.BUILD / "take5_print_proof_A4.pdf", "Take 5 Botanical — printer and paper proof")
