@@ -84,6 +84,12 @@ def curve_to(spec, base, L, t_sinus, t_in):
     sinus = world(x, y, rot, sx, 1, 0, -t_sinus * L)
     inside = world(x, y, rot, sx, 1, 0, -t_in * L)
     # arc_pts' bow is measured to the left of an upward chord: flip so + = right
+    if spec.get("direct"):
+        # outward / hanging blades: the stem comes up from below, without a
+        # rise-and-hook,
+        # it runs on under the blade (seen from above) to end beneath the midrib
+        tgt = world(x, y, rot, sx, 1, 0, -spec.get("tin", 0.2) * L)
+        return arc_pts(base, tgt, -spec.get("bow", 0.0), spec.get("sway", 0.0), n=6)
     arc = arc_pts(base, land, -spec.get("bow", 0.0), spec.get("sway", 0.0), n=6)
     return arc + [sinus, inside]
 
@@ -177,42 +183,39 @@ def build():
     leaves = [
         # back layer (deep) -- A right crown, B far left
         dict(x=348, y=330, rot=26, L=226, col=P["deep"], side="r", bend=0.08, lsway=0.12,
-             base=(308, 590), via=[], bow=-0.07, ap=0.22),
+             base=(316, 612), via=[], bow=-0.05, ap=0.22),
         dict(x=206, y=426, rot=-80, L=166, col=P["deep"], side="l", bend=-0.11, sx=0.9,
-             base=(288, 594), via=[], bow=0.16, ap=0.26),
+             base=(264, 612), via=[], bow=-0.07, direct=True),
         # middle layer (mid) -- C upper left, D right
         dict(x=256, y=350, rot=-40, L=204, col=P["mid"], side="r", bend=-0.08, lsway=-0.1,
-             base=(296, 592), via=[], bow=0.05, sway=0.08, ap=0.22),
+             base=(288, 612), via=[], bow=0.04, sway=0.06, ap=0.22),
         dict(x=400, y=442, rot=84, L=162, col=P["mid"], side="l", bend=0.12, sx=0.88,
-             base=(314, 592), via=[], bow=-0.16, ap=0.26),
+             base=(332, 612), via=[], bow=0.07, direct=True),
         # front: G young centre leaf, E/F drooping low
         dict(x=294, y=490, rot=-6, L=122, col=P["sage"], side="r", bend=0.08, sx=0.88,
-             base=(298, 594), via=[], bow=0.03, ap=0.18),
+             base=(298, 612), via=[], bow=0.03, ap=0.18),
         dict(x=360, y=516, rot=96, L=110, col=P["sage"], side="l", bend=0.16, sx=0.76,
-             base=(270, 596), via=[], bow=-0.16, ap=0.3, pc=P["sage"]),
+             base=(324, 612), via=[], bow=0.1, direct=True, pc=P["sage"]),
         dict(x=240, y=506, rot=-98, L=146, col=P["sage"], side="r", bend=-0.14, sx=0.84,
-             base=(330, 596), via=[], bow=0.16, ap=0.28),
+             base=(272, 612), via=[], bow=-0.1, direct=True),
     ]
     flowers = [
         # highest, nodding a little to the right on a gently S-curved stalk
         dict(x=314, y=208, rot=14, L=140, side="r", spadix_rot=20, curl=0.16, bend=0.04,
-             base=(298, 592), via=[], bow=0.03, sway=0.07, ap=0.28, z=1),
+             base=(306, 612), via=[], bow=0.03, sway=0.07, ap=0.28, z=1),
         # tilted, left: higher and larger, only half turned
         dict(x=172, y=270, rot=-38, L=130, sx=0.8, side="l", spadix_rot=30, curl=0.28, bend=-0.05,
-             base=(292, 592), via=[], bow=0.12, ap=0.3, z=2),
+             base=(280, 612), via=[], bow=0.08, ap=0.3, z=2),
         # low, right: smaller, more turned away and leaning further out
         dict(x=464, y=382, rot=66, L=94, sx=0.55, side="r", spadix_rot=-24, curl=-0.34, bend=0.05,
-             base=(306, 594), via=[], bow=-0.2, ap=0.32, z=3),
+             base=(340, 612), via=[], bow=-0.12, ap=0.32, z=3),
     ]
 
     # every petiole / flower stalk starts from one crown point hidden below the
     # rim's front edge (y ~601 at the centre): the stems fan out of the soil as a
     # tapered bundle instead of stopping on the visible soil as cut ends
-    def crown(b):
-        return (300 + (b[0] - 300) * 0.3, 614)
-
-    for s in leaves + flowers:
-        s["base"] = crown(s["base"])
+    # (bases are spread across the soil opening, ordered like their blades so
+    # the stems fan out without crossing; y 612 sits behind the rim's front edge)
 
     def leaf_item(s):
         g, lf = draw_leaf(s)

@@ -198,7 +198,7 @@ def build():
         bx, by = 300 + math.sin(ra) * r * 0.8, 604 - math.cos(ra) * r
         side = "l" if a < 0 else "r"
         sg = -1 if a < 0 else 1
-        x0 = 300 + a * 0.22 if x0 is None else x0
+        x0 = 300 + a * 0.5 if x0 is None else x0
         # arching habit: the longer and more outward the leaf, the more its tip droops
         droop = bend * (2.0 + abs(a) / 45)
         add(layer, pl.leaf(x0, bx, by, a * lean, L, fill, bend=sg * droop, side=side,
@@ -208,38 +208,38 @@ def build():
     # --- back: tall dark leaves, the backdrop for the spathes
     fan("back", -34, 222, 180, D, 0.07, lean=1.62, pet=F)
     fan("back", 44, 196, 160, D, 0.06, lean=1.45, pet=F)
-    add("back", pl.leaf(292, 248, 364, -31, 196, N, bend=-0.09, sway=0.08, side="l", pet=F))
-    add("back", pl.leaf(310, 388, 368, 40, 192, N, bend=0.11, side="r", pet=F))
-    add("back", pl.leaf(300, 298, 352, -10, 186, D, bend=0.07, sway=-0.12, side="r", pet=F, wide=0.92))
+    add("back", pl.leaf(282, 248, 364, -31, 196, N, bend=-0.09, sway=0.08, side="l", pet=F))
+    add("back", pl.leaf(322, 388, 368, 40, 192, N, bend=0.11, side="r", pet=F))
+    add("back", pl.leaf(302, 298, 352, -10, 186, D, bend=0.07, sway=-0.12, side="r", pet=F, wide=0.92))
     # --- flowers (stalks behind the foliage, spathes on top of it)
-    add("flow", flower(296, [(292, 480), (280, 400), (254, 340), (226, 306)], 98, -36, bend=0.08, flip=True,
+    add("flow", flower(286, [(282, 480), (280, 400), (254, 340), (226, 306)], 98, -36, bend=0.08, flip=True,
                        lt=SPATHE_FREE_LT, sh=SPATHE_FREE_SH))
     # the tallest spathe rises clear of the foliage into open paper: its stalk runs behind the
     # centre leaf and emerges from its right edge; on bare paper the lit half is a cream tint
     # (paper white would vanish) and the cupped half a step deeper
-    tall = flower(312, [(318, 480), (322, 360), (338, 262), (360, 206)], 112, 14, bend=0.04, open_=0.9,
+    tall = flower(310, [(316, 480), (322, 360), (338, 262), (360, 206)], 112, 14, bend=0.04, open_=0.9,
                   lt=SPATHE_FREE_LT, sh=SPATHE_FREE_SH)
     layers["back"].insert(0, (tall[0], ""))
     layers["flow"].append(("", tall[1]))
     # the third spathe only half overlaps its leaf: base on the blade, hood in the open gap
-    add("flow", flower(310, [(336, 500), (380, 430), (410, 364), (436, 322)], 92, 22, bend=0.08, open_=0.85,
+    add("flow", flower(318, [(340, 500), (380, 430), (410, 364), (436, 322)], 92, 22, bend=0.08, open_=0.85,
                        lt=SPATHE_FREE_LT, sh=SPATHE_FREE_SH))
     # --- mid: forest leaves filling the clump
     fan("mid", -25, 192, 164, M, 0.08, lean=1.3, pet=M, sway=0.06)
     fan("mid", 15, 184, 156, F, 0.08, lean=1.55, pet=M, sx=0.88)
     # --- front: lighter, lower, arching out
     fan("front", -54, 128, 154, M, 0.2, lean=1.3, pet=S, wide=0.9)
-    fan("front", -4, 150, 132, S, 0.07, lean=2.2, pet=S, sway=0.1)
+    fan("front", -4, 150, 132, S, 0.07, lean=2.2, pet=S, sway=0.1, x0=290)
     fan("front", 34, 138, 142, M, 0.1, lean=1.4, pet=S, sx=0.86)
     fan("front", 60, 118, 150, S, 0.2, lean=1.34, pet=S, wide=0.9)
     # --- drape: short leaves flopping over the rim, hiding the crown
-    fan("front", 8, 76, 96, P["light"], 0.05, lean=2.7, pet=S)
+    fan("front", 8, 76, 96, P["light"], 0.05, lean=2.7, pet=S, x0=300)
     # deliberately unequal: a long leaf flopping low over the left rim, a short one
     # pushing out almost level on the right (no mirrored "bow tie")
-    add("drape", pl.leaf(276, 262, 592, -128, 132, S, bend=0.12, side="r", pet=S, pw=(7, 5),
-                         ctrl=(272, 604), pre_k=0.02))
-    add("drape", pl.leaf(328, 350, 584, 106, 98, M, bend=-0.06, side="l", pet=S, pw=(6.5, 4.5),
-                         ctrl=(334, 596), pre_k=0.02))
+    add("drape", pl.leaf(272, 256, 605, -126, 132, S, bend=0.12, side="r", pet=S, pw=(7, 5),
+                         ctrl=(266, 606), pre_k=0.02))
+    add("drape", pl.leaf(330, 350, 603, 104, 98, M, bend=-0.06, side="l", pet=S, pw=(6.5, 4.5),
+                         ctrl=(338, 604), pre_k=0.02))
 
     g = []
     for layer in ("back", "flow", "mid", "front"):
