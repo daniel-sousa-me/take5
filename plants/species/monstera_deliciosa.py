@@ -208,44 +208,47 @@ def draw_leaf(spec, trim=None):
     out.append(f'<g clip-path="url(#{cid})">' + "".join(inner) + "</g>")
     sinus = lf.place_pt((0, 0), x, y, rot, flip)
     tuck = lf.place_pt(lf.axis(0.09), x, y, rot, flip)
-    return "".join(out), sinus, tuck
+    # a point behind the sinus on the blade's own axis: the petiole arrives along
+    # it, so the blade reads as continuing the petiole's curve (no elbow)
+    pre = lf.place_pt((0.0, 0.16), x, y, rot, flip)
+    return "".join(out), (pre, sinus, tuck)
 
 
-def petiole(src, ctrl, sinus, tuck, w0, w1, col):
-    return (f'<path d="{ribbon([src, ctrl, sinus, tuck], w0, w1, per=8)}" fill="{col}"/>')
+def petiole(src, ctrl, ends, w0, w1, col):
+    return (f'<path d="{ribbon([src, ctrl] + list(ends), w0, w1, per=8)}" fill="{col}"/>')
 
 
 # ------------------------------------------------------------------ plant
 # (x, y, rot, L, fill, seed, slits(r,l), flip, bend, young, vein, petiole: src, ctrl, w0, w1, col)
 LEAVES = [
     # A: big top leaf, back, leaning left
-    dict(leaf=(284, 318, -13, 218, P["deep"], 3, (6, 6), 1, 0.05, False, P["light"]),
-         src=(294, 596), ctrl=(292, 430), w=(12, 8), col=P["mid"],
+    dict(leaf=(282, 318, -17, 218, P["deep"], 3, (6, 6), 1, 0.05, False, P["light"]),
+         src=(294, 596), ctrl=(310, 450), w=(12, 8), col=P["mid"],
          trim={(1, 0): (None, None)}),  # lowest right slit lies under B: it only showed through B's slits
     # C: left, mid height
-    dict(leaf=(232, 420, -68, 168, P["mid"], 5, (5, 5), -1, 0.07, False, P["pale"]),
-         src=(286, 598), ctrl=(262, 492), w=(10.5, 7), col=P["forest"],
+    dict(leaf=(230, 424, -73, 168, P["mid"], 5, (5, 5), -1, 0.07, False, P["pale"]),
+         src=(286, 598), ctrl=(284, 500), w=(10.5, 7), col=P["forest"],
          # (1, 0) lies under E; the two basal left slits stop short of A's edge, so they show paper only
          trim={(1, 0): (None, None), (-1, 0): (0.156, 0.30), (-1, 1): (0.126, 0.31)}),
     # B: big right leaf rising, overlapping A
-    dict(leaf=(356, 372, 42, 206, P["sage"], 7, (6, 5), 1, -0.06, False, P["pale"]),
-         src=(306, 598), ctrl=(334, 470), w=(11.5, 7.5), col=P["forest"],
+    dict(leaf=(358, 374, 46, 206, P["sage"], 7, (6, 5), 1, -0.06, False, P["pale"]),
+         src=(306, 598), ctrl=(314, 480), w=(11.5, 7.5), col=P["forest"],
          # the two lowest left slits start inside A's outline (all dark); the third is moved a little up the
          # midrib, off A's tip, so no dark sliver runs down one side of it
-         trim={(-1, 0): (0.18, None), (-1, 1): (0.19, None), (-1, 2): (0.130, None, 0.035)}),
+         trim={(-1, 0): (0.235, None), (-1, 1): (0.31, None), (-1, 2): (0.130, None, 0.035)}),
     # E: lower-left front, drooping
-    dict(leaf=(248, 478, -106, 130, P["light"], 11, (4, 4), 1, -0.07, False, P["mid"]),
-         src=(292, 600), ctrl=(266, 552), w=(9, 6), col=P["mid"],
+    dict(leaf=(246, 482, -112, 130, P["light"], 11, (4, 4), 1, -0.07, False, P["mid"]),
+         src=(292, 600), ctrl=(286, 528), w=(9, 6), col=P["mid"],
          # (1, 2) starts and stops inside C's outline (all C), and the midrib hole C's margin cut in half
          # is left out
-         trim={(1, 2): (0.16, 0.35), ("hole", 1, 1): None}),
+         trim={(1, 2): (0.215, 0.36), ("hole", 1, 1): None}),
     # D: lower-right front
-    dict(leaf=(362, 474, 96, 150, P["deep"], 13, (4, 5), -1, 0.07, False, P["light"]),
-         src=(308, 600), ctrl=(340, 546), w=(9.5, 6.5), col=P["mid"],
+    dict(leaf=(364, 478, 102, 150, P["deep"], 13, (4, 5), -1, 0.07, False, P["light"]),
+         src=(308, 600), ctrl=(316, 526), w=(9.5, 6.5), col=P["mid"],
          trim={(1, 0): (0.33, None), (1, 1): (0.142, 0.32)}),  # all over B / all over paper
     # F: young leaf, few splits
-    dict(leaf=(318, 470, 16, 98, P["pale"], 17, (1, 2), 1, 0.08, True, P["sage"]),
-         src=(302, 600), ctrl=(312, 530), w=(7, 5), col=P["sage"],
+    dict(leaf=(318, 470, 20, 98, P["pale"], 17, (1, 2), 1, 0.08, True, P["sage"]),
+         src=(302, 600), ctrl=(302, 540), w=(7, 5), col=P["sage"],
          trim={(1, 0): (None, None)}),  # its one right split showed paper, D and B's edge in a few units
 ]
 
@@ -255,8 +258,8 @@ def build():
     back, front = pot("classic", rx=106, base_w=76)
     g = []
     for spec in LEAVES:
-        svg, sinus, tuck = draw_leaf(spec["leaf"], spec.get("trim"))
-        g.append(petiole(spec["src"], spec["ctrl"], sinus, tuck, *spec["w"], spec["col"]))
+        svg, ends = draw_leaf(spec["leaf"], spec.get("trim"))
+        g.append(petiole(spec["src"], spec["ctrl"], ends, *spec["w"], spec["col"]))
         g.append(svg)
     return back + "".join(g) + front
 

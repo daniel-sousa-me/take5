@@ -139,27 +139,27 @@ class Strap:
 # Draw order = list order inside each layer.
 LEAVES = {
     "back": [
-        (-4, (290, 360), (255, 105), (140, 262), 11, "back"),    # tall left
-        (5, (314, 340), (372, 60), (482, 202), 11, "back"),      # tallest, right
-        (-7, (268, 450), (160, 290), (52, 480), 11, "back"),     # wide left
-        (7, (336, 460), (455, 330), (556, 500), 11, "back"),     # wide right
+        (-4, (288, 390), (234, 188), (172, 262), 11, "back"),    # tall left, rolling over
+        (5, (318, 350), (382, 140), (446, 236), 11.5, "back"),   # tallest, right
+        (-7, (264, 456), (150, 318), (56, 468), 10.5, "back"),   # wide left
+        (7, (338, 470), (462, 352), (552, 486), 10.5, "back"),   # wide right
     ],
     "midd": [
-        (0, (300, 430), (304, 300), (322, 262), 12, "midd"),      # young upright centre leaf
-        (-3, (282, 440), (196, 250), (78, 380), 12, "midd"),
-        (3, (324, 430), (425, 270), (520, 420), 12, "midd"),
-        (-6, (262, 520), (130, 430), (62, 575), 12, "midd"),     # low left
-        (6, (342, 515), (470, 440), (548, 588), 12, "midd"),     # low right
+        (1, (302, 440), (310, 330), (336, 270), 12, "midd"),     # young centre leaf, tip just turning
+        (-3, (280, 430), (190, 262), (88, 356), 12.5, "midd"),
+        (3, (326, 444), (424, 296), (516, 404), 11.5, "midd"),
+        (-6, (260, 522), (136, 440), (66, 590), 12, "midd"),     # low left
+        (6, (344, 512), (468, 448), (538, 606), 11, "midd"),     # low right
     ],
     "front": [
-        (-3, (286, 480), (222, 360), (128, 500), 13, "front"),
-        (-5, (270, 560), (158, 468), (148, 700), 12.5, "front"),   # sweeps down past rim
-        (-2, (292, 500), (252, 400), (186, 452), 13, "fore"),
-        (2, (312, 530), (372, 460), (420, 540), 12.5, "fore"),
+        (-3, (286, 474), (214, 350), (124, 476), 13, "front"),
+        (-5, (270, 560), (160, 470), (142, 690), 12, "front"),   # sweeps down past rim
+        (-2, (292, 500), (250, 404), (186, 438), 12.5, "fore"),
+        (2, (314, 520), (380, 446), (434, 520), 13, "fore"),
     ],
     "drape": [   # drawn over the pot front; bases clipped by the rim
-        (-3, (282, 540), (204, 484), (200, 730), 12.5, "top"),
-        (4, (322, 575), (396, 540), (424, 690), 12, "front"),
+        (-3, (282, 540), (210, 486), (196, 726), 12.5, "top"),
+        (4, (322, 575), (402, 536), (420, 680), 11.5, "front"),
     ],
 }
 
@@ -169,7 +169,10 @@ WSCALE = 1.15   # global leaf-width scale (tuned against the rest of the set)
 
 def make(spec):
     dx, c1, c2, tip, W, tier = spec
-    return Strap((CROWN[0] + dx, CROWN[1]), c1, c2, tip, W * WSCALE), tier
+    s = Strap((CROWN[0] + dx, CROWN[1]), c1, c2, tip, W * WSCALE)
+    if s.L > 440:   # the longest, most arched blades get extra stations so their tips curve smoothly
+        s = Strap((CROWN[0] + dx, CROWN[1]), c1, c2, tip, W * WSCALE, n=11)
+    return s, tier
 
 
 def arc_leaf(base, a0, a1, L, W, n=5):
@@ -248,13 +251,15 @@ def build(report=False):
         layers[k] = "".join(svgs)
 
     # runners: leave the crown at the rim, arch up and out, then hang
-    LB = (104, 668)
+    LB = (112, 650)
     RS = 0.78         # right pup's leaf-length scale
-    RB = (508, 680)   # right pup hangs lower and is smaller than the left one (no mirrored pair)
-    runL = [(262, 614), (250, 586), (236, 556), (214, 526), (186, 504), (156, 496), (132, 506),
-            (116, 530), (107, 564), (104, 604), (104, 640), LB]
-    runR = [(338, 614), (350, 588), (368, 562), (396, 540), (430, 530), (462, 536), (484, 556),
-            (498, 584), (505, 616), (508, 650), RB]
+    RB = (494, 704)   # right runner hangs lower than the left one, smaller pup (no mirrored pair)
+    # it arches low, tucked under the big right leaf with clear space between them
+    # (not tracing that leaf's edge), then drops straight to its pup
+    runR = [(338, 614), (352, 590), (374, 568), (404, 554), (436, 552), (462, 562), (479, 584),
+            (488, 614), (492, 648), (494, 680), RB]
+    runL = [(262, 614), (252, 588), (238, 562), (218, 536), (192, 518), (164, 512), (140, 522),
+            (124, 546), (115, 580), (112, 616), LB]
     babyL = plantlet(*LB, [
         (-52, -124, 46, 6.0, "babyb"), (54, 134, 35, 5.6, "babyb"),
         (-24, -100, 64, 6.6, "baby"), (20, 76, 48, 6.4, "baby"),

@@ -236,11 +236,18 @@ def spill(side, out, tip, seed, curl=0.0):
            (CX + side * (RX - 8 + out * 0.2), 628 - lift),
            (CX + side * (RX + out * 0.7), 640 - lift * 0.5),
            (x_out, 664 + rnd.uniform(-3, 3))]
-    y = pts[-1][1]
-    sway = rnd.uniform(-5, 5)
+    y0 = y = pts[-1][1]
+    # hanging under its own weight, but not as a plumb line: each string drifts a
+    # little in or out as it falls (a long, soft curve, not a wiggle) and sways
+    # gently near its free end, where it is lightest
+    drift = side * rnd.uniform(-16, 20)
+    sway = rnd.uniform(4, 8) * rnd.choice((-1, 1))
+    ph = rnd.uniform(0, 3)
     while y < tip - 1:
-        y = min(tip, y + 26)
-        pts.append((x_out + sway * math.sin((y - 664) / 30) - side * (y - 664) * 0.05, y))
+        y = min(tip, y + 18)
+        u = (y - y0) / max(1.0, tip - y0)
+        x = x_out + drift * u * u - side * (y - y0) * 0.04 + sway * u * math.sin(ph + u * 3.4)
+        pts.append((x, y))
     if curl:
         x, y = pts[-1]
         pts[-1] = (x + side * curl * 0.15, y)
@@ -262,10 +269,10 @@ def layout():
     # (side, out: how far past the rim edge the string swings, lowest y, tone, tip curl); drawn outermost
     # first so each nearer string lies over the one beyond it; only the outermost ones curl (outward)
     # The cascade is fuller on the left: the right side of the card has the number block beside the pot.
-    for side, out, tip, tone, curl in ((-1, 112, 696, "b", 26), (-1, 94, 722, "m", 34), (-1, 74, 704, "b", 0),
-                                       (-1, 56, 736, "m", 0), (-1, 38, 712, "b", 0), (-1, 20, 741, "m", 0),
-                                       (-1, 3, 724, "b", 0),
-                                       (1, 50, 708, "m", 0), (1, 34, 738, "b", 0), (1, 18, 716, "m", 0),
+    for side, out, tip, tone, curl in ((-1, 112, 690, "b", 28), (-1, 94, 728, "m", 34), (-1, 74, 702, "b", 0),
+                                       (-1, 56, 752, "m", 0), (-1, 38, 716, "b", 0), (-1, 20, 750, "m", 0),
+                                       (-1, 3, 730, "b", 0),
+                                       (1, 50, 698, "m", 22), (1, 34, 748, "b", 0), (1, 18, 718, "m", 0),
                                        (1, 4, 742, "b", 0)):
         back += S(spill(side, out, tip, sd[0], curl), tone, skip=20 + out * 0.3, gmin=1.2, gvar=2.4,
                   taper_from=0.7)
@@ -290,8 +297,8 @@ def layout():
     mid += S([(348, 606), (336, 622), (332, 642)], "f", r0=7.6, r1=7.0, taper_from=0.9)
     # 5. front drapes: over the rim and down the pot face or just past its sides, varied lengths
     ahead += S([(262, 612), (240, 626), (224, 646), (218, 670), (220, 696), (216, 716)], "f", skip=6)
-    ahead += S([(298, 608), (284, 628), (276, 652), (272, 678), (275, 704), (270, 728)], "f", skip=8)
-    ahead += S([(330, 606), (340, 630), (342, 656), (338, 682), (340, 698)], "f", skip=8)
+    ahead += S([(298, 608), (285, 630), (279, 656), (279, 683), (284, 708), (293, 726)], "f", skip=8)
+    ahead += S([(330, 606), (341, 630), (345, 656), (342, 680), (334, 698)], "f", skip=8)
     ahead += S([(350, 610), (372, 624), (384, 644), (388, 668), (385, 692), (380, 708)], "f", skip=6)
     return back, mid, ahead
 

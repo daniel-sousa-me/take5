@@ -53,14 +53,20 @@ def at_y(pts, y):
     return s[-1], 0
 
 
-def rubber_leaf(L, bend=0.0, asym=0.0, wide=1.0, apex=0.0):
+def rubber_leaf(L, bend=0.0, asym=0.0, wide=1.0, apex=0.0, sway=0.0):
     """wide scales breadth; apex > 0 shifts the broadest part toward the tip
     (more obovate), < 0 toward the base (more ovate)."""
-    r = [(0.035, 0.095), (0.13, 0.190), (0.30, 0.250), (0.50, 0.262), (0.68, 0.232),
-         (0.83, 0.158), (0.925, 0.070), (0.972, 0.022)]
+    r = [(0.035, 0.095), (0.13, 0.190), (0.30, 0.250), (0.48, 0.262), (0.62, 0.240),
+         (0.73, 0.198), (0.82, 0.142), (0.895, 0.084), (0.95, 0.040), (0.985, 0.012)]
+    # steady taper over the last third: a clean ~70 deg point that still reads as pointed when
+    # the blade is tilted or bent (a short concave drip tip on a broad end reads as chopped off)
     r = [(t, w * wide * (1 + apex * (t - 0.45) * 1.4)) for t, w in r]
     l = [(t, w * (1 - asym)) for t, w in r]
-    return Leaf(L, r, l, bend=bend, tip_sharp=True, base_sharp=False)
+    if bend < 0:
+        # the narrower half must sit on the outside of the midrib's curve, or one margin runs
+        # dead straight into the tip and the point looks chopped off
+        r, l = l, r
+    return Leaf(L, r, l, bend=bend, tip_sharp=True, base_sharp=False, sway=sway)
 
 
 def leaf_svg(lf, tone, x, y, rot, shade_side="r"):
@@ -85,20 +91,34 @@ def leaf_svg(lf, tone, x, y, rot, shade_side="r"):
     return "".join(o)
 
 
+def bez(p0, c1, c2, p1, n=7):
+    out = []
+    for i in range(n):
+        t = i / (n - 1)
+        u = 1 - t
+        out.append(tuple(u ** 3 * p0[j] + 3 * u * u * t * c1[j] + 3 * u * t * t * c2[j] + t ** 3 * p1[j] for j in (0, 1)))
+    return out
+
+
 def petiole(p0, a, length, w, leaf_rot, L):
-    """short thick petiole from stem point p0 heading at angle a, ending tucked
-    0.07L inside the leaf base. Returns (svg, leaf base point)."""
+    """short thick petiole leaving the stem at angle a and arcing round to meet the leaf
+    along its own axis (leaf_rot), ending tucked 0.07L inside the leaf base.
+    Returns (svg, leaf base point)."""
     d = dir_of(a)
-    q = (p0[0] + d[0] * length, p0[1] + d[1] * length)
     ld = dir_of(leaf_rot)
-    mid = (p0[0] + d[0] * length * 0.55, p0[1] + d[1] * length * 0.55)
+    # chord heads between the two directions; the arc then turns smoothly into the leaf
+    m = dir_of((a + leaf_rot) / 2)
+    q = (p0[0] + m[0] * length, p0[1] + m[1] * length)
+    c1 = (p0[0] + d[0] * length * 0.45, p0[1] + d[1] * length * 0.45)
+    c2 = (q[0] - ld[0] * length * 0.4, q[1] - ld[1] * length * 0.4)
+    arc = bez(p0, c1, c2, q, 6)
     inside = (q[0] + ld[0] * L * 0.07, q[1] + ld[1] * L * 0.07)
     # start inside the stem, but on the leaf's side of the stem's centre line: a petiole
     # heading left must not reach back across the stem's shaded right half (its square
     # butt would show there); drawn in the stem colour, the join is then seamless
     k = 2.5 if d[0] < 0 else -4
     back = (p0[0] + d[0] * k, p0[1] + d[1] * k)
-    return f'<path d="{ribbon([back, mid, q, inside], w, w * 0.8)}" fill="{STEM}"/>', q
+    return f'<path d="{ribbon([back] + arc[1:] + [inside], w, w * 0.78)}" fill="{STEM}"/>', q
 
 
 def sheath(x, y, a, L, w):
@@ -115,23 +135,25 @@ def sheath(x, y, a, L, w):
 
 
 # ------------------------------------------------------------------ layout
-S1 = [(292, 612), (289, 520), (284, 420), (282, 320), (285, 230), (290, 168)]   # main stem
-S2 = [(312, 612), (322, 534), (342, 468), (366, 410), (384, 358)]              # second stem: leans out
+S1 = [(280, 612), (278, 530), (267, 440), (261, 350), (267, 262), (282, 200), (296, 164)]   # main stem: slight S lean
+S2 = [(327, 612), (340, 550), (362, 496), (388, 452), (408, 426), (420, 410)]               # second stem: leaves the soil apart, leans out
 
-# (stem, y, side, petiole angle, petiole len, leaf rot, L, tone, z, bend, asym, wide, apex)
-#   z < 0.5 = behind the stems. Internodes, sizes, angles and outlines all vary
-#   (older leaves broad and drooping, young ones narrow and upright).
+# (stem, y, side, petiole angle, petiole len, leaf rot, L, tone, z, bend, asym, wide, apex, sway)
+#   z < 0.5 = behind the stems. bend sign = droop (right-pointing leaves +, left -):
+#   old low leaves are big and heavy and hang well below level; young ones near the tips are
+#   small, stand up and stay flat. wide < 0.85 = leaf turned on its axis (foreshortened).
 LEAVES = [
-    (S1, 502, -1, -114, 22, -99, 176, "front", 3, 0.06, 0.04, 1.02, -0.1),
-    (S1, 432, -1, -72, 18, -58, 150, "back", 0.2, -0.05, 0.0, 0.92, 0.12),
-    (S1, 356, +1, 64, 18, 53, 146, "back", 0.1, 0.05, 0.08, 1.06, 0.0),
-    (S1, 316, -1, -50, 16, -37, 110, "front", 2, -0.04, 0.06, 0.88, 0.1),
-    (S1, 262, +1, 58, 14, 50, 96, "deep", 1, 0.03, 0.0, 1.0, -0.12),
-    (S1, 216, +1, 34, 10, 20, 68, "young", 2.5, 0.02, 0.04, 0.9, 0.0),
-    (S2, 470, +1, 112, 18, 100, 150, "front", 2, -0.05, 0.05, 0.96, 0.1),
-    (S2, 428, +1, 72, 15, 58, 118, "deep", 1.5, 0.04, 0.0, 1.1, -0.08),
-    (S2, 404, -1, -38, 12, -27, 84, "front", 2.2, -0.03, 0.04, 0.9, 0.06),   # added: crosses the gap, breaks the pairing
-    (S2, 378, +1, 46, 10, 34, 68, "young", 1.8, 0.02, 0.06, 0.86, 0.06),
+    (S1, 500, -1, -96, 28, -124, 178, "front", 3, -0.13, 0.04, 1.0, -0.1, 0.05),
+    (S1, 426, -1, -72, 24, -112, 148, "back", 0.2, -0.12, 0.0, 0.9, 0.14, -0.04),
+    (S1, 398, +1, 40, 18, 52, 100, "deep", 0.1, 0.07, 0.04, 0.92, 0.06, 0.03),
+    (S1, 306, +1, 52, 20, 66, 124, "back", 0.1, 0.09, 0.08, 1.06, 0.0, -0.04),
+    (S1, 340, -1, -42, 18, -40, 108, "front", 2, -0.07, 0.10, 0.74, 0.1, 0.06),
+    (S1, 238, +1, 34, 14, 40, 76, "deep", 1, 0.05, 0.0, 0.96, -0.12, 0.0),
+    (S1, 212, -1, -18, 10, -12, 56, "young", 2.5, -0.03, 0.04, 0.84, 0.0, 0.0),
+    (S2, 492, +1, 100, 26, 124, 146, "front", 2, 0.14, 0.05, 0.98, 0.1, 0.03),
+    (S2, 452, +1, 56, 20, 78, 110, "deep", 1.5, 0.10, 0.0, 1.1, -0.08, 0.05),
+    (S2, 432, -1, -32, 14, -14, 74, "front", 2.2, -0.04, 0.06, 0.8, 0.06, 0.0),
+    (S2, 416, +1, 34, 10, 26, 56, "young", 1.8, 0.03, 0.06, 0.86, 0.06, 0.0),
 ]
 
 
@@ -140,9 +162,13 @@ def build():
     lay = []
     pets = []
     nodes = []
-    for (S, y, side, pa, pl, lr, L, tone, z, bend, asym, wide, apex) in LEAVES:
+    for (S, y, side, pa, pl, lr, L, tone, z, bend, asym, wide, apex, sway) in LEAVES:
         p0, _ = at_y(S, y)
-        lf = rubber_leaf(L, bend=bend, asym=asym, wide=wide, apex=apex)
+        # a strongly bent midrib folds the outer margin round the tip (a chopped-off point);
+        # keep the blade's own curve gentle and put the rest of the droop into its rotation
+        b2 = max(-0.07, min(0.07, bend))
+        lr += math.degrees(math.atan(bend)) - math.degrees(math.atan(b2))   # same chord direction
+        lf = rubber_leaf(L, bend=b2, asym=asym, wide=wide, apex=apex, sway=max(-0.03, min(0.03, sway)))
         psvg, q = petiole(p0, pa, pl, max(5.0, L * 0.042), lr, L)
         shade_side = "r" if side > 0 else "l"
         lay.append((z, psvg, leaf_svg(lf, tone, q[0], q[1], lr, shade_side)))
@@ -154,7 +180,7 @@ def build():
         if z < 0.5:
             out += [ps, ls]
     # stems: taper to the tip, a darker shaded right edge, node scars
-    for S, w0, w1 in ((S2, 11, 6), (S1, 14, 7)):
+    for S, w0, w1 in ((S2, 14, 5), (S1, 22, 5.5)):   # real taper: thick at the soil, slim at the tip
         out.append(f'<path d="{ribbon(S, w0, w1)}" fill="{STEM}"/>')
         sh = [(x + w0 * 0.22 - (w0 - w1) * 0.22 * i / (len(S) - 1), y) for i, (x, y) in enumerate(S)]
         out.append(f'<path d="{ribbon(sh, w0 * 0.35, w1 * 0.3)}" fill="{STEM_SH}"/>')
@@ -166,9 +192,13 @@ def build():
     out.append(sheath(tip1[0], tip1[1] + 8, a1, 92, 0.13))
     out.append(sheath(tip2[0], tip2[1] + 6, a2, 70, 0.13))
     for z, ps, ls in lay:
-        if z >= 0.5:
+        if 0.5 <= z < 3:
             out += [ps, ls]
     out.append(front)
+    # the big old lowest leaf hangs out over the rim, in front of the pot
+    for z, ps, ls in lay:
+        if z >= 3:
+            out += [ps, ls]
     return "".join(out)
 
 

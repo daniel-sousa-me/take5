@@ -170,24 +170,30 @@ def zz_stalk(pts, tone, rachis, lmax, bare=0.36, base_w=19, spread=(56, 38), see
     z0, z1 = bare * tot, top * tot
     while pos < z1:
         u = (pos - z0) / (z1 - z0)
-        # small near the base, fullest just below the middle, small again at the tip
-        size = lmax * (0.66 + 1.25 * u - 1.3 * u * u) * r.uniform(0.93, 1.07)
+        # fullest in the lower third, then shrinking steadily toward the tip
+        size = lmax * (0.82 + 0.62 * u - 1.08 * u * u) * r.uniform(0.92, 1.08)
         dev = spread[0] + (spread[1] - spread[0]) * u
-        step = gap * 0.56 * size / math.sin(math.radians(dev))
-        off = step * r.uniform(0.2, 0.28) * (1 if seed % 2 else -1)
+        step = gap * 0.56 * size / math.sin(math.radians(dev)) * r.uniform(0.92, 1.22)
+        # sub-opposite, and unevenly so: the offset (and which side leads) varies pair to pair
+        off = step * r.uniform(0.22, 0.48) * (1 if r.random() < 0.6 else -1) * (1 if seed % 2 else -1)
         for side, dp in ((-1, -off / 2), (1, off / 2)):
             if (k, side) in skip:
                 continue
             tt = (pos + dp) / tot
             p, ang = at(s, acc, tt)
-            rot = ang + side * (dev + r.uniform(-4, 4))
-            leaves.append((tt, p, rot, size, r.randint(0, 999), -side))
+            sz = size * r.uniform(0.86, 1.08)
+            rot = ang + side * (dev + r.uniform(-9, 9))
+            # gravity: where the rachis runs out sideways, the under-side leaflets sag toward the ground
+            g = ((180 - rot + 540) % 360) - 180
+            if abs(g) < 95:     # only the under-side leaflets (already pointing downward) hang lower
+                rot += g * 0.22 * abs(math.sin(math.radians(ang))) ** 1.5
+            leaves.append((tt, p, rot, sz, r.randint(0, 999), -side))
         pos += step
         k += 1
     # terminal leaflet sits just beyond the last pair; the rachis ends under it
     end = min((pos - step * 0.35) / tot, 1.0)
     p, ang = at(s, acc, end)
-    leaves.append((end, p, ang + r.uniform(-3, 3), lmax * tip_scale, r.randint(0, 999), 0))
+    leaves.append((end, p, ang + r.uniform(-3, 3), lmax * tip_scale * 0.8, r.randint(0, 999), 0))
     for tt, p, rot, size, sd, cu in sorted(leaves, key=lambda v: v[0]):
         out.append(leaflet(p[0], p[1], rot, size, tone, sd, cu))
 
@@ -240,23 +246,24 @@ def build():
     # mottle colours are pre-blended solids (deep/night over the rachis @32 %)
     S_DK = (P["sage"], "#6B7E63")
     S_FO = (P["forest"], "#384F3B")
+    # the five stalks leave the soil at spread-out points and angles and diverge at once
     stalks = [
-        # back: centre tallest (dark)
-        dict(pts=[(300, B), (296, 470), (286, 330), (290, 190), (308, 56)], tone=DARK,
+        # back: centre tallest (dark), leaning ~6 deg right with a soft S
+        dict(pts=[(306, B), (306, 484), (318, 380), (338, 280), (352, 180), (357, 70)], tone=DARK,
              rachis=S_DK, lmax=68, base_w=20, seed=3, bare=0.40, skip={(0, -1)},
-             spread=(58, 36)),
-        # left upright (mid): the longest, bowing out and arching over at the top
-        dict(pts=[(290, B), (262, 486), (220, 360), (160, 250), (96, 192), (62, 190)], tone=MIDT,
-             rachis=S_FO, lmax=62, base_w=18, seed=11, bare=0.36, spread=(62, 40)),
-        # right upright (mid): shorter, steeper and almost straight
-        dict(pts=[(310, B), (330, 486), (360, 380), (392, 290), (418, 222)], tone=MIDT,
-             rachis=S_FO, lmax=54, base_w=18, seed=7, bare=0.38, spread=(52, 42)),
+             spread=(60, 40)),
+        # left upright (mid): the longest, bowing right out and arching over at the top
+        dict(pts=[(276, B), (264, 490), (236, 392), (192, 304), (138, 240), (88, 210), (56, 218)], tone=MIDT,
+             rachis=S_FO, lmax=62, base_w=18, seed=11, bare=0.34, spread=(62, 42)),
+        # right upright (mid): shorter, arching outward and flattening
+        dict(pts=[(332, B), (346, 490), (374, 404), (410, 332), (446, 280), (474, 258)], tone=MIDT,
+             rachis=S_FO, lmax=54, base_w=18, seed=7, bare=0.36, spread=(56, 40)),
         # left arching (dark, front): long, low and drooping at the tip
-        dict(pts=[(284, B), (238, 530), (168, 482), (104, 462), (58, 478)], tone=DARK,
-             rachis=S_DK, lmax=56, base_w=17, seed=21, bare=0.40, spread=(58, 40)),
-        # right arching (dark, front): short, lifting rather than drooping
-        dict(pts=[(318, B), (372, 530), (432, 474), (478, 420), (506, 380)], tone=DARK,
-             rachis=S_DK, lmax=46, base_w=16, seed=5, bare=0.46, spread=(54, 34)),
+        dict(pts=[(250, B), (226, 538), (178, 504), (124, 492), (86, 500), (62, 518)], tone=DARK,
+             rachis=S_DK, lmax=52, base_w=17, seed=23, bare=0.38, spread=(58, 42), gap=1.2),
+        # right arching (dark, front): short, lifting then levelling
+        dict(pts=[(356, B), (384, 542), (424, 502), (466, 470), (500, 452), (522, 450)], tone=DARK,
+             rachis=S_DK, lmax=46, base_w=16, seed=5, bare=0.42, spread=(56, 38)),
     ]
     body = [back]
     for st in stalks:

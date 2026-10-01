@@ -35,7 +35,7 @@ PET = {
 UNDER = (P["burgundy"], P["wine"])
 
 
-def leaf_shape(L, seed, narrow=1.0):
+def leaf_shape(L, seed, narrow=1.0, bend=None, sway=0.0, tip_t=1.0):
     rnd = random.Random(seed)
     j = lambda: rnd.uniform(-0.012, 0.012)  # noqa: E731
     right = [(0.02, 0.09), (0.11, 0.205 + j()), (0.28, 0.27 + j()), (0.48, 0.28 + j()),
@@ -44,7 +44,8 @@ def leaf_shape(L, seed, narrow=1.0):
             (0.69, 0.23 + j()), (0.83, 0.155), (0.92, 0.08), (0.967, 0.032)]
     right = [(t, w * narrow) for t, w in right]
     left = [(t, w * narrow) for t, w in left]
-    return Leaf(L, right, left, bend=rnd.uniform(-0.05, 0.05), base_sharp=False, tip_t=1.0)
+    b = rnd.uniform(-0.05, 0.05)
+    return Leaf(L, right, left, bend=b if bend is None else bend, sway=sway, base_sharp=False, tip_t=tip_t)
 
 
 def pinstripe(p0, p1, p2, w):
@@ -119,14 +120,15 @@ def plant_leaf(spec):
     opts = spec[8] if len(spec) > 8 else {}
     ux, uy = unit(ang)
     under = opts.get("under", False)
-    leaf = leaf_shape(L, seed, narrow=opts.get("narrow", 1.0))
+    leaf = leaf_shape(L, seed, narrow=opts.get("narrow", 1.0), bend=opts.get("bend"),
+                      sway=opts.get("sway", 0.0), tip_t=opts.get("tip_t", 1.0))
     # petiole: a smooth cubic from the soil (rising nearly vertically) that
     # arrives aligned with the leaf axis, ending tucked under the blade base
     S = (sx, RIM_Y + 14)
     E = (bx + ux * 8, by + uy * 8)
     h = by - S[1]
     lean = opts.get("lean", 0.0)
-    c1 = (S[0] + lean, S[1] + h * 0.45)
+    c1 = (S[0] + lean + bow, S[1] + h * opts.get("k1", 0.45))
     k2 = abs(h) * opts.get("k2", 0.42)
     c2 = (bx - ux * k2, by - uy * k2)
     pts = []
@@ -164,21 +166,23 @@ def plant_leaf(spec):
 
 
 # (soil x, base x, base y, angle, length, layer, seed, bow, opts)
+# bend/sway curve each midrib (bend toward the ground on the leaning blades so
+# their tips droop); lean/bow arc the petioles outward, more on the outer ones.
 LEAVES = [
     # back layer (night)
-    (294, 266, 292, -5, 228, "back", 1, 0, {"lean": -4}),
-    (314, 366, 300, 24, 200, "back", 2, 0, {"lean": 10}),
+    (296, 254, 290, -14, 224, "back", 1, 0, {"lean": 26, "k1": 0.55, "bend": -0.05, "sway": 0.1}),
+    (312, 376, 288, 29, 200, "back", 2, 0, {"lean": -16, "k1": 0.55, "bend": 0.07}),
     # middle layer (deep)
-    (284, 186, 342, -38, 182, "mid", 3, 0, {"lean": -6}),
-    (326, 432, 378, 48, 160, "back", 4, 0, {"lean": 22}),
-    (302, 332, 372, 14, 148, "mid", 5, 0, {"under": True, "narrow": 0.74, "lean": -2}),
+    (286, 180, 358, -51, 168, "mid", 3, -8, {"lean": -8, "bend": -0.12, "k2": 0.5}),
+    (322, 422, 404, 66, 140, "back", 4, 10, {"lean": 22, "bend": 0.15, "k2": 0.5, "narrow": 0.9}),
+    (302, 330, 368, 9, 148, "mid", 5, 0, {"under": True, "narrow": 0.72, "lean": -2, "bend": 0.06}),
     # front layer (forest)
-    (280, 208, 458, -62, 140, "front", 6, 0, {"lean": -8}),
-    (296, 250, 438, -22, 124, "front", 8, 0, {"under": True, "narrow": 0.76}),
-    (308, 364, 458, 36, 152, "front", 7, 0, {"lean": -2}),
+    (282, 196, 474, -78, 132, "front", 6, -6, {"lean": -10, "bend": -0.16, "k2": 0.55}),
+    (298, 252, 434, -28, 120, "front", 8, 0, {"under": True, "narrow": 0.76, "bend": -0.07}),
+    (306, 370, 452, 35, 150, "front", 7, 4, {"lean": -2, "bend": 0.03, "narrow": 0.84, "tip_t": 1.05}),
 ]
 
-FURLED = (298, 294, 398, 4, 108)
+FURLED = (298, 290, 398, -3, 108)
 
 
 def furled(sx, bx, by, ang, L):

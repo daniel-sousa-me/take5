@@ -85,10 +85,10 @@ def blade_outline(leaf, tears=()):
     return cr_path([p for p, _ in ring], closed=True, sharp=sharp)
 
 
-def blade(x, y, rot, L, fill, bend=0.0, tears=(), vein_col=None, sx=1.0, flip=False):
+def blade(x, y, rot, L, fill, bend=0.0, tears=(), vein_col=None, sx=1.0, flip=False, sway=0.0):
     """Paddle leaf; petiole joins at (x, y); rot in degrees (0 = straight up)."""
     right, left = (LEFT, RIGHT) if flip else (RIGHT, LEFT)
-    lf = Leaf(L, right, left, bend=bend)
+    lf = Leaf(L, right, left, bend=bend, sway=sway)
     d = blade_outline(lf, tears)
     cid = uid("lc")
     shade = SHADE.get(fill, fill)
@@ -105,7 +105,7 @@ def blade(x, y, rot, L, fill, bend=0.0, tears=(), vein_col=None, sx=1.0, flip=Fa
         # print_prep grades any line lighter than lum 0.55 as a knockout (needs 4 units)
         fw = 4 if lum(col) > 0.55 else 3
         fold_svg += (f'<path d="{"".join(folds[sd])}" fill="none" stroke="{col}" '
-                     f'stroke-width="{fw}" stroke-linecap="round"/>')
+                     f'stroke-width="{f(fw / min(sx, 1.0))}" stroke-linecap="round"/>')
     mid = [lf.axis(i / 8 * 0.97) for i in range(9)]
     out = [f'<g transform="{T(x, y, rot, 1.0, sx)}">',
            f'<clipPath id="{cid}"><path d="{d}"/></clipPath>',
@@ -143,11 +143,11 @@ def arc_pts(base, joint, rot, a0=None, k0=0.38, k1=0.30):
 
 
 def leaf_unit(base, joint, rot, L, fill, pet_col, bend=0.0, tears=(), pw=(9, 6), sx=1.0,
-              flip=False, a0=None):
+              flip=False, a0=None, sway=0.0, k=(0.38, 0.30)):
     """Petiole from `base` (in soil) to `joint`, then blade. The petiole runs a few px
     past the joint along the blade axis so it is tucked under the blade base."""
-    pet = petiole(arc_pts(base, joint, rot, a0), pw[0], pw[1], pet_col)
-    b, _ = blade(joint[0], joint[1], rot, L, fill, bend=bend, tears=tears, sx=sx, flip=flip)
+    pet = petiole(arc_pts(base, joint, rot, a0, *k), pw[0], pw[1], pet_col)
+    b, _ = blade(joint[0], joint[1], rot, L, fill, bend=bend, tears=tears, sx=sx, flip=flip, sway=sway)
     return pet + b
 
 
@@ -226,44 +226,44 @@ def build():
     # clasping leaf bases at soil level: each one is its own petiole swelling
     # toward the soil (same colour, same centre line), so it tapers seamlessly
     # into the petiole instead of standing up as a separate pale "tooth"
-    def sheath(base, joint, rot, a0, col, w_soil, w_top, y_top):
-        pts = [p for p in arc_pts(base, joint, rot, a0)[:-1]]
+    def sheath(base, joint, rot, a0, col, w_soil, w_top, y_top, k=(0.38, 0.30)):
+        pts = [p for p in arc_pts(base, joint, rot, a0, *k)[:-1]]
         dense = cr_sample(pts, 12)
         run = [q for q in dense if q[1] >= y_top]
         run = [(run[0][0] - (run[1][0] - run[0][0]) * 2.5, base[1] + 14)] + run
         return f'<path d="{ribbon(run[::8] + [run[-1]], w_soil, w_top, per=3)}" fill="{col}"/>'
     # --- back layer (dark): the tall leaf fills the upper left; the upper right
     # is kept open for the flower
-    G.append(leaf_unit((292, Y0), (262, 322), -12, 254, P["deep"], P["forest"], bend=-0.04,
-                       tears=(("r", 0.46, 0.62, 5), ("r", 0.63, 0.5, 4)), pw=(10, 7), a0=-2))
-    G.append(leaf_unit((310, Y0), (392, 452), 50, 196, P["forest"], P["mid"], bend=-0.05, pw=(10, 7),
-                       flip=True, a0=8, tears=(("l", 0.55, 0.55, 5),)))
+    G.append(leaf_unit((282, Y0), (254, 326), -20, 250, P["deep"], P["forest"], bend=-0.09, sway=0.08,
+                       tears=(("r", 0.46, 0.62, 5), ("r", 0.63, 0.5, 4)), pw=(10, 7), a0=-6, k=(0.45, 0.4)))
+    G.append(leaf_unit((322, Y0), (390, 448), 56, 186, P["forest"], P["mid"], bend=0.1, pw=(10, 7),
+                       flip=True, a0=12, k=(0.5, 0.42), sx=0.88, tears=(("l", 0.55, 0.55, 5),)))
     # swollen bases of the two back leaves (same depth as their petioles)
-    G.append(sheath((292, Y0), (262, 322), -12, -2, P["forest"], 30, 7, 540))
-    G.append(sheath((310, Y0), (392, 452), 50, 8, P["mid"], 26, 7, 552))
+    G.append(sheath((282, Y0), (254, 326), -20, -6, P["forest"], 24, 8, 572, k=(0.45, 0.4)))
+    G.append(sheath((322, Y0), (390, 448), 56, 12, P["mid"], 22, 8, 576, k=(0.5, 0.42)))
     # --- mid layer
-    G.append(leaf_unit((284, Y0), (200, 432), -52, 200, P["deep"], P["mid"], bend=-0.07, pw=(9, 6),
-                       a0=-10))
-    G.append(leaf_unit((316, Y0), (398, 502), 74, 160, P["mid"], P["sage"], bend=0.07, pw=(9, 6),
-                       flip=True, a0=14))
+    G.append(leaf_unit((272, Y0), (206, 426), -62, 178, P["deep"], P["mid"], bend=-0.2, pw=(9, 6),
+                       a0=-12, k=(0.4, 0.4)))
+    G.append(leaf_unit((334, Y0), (400, 494), 84, 150, P["mid"], P["sage"], bend=0.16, pw=(9, 6),
+                       flip=True, a0=24, k=(0.5, 0.45)))
     # --- flower stalk: rises almost straight between the leaves, clear of them
     # at the top, and meets the spathe heel from below
     HX, HY = 356, 262
-    stalk = arc_pts((312, Y0), (HX, HY + 6), 6, a0=3, k0=0.4, k1=0.35)[:-1]
+    stalk = arc_pts((312, Y0), (HX, HY + 6), 20, a0=2, k0=0.42, k1=0.38)[:-1]
     G.append(petiole(stalk, 10, 7.5, P["light"]))
     # the peduncle swells slightly where it turns into the spathe heel
     tail = stalk[-4:]
     G.append(petiole(tail + [(HX - 3, HY - 2)], 7.5, 17, P["light"]))
     # --- front layer (light / warm)
-    G.append(leaf_unit((294, Y0), (236, 400), -30, 214, P["mid"], P["sage"], bend=-0.03, pw=(10, 7),
-                       a0=-6))
-    G.append(leaf_unit((302, Y0), (290, 420), -10, 188, P["sage"], P["light"], bend=0.05, pw=(10, 7),
-                       flip=True, a0=-1))
+    G.append(leaf_unit((290, Y0), (234, 398), -34, 210, P["mid"], P["sage"], bend=-0.09, pw=(10, 7),
+                       a0=-8, k=(0.45, 0.38)))
+    G.append(leaf_unit((300, Y0), (294, 420), -4, 184, P["sage"], P["light"], bend=0.07, sway=-0.1, pw=(10, 7),
+                       flip=True, a0=-6, sx=0.84))
     # --- young front leaf, low, covers the petiole bundle
-    G.append(leaf_unit((308, Y0), (338, 516), 44, 150, P["light"], P["sage"], bend=0.05, pw=(8, 6),
-                       a0=10, flip=True))
+    G.append(leaf_unit((314, Y0), (340, 512), 50, 166, P["light"], P["sage"], bend=0.11, pw=(8, 6),
+                       a0=16, flip=True, k=(0.45, 0.4)))
     plant = "".join(G)
-    head = flower(HX, HY, -10, 1.5)
+    head = flower(HX, HY, -4, 1.5)
 
     body = back + plant + head + front
     return body

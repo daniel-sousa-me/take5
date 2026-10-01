@@ -2,106 +2,110 @@
 <title>Senecio rowleyanus (string of pearls)</title>
 <defs><path id="sero-bc" d="M9.5 -3.1C9.5 -3.1 9.9 -1.5 10 -0.6C10 0.2 10 1.1 9.8 1.9C9.7 2.7 9.4 3.6 9 4.3C8.7 5.1 8.2 5.8 7.6 6.4C7.1 7.1 6.5 7.7 5.8 8.2C5.1 8.6 4.3 9.1 3.5 9.4C2.8 9.6 1.9 9.9 1.1 9.9C0.2 10 -0.6 10 -1.5 9.9C-2.3 9.8 -3.1 9.5 -3.9 9.2C-4.7 8.9 -6.1 7.9 -6.1 7.9C-6.1 7.9 -4.5 5.7 -3.8 5.2C-3.2 4.7 -2.7 5.2 -2.2 5.1C-1.6 5.1 -1.1 4.9 -0.6 4.8C-0.1 4.6 0.5 4.4 1 4.2C1.5 4 1.9 3.7 2.4 3.4C2.8 3 3.3 2.7 3.6 2.3C4 1.9 4.4 1.5 4.7 1C5 0.6 5.3 0.1 5.6 -0.4C5.8 -0.9 5.5 -1.4 6.2 -1.9C6.8 -2.4 9.5 -3.1 9.5 -3.1Z"/><g id="sero-b"><circle r="10" fill="#4B6349"/><use href="#sero-bc" fill="#34503A"/></g><use id="sero-b0" href="#sero-b" transform="scale(0.56)"/><use id="sero-b1" href="#sero-b" transform="scale(0.62)"/><use id="sero-b2" href="#sero-b" transform="scale(0.68)"/><use id="sero-b3" href="#sero-b" transform="scale(0.74)"/><use id="sero-b4" href="#sero-b" transform="scale(0.80)"/><g id="sero-m"><circle r="10" fill="#7F9273"/><use href="#sero-bc" fill="#6A7E60"/></g><use id="sero-m0" href="#sero-m" transform="scale(0.56)"/><use id="sero-m1" href="#sero-m" transform="scale(0.62)"/><use id="sero-m2" href="#sero-m" transform="scale(0.68)"/><use id="sero-m3" href="#sero-m" transform="scale(0.74)"/><use id="sero-m4" href="#sero-m" transform="scale(0.80)"/><g id="sero-f"><circle r="10" fill="#A5B296"/><use href="#sero-bc" fill="#8E9E80"/></g><use id="sero-f0" href="#sero-f" transform="scale(0.56)"/><g id="sero-f0h"><use href="#sero-f0"/><circle cx="-2.0" cy="-1.9" r="2.2" fill="#C9D2BC"/></g><use id="sero-f1" href="#sero-f" transform="scale(0.62)"/><g id="sero-f1h"><use href="#sero-f1"/><circle cx="-2.2" cy="-2.1" r="2.2" fill="#C9D2BC"/></g><use id="sero-f2" href="#sero-f" transform="scale(0.68)"/><g id="sero-f2h"><use href="#sero-f2"/><circle cx="-2.4" cy="-2.3" r="2.2" fill="#C9D2BC"/></g><use id="sero-f3" href="#sero-f" transform="scale(0.74)"/><g id="sero-f3h"><use href="#sero-f3"/><circle cx="-2.7" cy="-2.5" r="2.2" fill="#C9D2BC"/></g><use id="sero-f4" href="#sero-f" transform="scale(0.80)"/><g id="sero-f4h"><use href="#sero-f4"/><circle cx="-2.9" cy="-2.7" r="2.2" fill="#C9D2BC"/></g><g id="sero-fl"><path d="M-4.2 -15 L-11.2 -28.0M-2.2 -15 L-5.9 -34.2M0 -15 L0.5 -36.5M2.2 -15 L6.3 -33.7M4.2 -15 L11.5 -27.5" fill="none" stroke="#C9D2BC" stroke-width="3.2" stroke-linecap="round"/><circle cx="-12.5" cy="-30" r="2.4" fill="#5E3A40"/><circle cx="-6.5" cy="-36.5" r="2.4" fill="#5E3A40"/><circle cx="0.5" cy="-39" r="2.4" fill="#5E3A40"/><circle cx="7" cy="-36" r="2.4" fill="#5E3A40"/><circle cx="12.8" cy="-29.5" r="2.4" fill="#5E3A40"/><path d="M-5.5 0C-5.5 0 -7 -6.5 -7.2 -9C-7.4 -11.5 -6.4 -15 -6.4 -15C-6.4 -15 6.4 -15 6.4 -15C6.4 -15 7.4 -11.5 7.2 -9C7 -6.5 5.5 0 5.5 0C5.5 0 -5.5 0 -5.5 0Z" fill="#7F9273"/><path d="M1.5 -14 L5.8 -14 L6.4 -9 L4.6 0 L1.5 0Z" fill="#6A7E60"/></g></defs>
 <ellipse cx="300" cy="645" rx="64" ry="9.6" fill="#92543D"/><ellipse cx="300" cy="647.5" rx="56" ry="6.4" fill="#5C4331"/><path d="M250 646 Q300 639.7 350 646" fill="none" stroke="#4F392A" stroke-width="3"/>
-<path d="M194.5 598.4C188.3 602 167.7 612.6 157.6 620.4C147.5 628.2 140.1 637.5 134.1 645.4C128.2 653.3 123.9 661.3 122 667.7C120.1 674 122.7 679.2 122.7 683.3C122.8 687.5 122.7 690.3 122.2 692.4C121.7 694.4 121 694.6 119.7 695.6C118.3 696.6 116.4 698.1 114.4 698.3C112.4 698.6 110.3 698.7 107.7 697.4C105.2 696 100.6 691.3 99.1 690C97.7 688.8 99.1 690 99.1 690" fill="none" stroke="#27392C" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M194.5 598.4C187.7 602.6 164.6 614.5 153.6 623.6C142.7 632.7 133.7 645.1 128.8 653.2C123.9 661.2 123.9 667.1 124.3 671.8C124.8 676.5 130 678.6 131.7 681.3C133.4 684.1 134.7 686.5 134.6 688.3C134.4 690.1 132.7 691.7 130.6 692.2C128.5 692.7 125.1 693.1 122 691.3C118.8 689.6 113.4 683.4 111.6 681.8C109.9 680.2 111.6 681.8 111.6 681.8" fill="none" stroke="#27392C" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
 <use href="#sero-b4" x="198" y="594"/>
 <use href="#sero-b3" x="185" y="606"/>
 <use href="#sero-b2" x="167" y="610"/>
 <use href="#sero-b3" x="153" y="627"/>
 <use href="#sero-b3" x="137" y="636"/>
 <use href="#sero-b3" x="129" y="657"/>
-<use href="#sero-b3" x="118" y="671"/>
-<use href="#sero-b2" x="125" y="688"/>
-<use href="#sero-b1" x="110" y="696"/>
-<use href="#sero-b1" x="99" y="690"/>
-<path d="M206.6 601.3C200.6 605 179.9 615.3 170.2 623.5C160.5 631.8 153.5 642.5 148.4 650.8C143.3 659.1 140.8 666.8 139.5 673.2C138.2 679.7 140.3 683.7 140.6 689.5C140.9 695.4 141.3 703.3 141.2 708.3C141.1 713.3 141 717 140.2 719.3C139.4 721.6 138.5 721.1 136.5 722C134.4 722.9 131 725.4 127.8 724.9C124.7 724.4 119.2 720.8 117.3 719C115.4 717.2 116.6 714.9 116.4 714.1" fill="none" stroke="#405D43" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<use href="#sero-b3" x="122" y="673"/>
+<use href="#sero-b2" x="135" y="684"/>
+<use href="#sero-b1" x="123" y="689"/>
+<use href="#sero-b1" x="112" y="682"/>
+<path d="M206.6 601.3C200 605.5 177.2 617.1 166.8 626.5C156.5 636 148.6 649.9 144.6 658C140.5 666.1 141.8 670.2 142.3 675.1C142.7 680.1 145.7 683.2 147.2 687.5C148.7 691.8 150.1 696.5 151.1 701C152.1 705.6 153.2 711 153.2 715C153.1 718.9 152.5 722.1 150.9 724.6C149.3 727.1 146.8 729.2 143.8 730C140.8 730.8 134.8 730 132.8 729.2C130.8 728.3 132 725.6 131.9 724.9" fill="none" stroke="#405D43" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
 <use href="#sero-m4" x="208" y="597"/>
 <use href="#sero-m3" x="195" y="610"/>
 <use href="#sero-m4" x="178" y="614"/>
 <use href="#sero-m3" x="168" y="628"/>
 <use href="#sero-m4" x="154" y="637"/>
 <use href="#sero-m2" x="147" y="658"/>
-<use href="#sero-m4" x="137" y="674"/>
-<use href="#sero-m4" x="144" y="689"/>
-<use href="#sero-m2" x="139" y="707"/>
-<use href="#sero-m2" x="134" y="725"/>
-<use href="#sero-m0" x="116" y="714"/>
-<path d="M213.7 607.5C209.8 609.9 197 616.6 190.4 621.8C183.9 627 178.7 632.8 174.3 638.9C169.9 645 166.5 652.6 164.2 658.5C161.8 664.3 160.7 669.4 160.3 674.1C159.9 678.8 161.4 683 161.6 686.6C161.9 690.3 161.5 694.5 162 696.2C162.4 697.8 164 696.4 164.4 696.5" fill="none" stroke="#27392C" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<use href="#sero-m4" x="139" y="674"/>
+<use href="#sero-m4" x="150" y="687"/>
+<use href="#sero-m2" x="150" y="706"/>
+<use href="#sero-m2" x="152" y="727"/>
+<use href="#sero-m0" x="132" y="725"/>
+<path d="M213.7 607.5C209.2 610.3 194.4 618 187.2 624.4C179.9 630.9 174.4 639.1 170.1 646C165.8 653 162.5 661.2 161.4 666.3C160.2 671.4 162.6 673.4 163.1 676.8C163.6 680.3 164 683.8 164.5 687C165 690.2 165.8 694.7 166 696.2" fill="none" stroke="#27392C" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
 <use href="#sero-b2" x="215" y="604"/>
 <use href="#sero-b2" x="200" y="619"/>
 <use href="#sero-b3" x="184" y="624"/>
 <use href="#sero-b3" x="177" y="639"/>
 <use href="#sero-b3" x="164" y="650"/>
 <use href="#sero-b3" x="164" y="667"/>
-<use href="#sero-b2" x="159" y="681"/>
-<use href="#sero-b1" x="164" y="696"/>
-<path d="M226.5 610.3C222.8 612.5 210.6 618.1 204.4 623.2C198.2 628.3 193.2 634.6 189.2 641.2C185.3 647.7 182.7 656.2 180.8 662.4C178.9 668.7 178.4 673.5 177.9 678.6C177.4 683.8 177.8 688.2 177.8 693.3C177.8 698.3 177.5 704.2 177.9 708.9C178.4 713.6 180 719.3 180.4 721.4C180.8 723.5 180.4 721.4 180.4 721.4" fill="none" stroke="#405D43" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<use href="#sero-b2" x="162" y="681"/>
+<use href="#sero-b1" x="166" y="696"/>
+<path d="M226.5 610.3C221.9 613.2 206.3 620.5 199.1 627.8C192 635.2 187 646.6 183.6 654.2C180.2 661.9 179.4 668.5 178.8 673.8C178.3 679.1 179.9 681.8 180.4 686.1C180.8 690.4 180.8 695.1 181.4 699.6C182.1 704.1 182.9 708.5 184.1 713.1C185.3 717.6 186.9 722.2 188.7 726.7C190.5 731.2 194 737.6 194.7 739.9C195.5 742.2 193.5 740.6 193.3 740.7" fill="none" stroke="#405D43" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
 <use href="#sero-m4" x="230" y="611"/>
 <use href="#sero-m3" x="213" y="614"/>
 <use href="#sero-m3" x="202" y="629"/>
 <use href="#sero-m3" x="188" y="638"/>
 <use href="#sero-m3" x="187" y="655"/>
 <use href="#sero-m3" x="177" y="669"/>
-<use href="#sero-m3" x="181" y="685"/>
-<use href="#sero-m2" x="175" y="707"/>
-<use href="#sero-m1" x="180" y="721"/>
-<path d="M236.4 614.7C233.2 616.5 222.4 621.2 217 625.8C211.6 630.3 207.1 636.2 203.9 642.2C200.8 648.2 198.8 655.5 198 661.7C197.2 667.9 198.5 673.4 198.9 679.3C199.3 685.1 199.9 693.4 200.7 696.8C201.4 700.3 202.8 699.3 203.2 699.8" fill="none" stroke="#27392C" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<use href="#sero-m3" x="183" y="685"/>
+<use href="#sero-m3" x="180" y="708"/>
+<use href="#sero-m1" x="189" y="722"/>
+<use href="#sero-m1" x="193" y="741"/>
+<path d="M236.4 614.7C232.8 616.8 220.6 622.1 214.9 627.6C209.2 633.1 204.8 641 201.9 647.6C199 654.1 198 661.6 197.6 666.9C197.2 672.3 199.7 675.3 199.6 679.7C199.5 684.1 198.4 688.5 197 693.2C195.7 697.9 193 704.8 191.5 707.8C190 710.9 188.6 710.9 188 711.5" fill="none" stroke="#27392C" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
 <use href="#sero-b3" x="237" y="617"/>
 <use href="#sero-b3" x="216" y="623"/>
 <use href="#sero-b3" x="209" y="638"/>
 <use href="#sero-b4" x="198" y="652"/>
-<use href="#sero-b4" x="200" y="669"/>
-<use href="#sero-b2" x="197" y="685"/>
-<use href="#sero-b1" x="203" y="700"/>
-<path d="M236.2 622.8C234 624.8 226.2 629.2 223 634.7C219.8 640.2 218 648.6 216.9 655.5C215.8 662.5 216.1 669.8 216.4 676.5C216.7 683.2 218 689.3 218.6 695.8C219.1 702.3 219.4 708.9 219.7 715.4C220 721.9 219.8 731.6 220.3 735C220.8 738.4 222.4 735.8 222.8 736" fill="none" stroke="#405D43" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<use href="#sero-b4" x="201" y="669"/>
+<use href="#sero-b3" x="196" y="684"/>
+<use href="#sero-b1" x="197" y="701"/>
+<use href="#sero-b0" x="188" y="712"/>
+<path d="M236.2 622.8C233.6 625.4 224.4 631.4 221.1 638.5C217.7 645.6 216.9 658.2 216 665.5C215.1 672.7 215.7 676.5 215.4 682C215.2 687.5 214.8 693 214.7 698.5C214.6 704 214.5 709.4 214.7 715C214.9 720.5 215.2 728.2 215.9 731.9C216.6 735.6 218.4 736.4 219 737.2" fill="none" stroke="#405D43" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
 <use href="#sero-m3" x="236" y="620"/>
 <use href="#sero-m3" x="227" y="635"/>
 <use href="#sero-m3" x="216" y="648"/>
 <use href="#sero-m3" x="219" y="665"/>
-<use href="#sero-m4" x="215" y="690"/>
-<use href="#sero-m2" x="222" y="707"/>
-<use href="#sero-m1" x="217" y="722"/>
-<use href="#sero-m0" x="223" y="736"/>
-<path d="M237 631.9C236.4 634.1 233.7 639.4 233 645C232.3 650.5 232.8 658.6 233 665.2C233.2 671.8 233.7 678 234.1 684.7C234.5 691.4 234.7 701 235.2 705.4C235.8 709.8 237.1 710.3 237.4 711.3" fill="none" stroke="#27392C" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<use href="#sero-m4" x="212" y="689"/>
+<use href="#sero-m3" x="217" y="707"/>
+<use href="#sero-m2" x="212" y="723"/>
+<use href="#sero-m1" x="219" y="737"/>
+<path d="M237 631.9C236.3 635.2 233.3 644.9 232.8 652C232.2 659.1 233.7 668 233.9 674.7C234.1 681.4 234.5 686.2 233.9 692.2C233.2 698.2 231.5 705.3 230.1 710.7C228.7 716 226.2 722.1 225.4 724.4" fill="none" stroke="#27392C" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
 <use href="#sero-b3" x="235" y="630"/>
 <use href="#sero-b3" x="236" y="647"/>
 <use href="#sero-b3" x="230" y="664"/>
 <use href="#sero-b3" x="236" y="680"/>
-<use href="#sero-b3" x="233" y="696"/>
-<use href="#sero-b1" x="237" y="711"/>
-<path d="M380.9 616.5C384.2 619.4 395.8 626.8 400.9 633.7C406.1 640.7 409.6 650.8 411.8 658.4C414.1 665.9 414.4 673 414.5 679.1C414.7 685.1 413.2 690.3 412.5 694.7C411.8 699 410.6 703.4 410.2 705.2C409.8 706.9 410.2 705.2 410.2 705.2" fill="none" stroke="#405D43" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<use href="#sero-b3" x="231" y="695"/>
+<use href="#sero-b2" x="232" y="712"/>
+<use href="#sero-b1" x="225" y="724"/>
+<path d="M380.9 616.5C385 620.9 400.1 633.3 405.8 642.7C411.6 652.1 413.8 665.4 415.4 672.8C417.1 680.3 415.7 683.3 415.9 687.6C416 691.9 414.8 696.5 416.3 698.6C417.8 700.7 422.2 701.6 424.7 700C427.2 698.4 430.3 690.7 431.4 688.8" fill="none" stroke="#405D43" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
 <use href="#sero-m3" x="379" y="619"/>
 <use href="#sero-m2" x="396" y="625"/>
-<use href="#sero-m4" x="403" y="640"/>
-<use href="#sero-m3" x="414" y="655"/>
-<use href="#sero-m2" x="413" y="672"/>
-<use href="#sero-m1" x="416" y="691"/>
-<use href="#sero-m0" x="410" y="705"/>
-<path d="M372.3 620.3C374.8 622.6 383.9 628.8 387.8 634C391.7 639.3 394 645.9 395.9 651.9C397.7 657.9 398.5 664.1 398.9 670C399.3 675.9 398.6 681.5 398.5 687.3C398.4 693 398.4 698.8 398.2 704.7C398 710.6 397.3 717.1 397.2 722.5C397 728 397.3 735 397.3 737.5C397.3 740 397.3 737.5 397.3 737.5" fill="none" stroke="#27392C" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<use href="#sero-m4" x="402" y="640"/>
+<use href="#sero-m3" x="413" y="655"/>
+<use href="#sero-m3" x="413" y="673"/>
+<use href="#sero-m2" x="419" y="692"/>
+<use href="#sero-m1" x="425" y="702"/>
+<use href="#sero-m0" x="431" y="689"/>
+<path d="M372.3 620.3C375.5 623.7 387.3 633 391.7 640.4C396 647.8 397.6 658.1 398.4 664.8C399.2 671.5 396.7 675.4 396.5 680.8C396.3 686.2 396.6 691.8 397.2 697.3C397.9 702.8 399.1 708.2 400.5 713.8C401.9 719.3 404.2 726.5 405.7 730.5C407.2 734.4 408.9 736.1 409.5 737.2" fill="none" stroke="#27392C" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
 <use href="#sero-b4" x="372" y="617"/>
 <use href="#sero-b4" x="381" y="631"/>
 <use href="#sero-b4" x="396" y="641"/>
 <use href="#sero-b3" x="394" y="659"/>
-<use href="#sero-b3" x="401" y="675"/>
-<use href="#sero-b3" x="396" y="692"/>
-<use href="#sero-b2" x="400" y="709"/>
-<use href="#sero-b0" x="395" y="724"/>
-<use href="#sero-b0" x="397" y="737"/>
-<path d="M363.3 623.4C365.4 625.4 372.7 630 375.6 635.1C378.6 640.3 380 647.9 381.1 654.5C382.2 661.1 382.2 668.1 382.2 674.8C382.2 681.4 381.9 688 381.2 694.5C380.6 701 378.8 710.5 378.3 713.7C377.8 716.9 378.3 713.7 378.3 713.7" fill="none" stroke="#405D43" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<use href="#sero-b3" x="399" y="675"/>
+<use href="#sero-b4" x="394" y="692"/>
+<use href="#sero-b3" x="402" y="709"/>
+<use href="#sero-b1" x="401" y="725"/>
+<use href="#sero-b1" x="410" y="737"/>
+<path d="M363.3 623.4C365.7 626 374.4 632 377.5 638.7C380.6 645.5 381 656.9 382 663.9C383 670.8 382.9 674.9 383.2 680.4C383.6 685.9 384.5 691.3 384.1 696.9C383.7 702.4 381.3 711 380.7 713.8C380.1 716.6 380.7 713.8 380.7 713.8" fill="none" stroke="#405D43" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
 <use href="#sero-m3" x="364" y="621"/>
 <use href="#sero-m3" x="376" y="640"/>
 <use href="#sero-m4" x="385" y="661"/>
-<use href="#sero-m3" x="379" y="678"/>
-<use href="#sero-m2" x="383" y="694"/>
-<use href="#sero-m1" x="378" y="714"/>
-<path d="M361.7 629.8C362.6 631.7 366.2 635.7 367.2 641.1C368.3 646.4 368 655 368.1 661.7C368.1 668.5 367.6 675 367.3 681.6C367 688.1 366.5 694.6 366.1 701.1C365.8 707.6 365.5 714.1 365.2 720.5C364.9 726.9 364.1 736.1 364.2 739.5C364.3 742.8 365.4 740.4 365.6 740.6" fill="none" stroke="#27392C" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<use href="#sero-m3" x="380" y="679"/>
+<use href="#sero-m2" x="386" y="694"/>
+<use href="#sero-m1" x="381" y="714"/>
+<path d="M361.7 629.8C362.8 632.8 367 640.4 368 647.6C368.9 654.8 367.9 665.9 367.4 673C366.9 680.1 365.3 684.5 365 690.3C364.7 696.2 364.6 702.3 365.4 708.3C366.2 714.4 368 721.8 369.6 726.9C371.2 732 374 737 374.9 739.1" fill="none" stroke="#27392C" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
 <use href="#sero-b3" x="360" y="631"/>
 <use href="#sero-b4" x="371" y="644"/>
 <use href="#sero-b3" x="365" y="661"/>
-<use href="#sero-b4" x="371" y="677"/>
-<use href="#sero-b3" x="363" y="695"/>
-<use href="#sero-b2" x="368" y="713"/>
-<use href="#sero-b2" x="363" y="727"/>
-<use href="#sero-b0" x="366" y="741"/>
+<use href="#sero-b4" x="370" y="678"/>
+<use href="#sero-b3" x="362" y="695"/>
+<use href="#sero-b3" x="369" y="712"/>
+<use href="#sero-b2" x="368" y="727"/>
+<use href="#sero-b0" x="375" y="739"/>
 <path d="M212 654C212 654 209 641.8 210 636C211 630.2 214.2 624.3 218 619C221.8 613.7 227.7 608.2 233 604C238.3 599.8 244.2 596.5 250 594C255.8 591.5 262.5 589.3 268 589C273.5 588.7 278.2 592.5 283 592C287.8 591.5 292.3 588.8 297 586C301.7 583.2 306.3 577.8 311 575C315.7 572.2 320.3 569 325 569C329.7 569 334.7 572.5 339 575C343.3 577.5 346.8 581.8 351 584C355.2 586.2 359.8 585.7 364 588C368.2 590.3 372.3 593.7 376 598C379.7 602.3 383.3 608 386 614C388.7 620 391.5 627.3 392 634C392.5 640.7 389 654 389 654C389 654 380.8 661 366 664C351.2 667 322 672 300 672C278 672 248.7 667 234 664C219.3 661 212 654 212 654Z" fill="#5B7458"/><circle cx="214" cy="649" r="7.6" fill="#5B7458"/><circle cx="213" cy="638" r="7.9" fill="#5B7458"/><circle cx="217" cy="627" r="7.8" fill="#5B7458"/><circle cx="223" cy="617" r="6.6" fill="#5B7458"/><circle cx="231" cy="610" r="8.1" fill="#5B7458"/><circle cx="240" cy="603" r="8.0" fill="#5B7458"/><circle cx="250" cy="597" r="7.4" fill="#5B7458"/><circle cx="259" cy="594" r="7.5" fill="#5B7458"/><circle cx="269" cy="592" r="6.6" fill="#5B7458"/><circle cx="278" cy="594" r="7.0" fill="#5B7458"/><circle cx="292" cy="593" r="7.8" fill="#5B7458"/><circle cx="301" cy="587" r="7.9" fill="#5B7458"/><circle cx="310" cy="579" r="7.6" fill="#5B7458"/><circle cx="318" cy="574" r="6.6" fill="#5B7458"/><circle cx="327" cy="572" r="6.9" fill="#5B7458"/><circle cx="335" cy="576" r="8.2" fill="#5B7458"/><circle cx="345" cy="584" r="7.1" fill="#5B7458"/><circle cx="357" cy="589" r="7.5" fill="#5B7458"/><circle cx="367" cy="593" r="6.9" fill="#5B7458"/><circle cx="375" cy="601" r="7.7" fill="#5B7458"/><circle cx="381" cy="611" r="8.0" fill="#5B7458"/><circle cx="386" cy="622" r="7.2" fill="#5B7458"/><circle cx="389" cy="631" r="6.8" fill="#5B7458"/><circle cx="389" cy="639" r="7.1" fill="#5B7458"/>
 <path d="M298 604C297 599 295 584.7 292 574C289 563.3 285 550 280 540C275 530 268 520.7 262 514C256 507.3 247 502.3 244 500" fill="none" stroke="#7F9273" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/><use href="#sero-fl" transform="translate(244 502) rotate(-26) scale(1.2)"/>
 <path d="M320 600C320.7 592.7 322.3 571 324 556C325.7 541 327.7 522.7 330 510C332.3 497.3 335.3 487.3 338 480C340.7 472.7 344.7 468.3 346 466" fill="none" stroke="#7F9273" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/><use href="#sero-fl" transform="translate(346 468) rotate(10) scale(1.3)"/>
@@ -152,20 +156,20 @@
 <use href="#sero-f2h" x="215" y="673"/>
 <use href="#sero-f1h" x="222" y="690"/>
 <use href="#sero-f1h" x="217" y="705"/>
-<path d="M287.4 622.2C286.1 625.1 281.5 633.6 279.4 639.6C277.2 645.6 275.8 652 274.6 658.4C273.3 664.8 272 671.5 272 678C272 684.5 274.5 691 274.6 697.6C274.8 704.2 272.9 713.3 272.7 717.6C272.5 721.9 273.4 722.4 273.6 723.3" fill="none" stroke="#405D43" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-<use href="#sero-f3h" x="290" y="623"/>
-<use href="#sero-f4h" x="277" y="637"/>
-<use href="#sero-f3h" x="278" y="657"/>
-<use href="#sero-f3h" x="270" y="675"/>
-<use href="#sero-f2h" x="276" y="690"/>
-<use href="#sero-f2h" x="273" y="707"/>
-<use href="#sero-f0h" x="274" y="723"/>
-<path d="M337.8 623.3C338.5 626.6 341.3 636.3 341.9 642.9C342.5 649.4 341.9 656.2 341.3 662.7C340.6 669.3 338.8 678 338 682C337.2 686 336.6 685.9 336.3 686.7" fill="none" stroke="#405D43" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-<use href="#sero-f4h" x="334" y="623"/>
-<use href="#sero-f3h" x="344" y="639"/>
-<use href="#sero-f3h" x="340" y="655"/>
-<use href="#sero-f1h" x="341" y="672"/>
-<use href="#sero-f1h" x="336" y="687"/>
+<path d="M288.1 623.7C286.9 626.9 282.8 636.2 281.2 642.7C279.6 649.2 278.8 656 278.5 662.7C278.1 669.4 278.4 676.4 279 683C279.6 689.6 280.7 696.4 282.4 702.3C284 708.2 287 715.4 288.8 718.6C290.6 721.8 292.3 721 293.1 721.5" fill="none" stroke="#405D43" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<use href="#sero-f3h" x="291" y="624"/>
+<use href="#sero-f4h" x="279" y="639"/>
+<use href="#sero-f3h" x="282" y="659"/>
+<use href="#sero-f3h" x="277" y="677"/>
+<use href="#sero-f2h" x="283" y="692"/>
+<use href="#sero-f2h" x="282" y="709"/>
+<use href="#sero-f0h" x="293" y="721"/>
+<path d="M338.5 623.3C339.4 626.6 342.8 636.5 343.9 643C344.9 649.5 345.2 656.1 344.9 662.3C344.5 668.4 343.1 676.2 342 680C340.9 683.8 338.9 684.3 338.2 685.2" fill="none" stroke="#405D43" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<use href="#sero-f4h" x="335" y="623"/>
+<use href="#sero-f3h" x="345" y="638"/>
+<use href="#sero-f4h" x="343" y="655"/>
+<use href="#sero-f2h" x="345" y="672"/>
+<use href="#sero-f1h" x="338" y="685"/>
 <path d="M366.7 619.8C368.9 622.3 376.8 629.4 380.1 635.1C383.4 640.7 385.3 647.2 386.6 653.7C387.9 660.2 388.1 667.5 387.8 674.2C387.5 680.8 385.2 688.8 384.6 693.7C384 698.5 384.2 701.8 384.1 703.5" fill="none" stroke="#405D43" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
 <use href="#sero-f4h" x="364" y="621"/>
 <use href="#sero-f3h" x="380" y="630"/>

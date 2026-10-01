@@ -46,21 +46,29 @@ def prof(t):
 
 
 class Sword:
-    def __init__(self, x, lean, H, W, tone, bend=0.0, twist=0.0, seed=1, asym=0.0, fade=None):
+    def __init__(self, x, lean, H, W, tone, bend=0.0, twist=0.0, seed=1, asym=0.0, fade=None,
+                 sway=0.0, twist_t=0.62):
         self.x, self.lean, self.H, self.W, self.fade = x, lean, H, W, fade
         self.tone, self.bend, self.twist, self.seed, self.asym = tone, bend, twist, seed, asym
+        self.sway, self.twist_t = sway, twist_t
 
-    # local coords: base (0,0), tip (bend*H, -H); later rotated by lean about base
+    # local coords: base (0,0), tip (bend*H, -H); later rotated by lean about base.
+    # sway adds a faint S to the blade (base and tip leaning opposite ways)
     def axis(self, t):
-        return (self.bend * self.H * t * t, -self.H * t)
+        x = self.bend * self.H * t * t + self.sway * self.H * t * (1 - t) * (1 - 2 * t)
+        return (x, -self.H * t)
 
     def normal(self, t):
-        tx, ty = 2 * self.bend * self.H * t, -self.H
+        tx = 2 * self.bend * self.H * t + self.sway * self.H * (1 - 6 * t + 6 * t * t)
+        ty = -self.H
         m = math.hypot(tx, ty)
         return (-ty / m, tx / m)
 
     def hw(self, t, side):
         w = self.W * prof(t)
+        if self.twist:
+            # a gentle quarter-turn of the blade: it narrows where it turns edge-on
+            w *= 1 - self.twist * math.exp(-((t - self.twist_t) / 0.13) ** 2)
         # slight asymmetry: one side a touch fuller
         return w * (1 + side * self.asym * math.sin(math.pi * t))
 
@@ -166,12 +174,16 @@ class Sword:
         bd, bl = self.bands(m)
         # concave shade: one half of the body a step darker (leaf is slightly channelled)
         side = 1 if self.lean > 0 else -1
-        half = []
-        for i in range(0, 21):
-            t = -0.2 + i * 0.06
-            half.append(self.pt(t, 0))
-        far = [self.pt(-0.2 + i * 0.06, side * 80) for i in range(20, -1, -1)]
-        hp = "M" + "L".join(f"{f(p[0])} {f(p[1])}" for p in half + far) + "Z"
+        def half_poly(t0, t1, sg):
+            ts = [t0 + (t1 - t0) * i / 20 for i in range(21)]
+            pts = [self.pt(t, 0) for t in ts] + [self.pt(t, sg * 80) for t in ts[::-1]]
+            return "M" + "L".join(f"{f(p[0])} {f(p[1])}" for p in pts) + "Z"
+        if self.twist >= 0.3:
+            # a visibly twisting blade: the channelled (shaded) half swaps sides where
+            # the blade turns edge-on
+            hp = half_poly(-0.2, self.twist_t, side) + half_poly(self.twist_t, 1.2, -side)
+        else:
+            hp = half_poly(-0.2, 1.0, side)
         tr = f"translate({f(self.x)} {f(BASE_Y)}) rotate({f(self.lean)})"
         shade = SHADE.get(body, body)
         s = [f'<g transform="{tr}">',
@@ -205,16 +217,19 @@ FADE = (40, 64)
 LEAVES = [
     # bases staggered so neighbouring yellow margins at the rim are either well
     # apart (>= ~10 units of green between them) or tucked decisively under the
-    # leaf in front -- no parallel double lines with dark slivers
-    Sword(322, 16, 360, 25, "back", bend=0.04, seed=11, asym=0.05, fade=FADE),
-    Sword(282, -9, 395, 27, "back", bend=-0.03, seed=12, asym=-0.05, fade=FADE),
-    Sword(269, -18, 300, 24, "midd", bend=-0.07, seed=13, fade=FADE),
-    Sword(333, 25, 238, 23, "midd", bend=0.05, seed=14, fade=FADE),
-    Sword(304, -1, 470, 30, "midd", bend=-0.015, seed=15, asym=0.06, fade=FADE),
-    Sword(315, 10, 412, 15, "front", bend=-0.02, seed=16, fade=FADE),
-    Sword(256, -42, 168, 22, "front", bend=-0.06, seed=17, fade=FADE),
-    Sword(286, -5, 222, 25, "fore", bend=-0.03, seed=18),
-    Sword(319, 13.5, 196, 23, "front", bend=0.05, seed=19),
+    # leaf in front -- no parallel double lines with dark slivers.
+    # Subtle life only: a faint S (sway) in the tall blades, two blades turning
+    # a little edge-on (twist), and the outer ones arching out a touch more.
+    Sword(324, 19, 330, 25, "back", bend=0.15, seed=11, asym=0.05, fade=FADE, sway=0.02),
+    Sword(282, -6, 420, 27, "back", bend=-0.08, seed=12, asym=-0.05, fade=FADE, sway=-0.04,
+          twist=0.5, twist_t=0.6),
+    Sword(268, -21, 262, 24, "midd", bend=-0.13, seed=13, fade=FADE, twist=0.2, twist_t=0.55),
+    Sword(334, 27, 278, 23, "midd", bend=0.17, seed=14, fade=FADE),
+    Sword(305, 3, 478, 30, "midd", bend=-0.06, seed=15, asym=0.06, fade=FADE, sway=0.05),
+    Sword(315, 12, 352, 15, "front", bend=0.05, seed=16, fade=FADE, sway=-0.04),
+    Sword(256, -44, 150, 22, "front", bend=-0.2, seed=17, fade=FADE),
+    Sword(286, -9, 250, 25, "fore", bend=-0.08, seed=18, twist=0.52, twist_t=0.6, sway=0.03),
+    Sword(320, 17, 176, 23, "front", bend=0.11, seed=19),
 ]
 
 

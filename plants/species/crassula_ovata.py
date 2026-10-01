@@ -149,7 +149,7 @@ def limb(pts, widths, bumps=(), seed=0.0):
     dx, dy = b[0] - a[0], b[1] - a[1]
     m = math.hypot(dx, dy) or 1
     cap = (b[0] + dx / m * ws[-1] * 0.45, b[1] + dy / m * ws[-1] * 0.45)
-    st = 2
+    st = 3   # every 3rd sample: still smooth, keeps the file small
     Ls, Rs, Ss = L[::st], R[::st], Sh[::st]
     if (n - 1) % st:
         Ls.append(L[-1]); Rs.append(R[-1]); Ss.append(Sh[-1])
@@ -230,7 +230,7 @@ def rosette(samples, size, tone, pairs=3, seed=0, gap=1.0, spread=0, tilt=0, fir
     def lf(x, y, rot, L, tone_, *args, jit=6, **kw):
         r = (rot + 180) % 360 - 180
         rot = max(-112, min(112, r))                # leaves ascend or spread, never hang
-        return leaf(x, y, rot + rng.uniform(-jit, jit), L * rng.uniform(0.94, 1.05), tone_, *args, **kw)
+        return leaf(x, y, rot + rng.uniform(-jit, jit), L * rng.uniform(0.8, 1.14), tone_, *args, **kw)
 
     T_ = lambda t: max(0, min(5, t))
     pos, d = [0.0], size * 0.13
@@ -270,26 +270,28 @@ def build():
 
     # ---- wood: (points, widths, bumps, scar every, scar start)
     TRUNK = [(302, 648), (300, 612), (292, 572), (298, 536), (294, 500), (287, 454),
-             (286, 414), (298, 360), (312, 300), (322, 240), (328, 166)]
-    TRUNK_W = [68, 58, 50, 46, 40, 32, 26, 19, 15, 12, 10]
+             (286, 414), (298, 360), (311, 302), (318, 246), (316, 200), (319, 166)]
+    TRUNK_W = [68, 58, 50, 46, 40, 32, 26, 19, 15, 12.5, 11, 10]
+    # limbs leave the trunk at uneven heights and angles, and each one zig-zags a little at
+    # its old nodes (jade wood grows in short, slightly kinked segments)
     side = [
-        ([(216, 460), (206, 412), (198, 358), (192, 316)], [14, 12, 10, 8.5], (), 7, 2),
-        # A: left main, forks into A1 (far left) and A2 (up)
-        ([(294, 522), (258, 488), (218, 458), (178, 430), (140, 396), (112, 370)],
-         [30, 24, 19, 15, 12, 10], ((1.8, 2.5),), 7, 3),
-        ([(382, 442), (392, 398), (398, 346), (402, 296)], [14, 12, 10, 8.5], (), 7, 2),
-        # C: right main, forks into C1 (far right) and C2 (up)
-        ([(298, 512), (338, 476), (376, 444), (414, 414), (452, 390), (484, 370)],
-         [30, 24, 19, 15, 12, 10], ((2.2, 2.5),), 7, 3),
-        # D: low right, short
-        ([(302, 558), (344, 543), (388, 527), (422, 514)], [22, 17, 13, 10.5], (), 7, 2),
+        # A2: up off the left main limb, leaning out then hooking back
+        ([(236, 492), (225, 448), (207, 406), (199, 360), (207, 320)], [14, 12.5, 11, 9.5, 8.5], (), 7, 2),
+        # A: left main, low and long: out, a kink down-and-out, then lifting at the tip
+        ([(292, 542), (262, 520), (236, 490), (198, 472), (160, 446), (136, 406), (122, 372)],
+         [30, 25, 20, 16, 13, 11, 10], ((2.0, 2.5), (4.0, 1.5)), 7, 3),
+        # C2: up off the right limb's elbow
+        ([(396, 414), (392, 372), (404, 334), (400, 298), (407, 272)], [14, 12.5, 11, 9.5, 8.5], (), 7, 2),
+        # C: right main, higher up the trunk: a steep rise, an elbow, then out and up
+        ([(298, 490), (328, 462), (356, 430), (394, 412), (432, 388), (454, 352), (470, 330)],
+         [30, 25, 20, 16, 13, 11, 10], ((2.0, 2.5), (3.0, 1.5)), 7, 3),
+        # D: low right, short, curling up
+        ([(300, 568), (338, 558), (372, 542), (398, 514), (422, 500)], [22, 18, 14, 12, 10.5], (), 7, 2),
     ]
     top = [
         # B1: side fork off the leader (the trunk continues as the top branch)
-        # (scars start at sample 14: the ring at 3 sat in the fork, hidden by the trunk
-        # except for its round end, which peeked out as a dark half-disc)
-        ([(288, 420), (268, 364), (250, 308), (238, 258), (233, 226)], [20, 15, 12.5, 10, 9],
-         (), 7, 14),
+        ([(288, 422), (270, 380), (246, 336), (238, 292), (226, 252), (228, 226)], [20, 16, 13.5, 11, 10, 9],
+         (), 7, 16),
     ]
     W = [wood(*l) for l in side + top]
     W.append(wood(TRUNK, TRUNK_W, ((1.6, 5), (3.4, 4), (5.0, 3), (7.6, 1.5)), every=8, start=4))
@@ -299,13 +301,13 @@ def build():
 
     # (branch, size, tone, pairs, seed, gap, spread, tilt, first) -- each cluster differs
     ros = [
-        ("A1", 82, 2, 3, 11, 1.0, 0, 0, "spread"),     # far left
-        ("A2", 72, 3, 3, 23, 0.9, -4, 0, "depth"),
-        ("B1", 80, 2, 3, 37, 1.0, 2, 0, "spread"),
-        ("B2", 86, 4, 4, 41, 0.95, 0, 0, "depth"),    # top
-        ("C2", 74, 2, 3, 53, 1.0, 0, 0, "spread"),
-        ("C1", 82, 4, 3, 67, 1.15, -2, 0, "depth"),     # far right
-        ("D", 66, 3, 2, 79, 1.3, 0, 0, "spread"),      # low right
+        ("A1", 88, 2, 3, 11, 1.0, 0, 0, "spread"),     # far left: old, big pads
+        ("A2", 62, 3, 3, 23, 0.9, -4, 0, "depth"),
+        ("B1", 76, 2, 3, 37, 1.0, 2, 0, "spread"),
+        ("B2", 92, 4, 4, 41, 0.95, 0, 0, "depth"),    # top
+        ("C2", 64, 2, 3, 53, 1.0, 0, 0, "spread"),
+        ("C1", 86, 4, 3, 67, 1.15, -2, 0, "depth"),     # far right
+        ("D", 56, 3, 2, 79, 1.3, 0, 0, "spread"),      # low right: young, small pads
     ]
     rs = [rosette(smp[r[0]], *r[1:]) for r in ros]
     out += [r[0] for r in rs]      # away-pointing leaves behind all wood

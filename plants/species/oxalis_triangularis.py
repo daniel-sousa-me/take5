@@ -147,6 +147,55 @@ def tone(v, under, off):
 TONE_SWING = 1.1
 
 
+# print floor for the flat tone patches inside a leaflet (half shade, blotch): on a trio
+# seen nearly edge-on they can thin to slivers below the printable minimum, so those
+# are left out (the leaflet just reads as one tone there). Width = 4*area/perimeter,
+# as deck/print_prep.py measures it; MM_PLAN a little under this plant's deck scale.
+MM_PLAN = 0.052
+
+
+def _lum(c):
+    r, g, b = (int(c[i:i + 2], 16) / 255 for i in (1, 3, 5))
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def _width(d):
+    import re
+    toks = re.findall(r"[MCLZ]|[-+]?(?:\d*\.\d+|\d+)", d)
+    pts, cur, i, cmd = [], (0, 0), 0, None
+    while i < len(toks):
+        if toks[i] in "MCLZ":
+            cmd = toks[i]
+            i += 1
+            continue
+        if cmd in ("M", "L"):
+            cur = (float(toks[i]), float(toks[i + 1]))
+            pts.append(cur)
+            i += 2
+        elif cmd == "C":
+            a = [float(v) for v in toks[i:i + 6]]
+            p0, p1, p2, p3 = cur, (a[0], a[1]), (a[2], a[3]), (a[4], a[5])
+            for k in range(1, 9):
+                t = k / 8
+                u = 1 - t
+                pts.append(tuple(u ** 3 * p0[j] + 3 * u * u * t * p1[j] + 3 * u * t * t * p2[j] + t ** 3 * p3[j]
+                                 for j in (0, 1)))
+            cur = p3
+            i += 6
+        else:
+            i += 1
+    if len(pts) < 3:
+        return 0.0
+    A = abs(sum(pts[k][0] * pts[k - 1][1] - pts[k - 1][0] * pts[k][1] for k in range(len(pts)))) / 2
+    Pm = sum(math.dist(pts[k], pts[k - 1]) for k in range(len(pts)))
+    return 4 * A / Pm if Pm else 0.0
+
+
+def printable(d, fill):
+    need = 0.225 if _lum(fill) > 0.55 else 0.175
+    return _width(d) * MM_PLAN >= need * 1.02
+
+
 def leaflet(frame, L, W, off, asym=1.0, notch=0.87):
     """Returns svg for one leaflet (two halves, blotch, midrib)."""
     base = frame.pt(0, 0)
@@ -166,11 +215,13 @@ def leaflet(frame, L, W, off, asym=1.0, notch=0.87):
     inner = []
     if abs(tl - tr) > 0.05:
         half = bez(frame, Lh, base) + f"L{f(base[0])} {f(base[1])}Z"
-        inner.append(f'<path d="{half}" fill="{col(tl)}"/>')
+        if printable(half, col(tl)):
+            inner.append(f'<path d="{half}" fill="{col(tl)}"/>')
     for sg, t in ((1, tr), (-1, tl)):
         b = blotch_segs(L, W * (asym if sg < 0 else 1), sg)
         bd = bez(frame, b, base) + f"L{f(base[0])} {f(base[1])}Z"
-        inner.append(f'<path d="{bd}" fill="{col(t + 1.1)}"/>')
+        if printable(bd, col(t + 1.1)):
+            inner.append(f'<path d="{bd}" fill="{col(t + 1.1)}"/>')
     out.append(f'<g clip-path="url(#{cid})">' + "".join(inner) + "</g>")
     return "".join(out)
 
@@ -242,15 +293,19 @@ def base_stub(p0, p1, w, color):
     return '<path d="M' + "L".join(f"{f(x)} {f(y)}" for x, y in ring) + f'Z" fill="{color}"/>'
 
 
-def petiole(base, tip, bow=0.0, w0=5.2, w1=3.0, color=PET_FRONT, tail=0.0):
+def petiole(base, tip, bow=0.0, w0=5.2, w1=3.0, color=PET_FRONT, tail=0.0, sway=0.0):
     """Wiry petiole: rises steeply out of the soil, then arches out to the tip.
-    tail: narrow the last stretch to a point that runs into the leaflet junction."""
+    tail: narrow the last stretch to a point that runs into the leaflet junction.
+    sway: a gentle S across the stalk (px, perpendicular to the chord)."""
     bx, by = base
     tx, ty = tip
     dx, dy = tx - bx, ty - by
     lift = max(0.0, abs(dx) - 0.45 * abs(dy)) * 0.22 * min(1.0, abs(dy) / 160)
-    p1 = (bx + dx * 0.10 + bow * 0.4, by + dy * 0.34 - lift * 0.5)
-    p2 = (bx + dx * 0.50 + bow, by + dy * 0.78 - lift)
+    m = math.hypot(dx, dy) or 1
+    nx, ny = -dy / m, dx / m
+    sway *= min(1.0, m / 320)   # short stalks barely sway
+    p1 = (bx + dx * 0.10 + bow * 0.4 + nx * sway * 0.6, by + dy * 0.34 - lift * 0.5 + ny * sway * 0.6)
+    p2 = (bx + dx * 0.50 + bow - nx * sway * 0.35, by + dy * 0.78 - lift - ny * sway * 0.35)
     p3 = (tx - dx * 0.12 + bow * 0.2, ty - dy * 0.06 - lift * 0.12)
     # match the ribbon's own start heading (first spline sample)
     stub = base_stub(base, cr_sample([base, p1, p2, p3, tip], 6)[1], w0, color)
@@ -326,23 +381,30 @@ def umbel(base, top, bow, heads):
 # (base_x, tip(x,y), L, yaw, droop, fold, elev, lean, tone_off, bow, var, folds)
 LEAVES = [
     # listed in draw order (back -> front); tone_off places each trio on RAMP.
+    # Each trio is a 'butterfly' at its own attitude: elev (low = seen more edge-on),
+    # fold (leaflets folding up along the midrib), droop (leaflets hanging) and lean
+    # (the whole trio tilted on its stalk) all vary, so no two read as the same stamp.
     # back: the top-centre crown and the two far outliers, darkest
-    (296, (286, 196), 76, 8, 0.30, 0.15, 0.95, -3, -1.1, -6, (1, 1.05, .95), None),
-    (268, (86, 300), 62, -30, 0.45, 0.20, 0.75, -20, -1.2, -18, (1.03, 1, .68), (0.2, 0.2, 0.6)),
-    (334, (510, 350), 60, 32, 0.40, 0.45, 0.80, 18, -0.6, 18, (1, .9, 1), None),
+    (296, (282, 198), 76, 14, 0.42, 0.30, 0.62, -10, -1.1, -12, (1, 1.05, .95), (0.25, 0.4, 0.2)),
+    (268, (90, 306), 62, -36, 0.55, 0.25, 0.45, -28, -1.2, -34, (1.03, 1, .72), (0.2, 0.3, 0.65)),
+    (334, (508, 356), 60, 40, 0.50, 0.55, 0.50, 26, -0.6, 36, (1, .9, 1), None),
     # second layer: the two upper side trios, mid burgundy -> breaks the top mass
-    (284, (170, 222), 70, -14, 0.40, 0.30, 0.85, -12, 1.2, -10, (1, .95, 1.05), (0.1, 0.5, 0.2)),
-    (316, (424, 240), 68, 20, 0.35, 0.10, 0.90, 10, 1.0, 12, (.95, 1.05, 1), None),
-    (276, (128, 406), 64, -22, 0.42, 0.15, 0.80, -16, 1.1, -14, (1, 1.05, 1), None),
-    (282, (226, 462), 62, -18, 0.40, 0.20, 0.72, -12, 2.9, -10, (1, 1, .95), None),
+    (284, (172, 226), 70, -22, 0.48, 0.38, 0.55, -20, 1.2, -30, (1, .95, 1.05), (0.1, 0.6, 0.3)),
+    (316, (420, 246), 68, 26, 0.44, 0.26, 0.52, 22, 1.0, 30, (.95, 1.05, 1), (0.35, 0.15, 0.3)),
+    (276, (130, 410), 64, -30, 0.55, 0.25, 0.50, -24, 1.1, -32, (1, 1.05, 1), (0.2, 0.25, 0.5)),
+    (282, (228, 466), 60, -12, 0.45, 0.35, 0.85, -6, 2.9, -14, (1, 1, .9), None),
     # front layer (lighter / rosier)
-    (302, (300, 382), 72, -2, 0.30, 0.10, 0.80, 2, 4.2, 4, (1, 1.05, 1), (0.15, 0.1, 0.45)),
-    (320, (398, 478), 64, 18, 0.42, 0.15, 0.75, 10, 3.0, 10, (.95, 1, 1), (0.45, 0.1, 0.15)),
-    (270, (104, 522), 50, -34, 0.50, 0.30, 0.62, -22, 3.2, -16, (1, .95, 1), None),
-    (330, (506, 526), 52, 30, 0.50, 0.20, 0.62, 20, 3.0, 16, (1, 1, .95), None),
+    (302, (306, 384), 72, 6, 0.40, 0.18, 0.58, 12, 4.2, -4, (1, 1.05, 1), (0.2, 0.1, 0.5)),
+    (320, (396, 482), 62, 26, 0.50, 0.30, 0.48, 18, 3.0, 26, (.95, 1, 1), (0.5, 0.15, 0.25)),
+    (270, (106, 524), 50, -40, 0.60, 0.35, 0.40, -30, 3.2, -30, (1, .95, 1), None),
+    (330, (504, 530), 52, 36, 0.58, 0.25, 0.45, 28, 3.0, 30, (1, 1, .95), (0.3, 0.3, 0.5)),
     # drapes over the rim: deep plum so it parts clearly from the terracotta
-    (288, (228, 560), 56, -10, 0.45, 0.25, 0.60, -6, 1.0, -4, (1, 1, 1), (0.3, 0.2, 0.2)),
+    (288, (226, 562), 56, -16, 0.55, 0.30, 0.42, -14, 1.0, -14, (1, 1, 1), (0.3, 0.2, 0.2)),
 ]
+
+
+# per-stalk S-curve (px): no two stalks run parallel
+SWAY = [12, -10, 8, -14, 12, -8, 4, -6, 8, -8, 4, -4]
 
 
 def build():
@@ -364,9 +426,9 @@ def build():
     late = []
     for i, (bx, tip, L, yaw, droop, fold, elev, lean, off, bow, var, folds) in enumerate(LEAVES):
         col = PET_BACK if off < 2.0 else PET_FRONT
-        w0 = 5.6 if off >= 2.0 else 5.2
+        w0 = 4.6 if off >= 2.0 else 4.3
         bx = 300 + (tip[0] - 300) * 0.24 + (bx - 300) * 0.5
-        body.append(petiole((bx, 602), tip, bow, w0, 4.0, col, tail=7.0))
+        body.append(petiole((bx, 602), tip, bow, w0, 3.0, col, tail=7.0, sway=SWAY[i % len(SWAY)]))
         t = trio(tip, L, yaw, droop, fold, elev, lean, off, var, folds)
         (late if tip[1] > 540 else body).append(t)
     body.append(front)
