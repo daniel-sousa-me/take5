@@ -53,7 +53,7 @@ def leaflet_d(bend, U=100.0):
     return outline, lower, mid
 
 
-LEAFLET_KINDS = {"a": 0.05, "b": 0.11, "c": 0.18}
+LEAFLET_KINDS = {"a": 0.05, "b": 0.11, "c": 0.18, "d": 0.27}
 
 
 def defs():
@@ -132,29 +132,37 @@ def frond_parts(pts, tone, n_pairs, lmax, seed, bare=0.2, near="upper", spread=(
     for side in (1, -1):
         off = 0.0 if side == 1 else 0.45
         for i in range(n_pairs):
-            u = min((i + off) / (n_pairs - 0.4), 1.0)
+            u = min((i + off + rnd.uniform(-0.18, 0.18)) / (n_pairs - 0.4), 1.0)
+            u = max(u, 0.0)
             fr = bare + (1 - bare) * (u ** 0.95) * 0.975
             p, t = at(s, acc, fr)
             # length profile: shortish at base, longest ~40 %, short at the tip
             prof = 0.55 + 0.45 * math.sin(math.pi * min(1.0, 0.15 + u * 0.92))
             if u > 0.7:
                 prof *= 1 - (u - 0.7) * 1.55
-            L = lmax * prof * rnd.uniform(0.94, 1.05)
+            L = lmax * prof * rnd.uniform(0.84, 1.1)
             if L < 24:          # tip leaflets this small print as noise: leave them out
                 continue
             last = max(last, fr)
-            a = math.radians(spread[0] + (spread[1] - spread[0]) * u + rnd.uniform(-3, 3)) * side
+            a = math.radians(spread[0] + (spread[1] - spread[0]) * u + rnd.uniform(-7, 7)) * side
             dx = t[0] * math.cos(a) - t[1] * math.sin(a)
             dy = t[0] * math.sin(a) + t[1] * math.cos(a)
-            g = droop[0] if dy > -0.3 else droop[1]
+            if dy < -0.4:
+                # leaflets on the top of an arch lie back along the rachis rather than
+                # standing up like comb teeth
+                a *= 0.72
+                dx = t[0] * math.cos(a) - t[1] * math.sin(a)
+                dy = t[0] * math.sin(a) + t[1] * math.cos(a)
+            # leaflets hang more the further out along the arching rachis they sit
+            g = (droop[0] if dy > -0.3 else droop[1] * 1.8) * (0.75 + 0.6 * u) * rnd.uniform(0.85, 1.15)
             dy += g
             m = math.hypot(dx, dy)
             dx, dy = dx / m, dy / m
             ang = math.degrees(math.atan2(dy, dx))
             flip = dx < 0  # tip always curves downward
-            kind = "a" if dy < -0.55 else ("c" if dy > 0.35 else "b")
-            if rnd.random() < 0.25:
-                kind = {"a": "b", "b": "c", "c": "b"}[kind]
+            kind = "a" if dy < -0.55 else ("d" if dy > 0.6 else ("c" if dy > 0.25 else "b"))
+            if rnd.random() < 0.3:
+                kind = {"a": "b", "b": "c", "c": "d", "d": "c"}[kind]
             x0, y0 = p[0] - dx * 2.0, p[1] - dy * 2.0   # base tucked under the rachis
             ws = rnd.uniform(0.92, 1.08)
             row_tone = tone if side == near_side else far_tone
@@ -317,35 +325,34 @@ def build():
     G = []
     # A clump of seedling canes, each carrying one frond, fanning out of the
     # soil: outermost canes lean furthest and carry the lowest fronds.
-    # ---- back: up-left (deep) and up-right (deep)
-    G.append(palm_frond([(285, 602), (280, 520), (268, 432), (248, 354), (218, 288), (176, 240),
-                         (134, 214), (92, 218)], (212, 282), P["deep"], 9, 80, 1,
-                        P["mid"], 7.0, [0.2, 0.42], near="lower", spread=(46, 30)))
-    G.append(palm_frond([(322, 602), (330, 530), (347, 466), (378, 408), (424, 366), (474, 340),
-                         (516, 330), (548, 336)], (372, 416), P["deep"], 10, 74, 2,
+    # ---- back: up-left (deep), arching over and down to the left
+    G.append(palm_frond([(285, 602), (283, 522), (275, 444), (259, 374), (233, 314), (194, 270),
+                         (150, 248), (108, 252), (78, 274)], (236, 318), P["deep"], 9, 80, 1,
+                        P["mid"], 7.0, [0.2, 0.42], near="lower", spread=(48, 30)))
+    # ---- back: right (deep), a long low arch
+    G.append(palm_frond([(322, 602), (327, 532), (339, 466), (362, 410), (400, 368), (448, 344),
+                         (496, 340), (534, 354), (558, 380)], (366, 404), P["deep"], 10, 72, 2,
                         P["sage"], 6.8, [0.16, 0.34], near="lower"))
     # ---- mid-left (forest)
-    G.append(palm_frond([(272, 602), (263, 538), (246, 476), (218, 422), (180, 385), (140, 362),
-                         (106, 361)], (230, 440), P["forest"], 9, 66, 5,
-                        P["sage"], 6.6, [0.14, 0.33], near="upper"))
-    # ---- leader: upright (mid)
-    G.append(palm_frond([(297, 602), (297, 500), (298, 404), (300, 318), (306, 226), (320, 152),
-                         (338, 106), (356, 76)], (300, 318), P["mid"], 12, 76, 3,
-                        P["sage"], 8.2, [0.12, 0.27, 0.41], w1=1.1, near="left",
-                        spread=(50, 28), droop=(0.5, 0.2)))
-    # ---- arching up-right (sage, on a light cane): a step darker than the palest tone, so it does not
-    # read as a pale frond set behind the darker ones around it. Its arch rides a little high so its
-    # drooping lower leaflets clear the deep back-right frond instead of interleaving with it
-    G.append(palm_frond([(309, 602), (314, 520), (325, 440), (343, 360), (371, 296), (411, 250),
-                         (455, 224), (498, 220)], (356, 334), P["sage"], 9, 70, 7,
-                        P["light"], 6.4, [0.1, 0.3], near="lower", spread=(42, 28), droop=(0.45, 0.16)))
+    G.append(palm_frond([(272, 602), (266, 542), (252, 484), (228, 436), (192, 402), (150, 390),
+                         (112, 398), (84, 420)], (236, 448), P["forest"], 9, 64, 5,
+                        P["sage"], 6.6, [0.14, 0.33], near="upper", spread=(54, 32)))
+    # ---- leader (mid): rises with a slight lean, then the rachis rolls over to the left
+    G.append(palm_frond([(297, 602), (302, 506), (304, 410), (298, 322), (284, 244), (262, 182),
+                         (230, 138), (194, 116), (160, 118)], (296, 330), P["mid"], 13, 80, 3,
+                        P["sage"], 8.2, [0.12, 0.27, 0.41], w1=1.1, near="lower",
+                        spread=(52, 30), droop=(0.5, 0.22)))
+    # ---- arching up-right (sage, on a light cane)
+    G.append(palm_frond([(309, 602), (315, 522), (327, 444), (347, 370), (378, 306), (418, 262),
+                         (462, 238), (504, 236), (540, 254)], (362, 336), P["sage"], 9, 68, 7,
+                        P["light"], 6.4, [0.1, 0.3], near="lower", spread=(44, 28), droop=(0.45, 0.18)))
     # ---- front: arching down-right (mid) and down-left (sage)
-    G.append(palm_frond([(336, 602), (346, 542), (364, 496), (398, 464), (450, 466), (500, 494),
-                         (542, 536)], (386, 472), P["mid"], 9, 74, 4,
-                        P["light"], 6.8, [0.12, 0.3], near="upper", spread=(52, 38), droop=(0.4, 0.16)))
-    G.append(palm_frond([(260, 602), (248, 548), (230, 506), (198, 484), (150, 490), (104, 514),
-                         (66, 552)], (214, 490), P["sage"], 9, 70, 16,
-                        P["light"], 6.6, [0.18], near="upper", spread=(52, 36), droop=(0.45, 0.18)))
+    G.append(palm_frond([(336, 602), (347, 544), (366, 502), (400, 476), (448, 474), (494, 498),
+                         (528, 536), (546, 576)], (388, 482), P["mid"], 9, 70, 4,
+                        P["light"], 6.8, [0.12, 0.3], near="upper", spread=(54, 38), droop=(0.4, 0.16)))
+    G.append(palm_frond([(260, 602), (249, 550), (230, 510), (197, 489), (152, 492), (112, 516),
+                         (82, 552)], (214, 494), P["sage"], 9, 66, 16,
+                        P["light"], 6.6, [0.18], near="upper", spread=(54, 36), droop=(0.45, 0.18)))
     return defs() + back + "".join(G) + front
 
 

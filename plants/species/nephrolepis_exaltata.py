@@ -220,7 +220,7 @@ def hidden_by_pot(x, y):
 
 def frond(ctrl, tone, rachis_col, pmax, bare=0.05, seed=0, w0=4.2,
           dev0=64, dev1=46, gap=1.5, cull=True, prof0=0.30, scale=1.22,
-          peak=0.42, tipf=0.16, wf=1.0):
+          peak=0.42, tipf=0.16, wf=1.0, grav=0.14):
     """One pinnate frond.  pmax = longest pinna length (px).  cull: drop pinnae
     completely hidden behind the pot front (only for fronds drawn before it)."""
     r = random.Random(seed)
@@ -241,10 +241,19 @@ def frond(ctrl, tone, rachis_col, pmax, bare=0.05, seed=0, w0=4.2,
             prof = prof0 + (1 - prof0) * math.sin(u / peak * math.pi / 2)
         else:
             prof = 1 - (1 - tipf) * ((u - peak) / (1 - peak)) ** 1.25
-        pl = pmax * prof * r.uniform(0.9, 1.08)
+        pl = pmax * prof * r.uniform(0.86, 1.1)
         dev = dev0 + (dev1 - dev0) * u
         x, y, th = at(pts, pos / length)
-        rot = th + side * (dev + r.uniform(-3, 3))
+        jit = r.uniform(-6, 6)
+        rot = th + side * (dev + jit)
+        if math.cos(math.radians(rot)) > 0.2 and math.cos(math.radians(th)) < 0.6:
+            # convex side of an arch: the pinna lies back toward the tip rather than
+            # standing straight up off the rachis
+            rot = th + side * (dev * 0.68 + jit)
+        # gravity: pinnae further out along the frond sag a little toward the ground
+        dd = ((180 - rot + 540) % 360) - 180
+        if abs(dd) < 140:
+            rot += dd * grav * u
         a = math.radians(rot)
         tx, ty = x + math.sin(a) * pl, y - math.cos(a) * pl
         if not (cull and hidden_by_pot(x, y) and hidden_by_pot(tx, ty + 4)):
@@ -351,29 +360,29 @@ LIGHTT = (P["light"], SHADE[P["light"]])
 
 # Each frond: x0, a0 (start heading, deg, 0 = up, + = right), length, bend
 # (total change of heading along the frond), pmax, seed.  Listed back -> front.
-BACK = [  # upright, darkest; they open into a V so the centre frond has its own space
-    dict(ctrl=[(292, 600), (282, 530), (258, 446), (222, 350), (182, 254), (144, 170), (116, 140)], pmax=32, seed=3, bare=0.2, peak=0.46, wf=1.1, dev0=62, dev1=44),
-    dict(ctrl=[(308, 600), (320, 526), (348, 446), (390, 352), (438, 262), (484, 196), (508, 182)], pmax=29, seed=8, bare=0.2, peak=0.38, wf=0.95, dev0=66, dev1=50, gap=1.6),
+BACK = [  # tallest, darkest: rise from the crown, then roll over outward, tips nodding down
+    dict(ctrl=[(292, 600), (284, 510), (265, 420), (236, 334), (198, 264), (158, 216), (120, 194), (88, 198), (66, 218)], pmax=31, seed=3, bare=0.2, peak=0.44, wf=1.1, dev0=62, dev1=40),
+    dict(ctrl=[(308, 600), (318, 514), (340, 428), (372, 350), (410, 288), (452, 246), (492, 226), (524, 228), (546, 248)], pmax=29, seed=8, bare=0.2, peak=0.38, wf=0.95, dev0=66, dev1=44, gap=1.6),
 ]
-CENTRE = [  # young upright frond standing in the gap of the V: sage, narrow
-    dict(ctrl=[(300, 600), (299, 510), (300, 420), (305, 330), (314, 256), (322, 222)], pmax=20, seed=15, bare=0.24, wf=0.88, prof0=0.4, peak=0.5, dev0=58, dev1=42, gap=1.7),
+CENTRE = [  # young frond standing in the gap of the V: sage, narrow, tip just starting to bow
+    dict(ctrl=[(300, 600), (302, 502), (307, 404), (318, 318), (336, 248), (360, 204), (384, 188)], pmax=20, seed=15, bare=0.24, wf=0.88, prof0=0.4, peak=0.5, dev0=58, dev1=40, gap=1.7),
 ]
-RING2 = [  # leaning out, forest
-    dict(ctrl=[(288, 600), (262, 550), (222, 478), (176, 398), (128, 334), (86, 298), (58, 294)], pmax=30, seed=5, bare=0.2, peak=0.36, wf=1.05, dev0=68),
-    dict(ctrl=[(312, 600), (342, 548), (386, 480), (438, 420), (492, 384), (532, 384), (552, 400)], pmax=27, seed=12, bare=0.24, peak=0.48, wf=0.92, dev1=40, gap=1.45),
+RING2 = [  # leaning out and arching down, forest
+    dict(ctrl=[(288, 600), (262, 546), (222, 482), (176, 430), (130, 404), (92, 406), (64, 430), (50, 466)], pmax=29, seed=5, bare=0.2, peak=0.36, wf=1.05, dev0=68, grav=0.2),
+    dict(ctrl=[(312, 600), (342, 546), (386, 488), (436, 448), (484, 434), (520, 448), (542, 478), (550, 514)], pmax=27, seed=12, bare=0.24, peak=0.48, wf=0.92, dev1=38, gap=1.45, grav=0.2),
 ]
-RING3 = [  # arching over, mid
-    dict(ctrl=[(286, 600), (254, 556), (200, 516), (142, 500), (94, 516), (66, 556), (56, 606)], pmax=29, seed=7, bare=0.22, peak=0.40, wf=0.95, gap=1.55),
-    dict(ctrl=[(316, 600), (354, 568), (410, 546), (464, 548), (506, 574), (528, 616), (534, 656)], pmax=25, seed=10, bare=0.16, peak=0.34, wf=1.08, dev0=60),
+RING3 = [  # spilling over the rim, mid
+    dict(ctrl=[(286, 600), (252, 560), (204, 536), (156, 536), (116, 560), (88, 604), (74, 656)], pmax=28, seed=7, bare=0.22, peak=0.40, wf=0.95, gap=1.55, grav=0.24),
+    dict(ctrl=[(316, 600), (354, 570), (404, 556), (452, 566), (488, 600), (506, 648), (510, 690)], pmax=25, seed=10, bare=0.16, peak=0.34, wf=1.08, dev0=60, grav=0.24),
 ]
 DRAPE = [  # right side, behind the pot, draping past the rim: sage
-    dict(ctrl=[(318, 603), (342, 580), (386, 569), (426, 588), (451, 624), (462, 660), (465, 688)], pmax=24, seed=2, bare=0.18, peak=0.45),
+    dict(ctrl=[(318, 603), (342, 580), (386, 569), (426, 588), (451, 624), (461, 664), (460, 700)], pmax=24, seed=2, bare=0.18, peak=0.45, grav=0.24),
 ]
 TUFT = [  # short young fronds screening the crown: sage, in front of the rings
-    dict(ctrl=[(296, 602), (283, 562), (262, 530), (237, 510), (214, 502)], pmax=20, seed=31, bare=0.22, prof0=0.5, peak=0.5),
+    dict(ctrl=[(296, 602), (283, 562), (262, 530), (237, 510), (214, 504), (196, 510)], pmax=20, seed=31, bare=0.22, prof0=0.5, peak=0.5),
 ]
 FRONT = [  # left side, over the rim in front of the pot: lightest, freshest
-    dict(ctrl=[(282, 598), (248, 580), (200, 572), (152, 590), (116, 632), (98, 682), (94, 728)], pmax=26, seed=9, bare=0.16, peak=0.4, gap=1.5),
+    dict(ctrl=[(282, 598), (248, 580), (200, 572), (152, 590), (118, 632), (102, 682), (100, 734)], pmax=26, seed=9, bare=0.16, peak=0.4, gap=1.5, grav=0.24),
 ]
 
 

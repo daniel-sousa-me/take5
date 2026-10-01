@@ -175,19 +175,19 @@ def build():
     L = []
     # --- back tier: upright, darkest
     # gently bowed (convex to the right, tip turning back in) so its margin is not a ruled line
-    L.append(aloe_leaf([(318, by), (332, 480), (352, 350), (362, 262), (360, 190)], 30, P["deep"], side=1, k=0.5, seed=9))
-    L.append(aloe_leaf([(312, by), (356, 500), (428, 396), (488, 322), (514, 302)], 28, P["forest"], side=1, k=0.4, seed=10))
-    L.append(aloe_leaf([(296, by), (297, 470), (291, 320), (262, 146)], 34, P["forest"], side=-1, k=0.5, seed=1))
-    L.append(aloe_leaf([(284, by), (262, 480), (220, 350), (164, 226)], 32, P["mid"], side=-1, k=0.4, speck=0.55, seed=2))
-    L.append(aloe_leaf([(314, by), (340, 480), (392, 340), (446, 222)], 32, P["mid"], side=-1, k=0.4, speck=0.55, seed=3))
+    L.append(aloe_leaf([(318, by), (336, 480), (357, 352), (364, 262), (354, 194)], 30, P["deep"], side=1, k=0.5, seed=9))
+    L.append(aloe_leaf([(312, by), (356, 502), (428, 400), (484, 342), (518, 330)], 28, P["forest"], side=1, k=0.4, seed=10))
+    L.append(aloe_leaf([(296, by), (303, 486), (302, 362), (290, 254), (266, 166)], 34, P["forest"], side=-1, k=0.5, seed=1))
+    L.append(aloe_leaf([(284, by), (260, 490), (222, 372), (190, 284), (174, 228)], 32, P["mid"], side=-1, k=0.4, speck=0.55, seed=2))
+    L.append(aloe_leaf([(314, by), (342, 488), (386, 364), (424, 270), (438, 216)], 32, P["mid"], side=-1, k=0.4, speck=0.55, seed=3))
     # --- middle tier: arching outward, sage
-    L.append(aloe_leaf([(292, by), (244, 540), (170, 446), (100, 406), (58, 428)], 32, P["sage"], side=-1, k=0.3, speck=0.6, seed=4))
+    L.append(aloe_leaf([(292, by), (244, 540), (172, 450), (104, 414), (66, 422), (48, 444)], 32, P["sage"], side=-1, k=0.3, speck=0.6, seed=4))
     L.append(aloe_leaf([(308, by), (356, 540), (420, 480), (476, 462), (506, 490)], 28, P["sage"], side=1, k=0.3, speck=0.6, seed=5))
     # --- front tier: low splaying leaves over the rim, lightest
     L.append(aloe_leaf([(300, by), (258, 580), (202, 566), (150, 578), (122, 612)], 26, P["light"], side=-1, k=0.3, seed=6))
     L.append(aloe_leaf([(304, by), (362, 576), (440, 558), (500, 578), (534, 634)], 29, P["pale"], side=1, k=0.3, seed=7, band=P["sage"]))
     # --- focal centre leaf, pale, leaning a little right
-    L.append(aloe_leaf([(304, by), (316, 520), (334, 420), (358, 296)], 33, P["pale"], side=1, k=0.45, seed=8))
+    L.append(aloe_leaf([(304, by), (322, 522), (343, 432), (354, 362), (352, 318), (346, 292)], 33, P["pale"], side=1, k=0.45, seed=8))
     body = back + "".join(L) + front
     return body
 

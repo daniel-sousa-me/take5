@@ -46,21 +46,29 @@ def prof(t):
 
 
 class Sword:
-    def __init__(self, x, lean, H, W, tone, bend=0.0, twist=0.0, seed=1, asym=0.0, fade=None):
+    def __init__(self, x, lean, H, W, tone, bend=0.0, twist=0.0, seed=1, asym=0.0, fade=None,
+                 sway=0.0, twist_t=0.62):
         self.x, self.lean, self.H, self.W, self.fade = x, lean, H, W, fade
         self.tone, self.bend, self.twist, self.seed, self.asym = tone, bend, twist, seed, asym
+        self.sway, self.twist_t = sway, twist_t
 
-    # local coords: base (0,0), tip (bend*H, -H); later rotated by lean about base
+    # local coords: base (0,0), tip (bend*H, -H); later rotated by lean about base.
+    # sway adds a faint S to the blade (base and tip leaning opposite ways)
     def axis(self, t):
-        return (self.bend * self.H * t * t, -self.H * t)
+        x = self.bend * self.H * t * t + self.sway * self.H * t * (1 - t) * (1 - 2 * t)
+        return (x, -self.H * t)
 
     def normal(self, t):
-        tx, ty = 2 * self.bend * self.H * t, -self.H
+        tx = 2 * self.bend * self.H * t + self.sway * self.H * (1 - 6 * t + 6 * t * t)
+        ty = -self.H
         m = math.hypot(tx, ty)
         return (-ty / m, tx / m)
 
     def hw(self, t, side):
         w = self.W * prof(t)
+        if self.twist:
+            # a gentle quarter-turn of the blade: it narrows where it turns edge-on
+            w *= 1 - self.twist * math.exp(-((t - self.twist_t) / 0.13) ** 2)
         # slight asymmetry: one side a touch fuller
         return w * (1 + side * self.asym * math.sin(math.pi * t))
 
@@ -205,16 +213,18 @@ FADE = (40, 64)
 LEAVES = [
     # bases staggered so neighbouring yellow margins at the rim are either well
     # apart (>= ~10 units of green between them) or tucked decisively under the
-    # leaf in front -- no parallel double lines with dark slivers
-    Sword(322, 16, 360, 25, "back", bend=0.04, seed=11, asym=0.05, fade=FADE),
-    Sword(282, -9, 395, 27, "back", bend=-0.03, seed=12, asym=-0.05, fade=FADE),
-    Sword(269, -18, 300, 24, "midd", bend=-0.07, seed=13, fade=FADE),
-    Sword(333, 25, 238, 23, "midd", bend=0.05, seed=14, fade=FADE),
-    Sword(304, -1, 470, 30, "midd", bend=-0.015, seed=15, asym=0.06, fade=FADE),
-    Sword(315, 10, 412, 15, "front", bend=-0.02, seed=16, fade=FADE),
-    Sword(256, -42, 168, 22, "front", bend=-0.06, seed=17, fade=FADE),
-    Sword(286, -5, 222, 25, "fore", bend=-0.03, seed=18),
-    Sword(319, 13.5, 196, 23, "front", bend=0.05, seed=19),
+    # leaf in front -- no parallel double lines with dark slivers.
+    # Subtle life only: a faint S (sway) in the tall blades, two blades turning
+    # a little edge-on (twist), and the outer ones arching out a touch more.
+    Sword(322, 15, 360, 25, "back", bend=0.085, seed=11, asym=0.05, fade=FADE, sway=0.02),
+    Sword(282, -8, 395, 27, "back", bend=-0.06, seed=12, asym=-0.05, fade=FADE, sway=-0.025),
+    Sword(269, -17, 300, 24, "midd", bend=-0.11, seed=13, fade=FADE, twist=0.16, twist_t=0.58),
+    Sword(333, 24, 238, 23, "midd", bend=0.13, seed=14, fade=FADE),
+    Sword(304, -2, 470, 30, "midd", bend=-0.035, seed=15, asym=0.06, fade=FADE, sway=0.035),
+    Sword(315, 9, 412, 15, "front", bend=0.02, seed=16, fade=FADE, sway=-0.03),
+    Sword(256, -40, 168, 22, "front", bend=-0.17, seed=17, fade=FADE),
+    Sword(286, -6, 222, 25, "fore", bend=-0.05, seed=18, twist=0.18, twist_t=0.66, sway=0.02),
+    Sword(319, 14, 196, 23, "front", bend=0.09, seed=19),
 ]
 
 
