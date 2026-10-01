@@ -161,8 +161,12 @@ class Stem:
         ramp = min(1.0, s / 110.0) ** 1.5  # leaves the soil straight, the winding builds up slowly
         # loose: the vine drifts off the cane by varying amounts, now hugging it, now
         # swinging out in a slack loop
-        a = 0.75 + 0.45 * (0.5 + 0.5 * math.sin(s / 140.0 + self.phase * 2.3)) ** 2
-        return ramp * a * math.sin(self.theta(s))
+        a = 1.1 + 0.25 * (0.5 + 0.5 * math.sin(s / 140.0 + self.phase * 2.3)) ** 2
+        # it either lies clear of the cane (a visible gap) or crosses it steeply: the
+        # shaped sine spends little time at the in-between offsets that would make the
+        # vine run along the cane edge in thin slivers
+        sn = math.sin(self.theta(s))
+        return ramp * a * math.copysign(abs(sn) ** 0.45, sn)
 
     def _base_switch(self):
         """the stem stays in front from the soil until the first place past `base`
