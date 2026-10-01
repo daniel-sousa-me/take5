@@ -38,7 +38,8 @@ TIP_T = 0.995
 
 
 class Fig:
-    def __init__(self, base, rot, L, sx=1.0, sy=1.0, bend=0.0, seed=0, fat=1.0):
+    def __init__(self, base, rot, L, sx=1.0, sy=1.0, bend=0.0, seed=0, fat=1.0, sway=0.0):
+        self.sway = sway
         self.bx, self.by = base
         self.rot = math.radians(rot)
         self.L, self.sx, self.sy, self.bend = L, sx, sy, bend
@@ -61,11 +62,11 @@ class Fig:
         c, s = math.cos(self.rot), math.sin(self.rot)
         return (self.bx + x * c - y * s, self.by + x * s + y * c)
 
-    def ax(self, t):  # midrib, local unit coords (tip toward -y)
-        return (self.bend * t * t, -t)
+    def ax(self, t):  # midrib, local unit coords (tip toward -y); bend = C, sway = S
+        return (self.bend * t * t + self.sway * t * (1 - t) * (1 - 2 * t), -t)
 
     def nrm(self, t):
-        tx, ty = 2 * self.bend * t, -1
+        tx, ty = 2 * self.bend * t + self.sway * (1 - 6 * t + 6 * t * t), -1
         m = math.hypot(tx, ty)
         return (-ty / m, tx / m)
 
@@ -177,12 +178,25 @@ def taper(p0, c, p2, w0, w1):
     return f"M{q(A[0])}Q{q(A[1])} {q(A[2])}L{q(B[2])}Q{q(B[1])} {q(B[0])}Z"
 
 
-def petiole(stem_pt, fig, length_in=0.06, w0=5.0, w1=3.6, col=BARK):
-    """From a point inside the stem to just inside the leaf base (hidden by blade)."""
+def petiole(stem_pt, fig, rot0, length_in=0.06, w0=5.0, w1=3.6, col=BARK):
+    """From a point inside the stem to just inside the leaf base (hidden by blade).
+    Leaves the stem at rot0 (steeper, closer to the stem's own direction) and arcs
+    round to meet the blade along its midrib."""
     end = fig.M(*fig.ax(length_in))
     base = (fig.bx, fig.by)
-    mid = ((stem_pt[0] * 0.45 + base[0] * 0.55), (stem_pt[1] * 0.45 + base[1] * 0.55))
-    return f'<path d="{ribbon([stem_pt, mid, base, end], w0, w1, per=2)}" fill="{col}"/>'
+    ln = math.hypot(base[0] - stem_pt[0], base[1] - stem_pt[1])
+    d0 = offset((0, 0), rot0, 1)
+    d1 = (end[0] - base[0], end[1] - base[1])
+    m = math.hypot(*d1) or 1
+    d1 = (d1[0] / m, d1[1] / m)
+    c1 = (stem_pt[0] + d0[0] * ln * 0.5, stem_pt[1] + d0[1] * ln * 0.5)
+    c2 = (base[0] - d1[0] * ln * 0.35, base[1] - d1[1] * ln * 0.35)
+    pts = []
+    for i in range(5):
+        t = i / 4
+        u = 1 - t
+        pts.append(tuple(u ** 3 * stem_pt[j] + 3 * u * u * t * c1[j] + 3 * u * t * t * c2[j] + t ** 3 * base[j] for j in (0, 1)))
+    return f'<path d="{ribbon(pts + [end], w0, w1, per=3)}" fill="{col}"/>'
 
 
 def offset(p, rot, dist):
@@ -191,9 +205,9 @@ def offset(p, rot, dist):
 
 
 # ------------------------------------------------------------------ scene
-TRUNK = [(297, 600), (295, 540), (298, 475), (304, 410), (306, 340), (301, 270), (296, 205),
-         (297, 160)]
-BRANCH = [(303, 440), (290, 414), (270, 391), (246, 374), (226, 364)]
+TRUNK = [(293, 600), (298, 540), (308, 478), (319, 412), (323, 342), (317, 272), (305, 208),
+         (297, 164)]   # slight lean right, then the crown swings back over the pot: a gentle S
+BRANCH = [(317, 448), (298, 427), (274, 412), (252, 404), (233, 396), (218, 382)]   # sweeps out, tip turns up
 
 
 def on(pts, fr):
@@ -217,21 +231,23 @@ def on(pts, fr):
 # leaves sit between; the three pale front leaves only ever overlap deep
 # leaves (never each other or the mid tones), so every overlap is >= 2 tone
 # steps and the crown reads as layers even at thumbnail size.
+# (layer, stem, frac, rot, petiole_len, L, sx, sy, bend, fill, seed, sway)
+# bend sign = droop: tips fall toward the ground (positive for right-hand leaves).
 LEAVES = [
     # ---- back ring (darkest), behind the trunk
-    (0, "T", 0.60, -96, 8, 152, 0.92, 1.0, -0.07, "deep", 3),     # left, lower and drooping
-    (0, "T", 0.80, 76, 8, 138, 0.90, 1.0, 0.07, "deep", 4),       # right, higher and smaller
-    (0, "T", 0.95, -22, 7, 136, 0.90, 1.0, -0.04, "deep", 5),     # upper left
-    (0, "T", 0.92, 30, 7, 140, 0.88, 1.0, 0.04, "deep", 6),       # upper right
-    (0, "T", 0.56, 118, 8, 128, 0.86, 1.0, 0.10, "deep", 15),     # low right, drooping
-    (0, "B", 0.72, -136, 15, 118, 0.88, 1.0, 0.08, "deep", 17),   # branch, drooping (visible petiole)
+    (0, "T", 0.60, -106, 10, 150, 0.92, 1.0, -0.11, "deep", 3, 0.03),    # left, lower and drooping
+    (0, "T", 0.79, 82, 10, 138, 0.90, 1.0, 0.09, "deep", 4, -0.03),      # right, higher and smaller
+    (0, "T", 0.95, -26, 8, 132, 0.90, 1.0, -0.06, "deep", 5, 0.04),      # upper left
+    (0, "T", 0.92, 36, 8, 136, 0.86, 1.0, 0.07, "deep", 6, 0.0),         # upper right
+    (0, "T", 0.55, 126, 12, 126, 0.84, 1.0, 0.12, "deep", 15, 0.04),     # low right, hanging
+    (0, "B", 0.70, -140, 14, 116, 0.86, 1.0, -0.07, "forest", 17, 0.0),    # branch, hanging (visible petiole)
     # ---- middle tones
-    (1, "T", 1.00, 12, 5, 118, 0.92, 0.95, 0.03, "mid", 8),        # newest top leaf
-    (1, "B", 1.00, -62, 6, 132, 0.86, 1.0, -0.05, "mid", 10),     # branch terminal leaf
+    (1, "T", 1.00, 4, 5, 116, 0.90, 0.95, -0.04, "mid", 8, 0.05),        # newest top leaf
+    (1, "B", 1.00, -48, 7, 128, 0.84, 1.0, -0.08, "mid", 10, -0.03),     # branch terminal leaf
     # ---- front (lightest)
-    (1, "T", 0.82, -58, 7, 134, 0.95, 0.95, 0.03, "sage", 11),    # upper left, facing
-    (1, "T", 0.88, 60, 7, 136, 0.62, 1.0, 0.14, "sage", 9),       # right, turned edge-on
-    (1, "T", 0.52, 8, 7, 150, 1.0, 0.76, 0.02, "light", 13),     # facing viewer, foreshortened
+    (1, "T", 0.82, -62, 8, 132, 0.95, 0.95, -0.06, "sage", 11, 0.04),    # upper left, facing
+    (1, "T", 0.88, 64, 8, 134, 0.62, 1.0, 0.16, "sage", 9, 0.0),         # right, turned edge-on
+    (1, "T", 0.52, 14, 7, 150, 1.0, 0.74, 0.05, "light", 13, -0.04),     # tip tipping toward the viewer
 ]
 
 
@@ -241,17 +257,18 @@ def build():
     out = [back]
     stems = {"T": TRUNK, "B": BRANCH}
     layers = {0: [], 1: []}
-    for (lay, st, fr, rot, pl, L, sx, sy, bend, tone, seed) in LEAVES:
+    for (lay, st, fr, rot, pl, L, sx, sy, bend, tone, seed, sway) in LEAVES:
         sp = on(stems[st], fr)
-        base = offset(sp, rot, pl)
-        fig = Fig(base, rot, L, sx, sy, bend, seed)
+        rot0 = rot * 0.6       # petiole leaves the stem steeper than the blade hangs
+        base = offset(sp, (rot0 + rot) / 2, pl)
+        fig = Fig(base, rot, L, sx, sy, bend, seed, sway=sway)
         dark = tone in ("deep", "forest")
         # opaque pre-blended vein tones: pale tint of the blade colour
         # (kept ~25 % below the silhouette contrast so vein detail reads as detail)
         vein = mix(P[tone], P["light"] if dark else P["ivory"], 0.17 if dark else 0.25)
         rib = mix(P[tone], P["light"] if dark else P["ivory"], 0.3 if dark else 0.45)
         pw = 5.5 if L > 150 else 4.6
-        s = petiole(sp, fig, w0=pw, w1=pw * 0.7)
+        s = petiole(sp, fig, rot0, w0=pw, w1=pw * 0.7)
         s += fig.svg(P[tone], vein, rib)
         if os.environ.get("DBG"):
             c = fig.M(0, -0.5)
@@ -268,7 +285,7 @@ def build():
     out.append(f'<clipPath id="{tid}"><path d="{ribbon(TRUNK, 15, 6)}"/></clipPath>'
                f'<g clip-path="url(#{tid})">'
                f'<path d="{ribbon([(p[0] + 5, p[1]) for p in TRUNK], 9, 3)}" fill="{mix(BARK, BARK_DK, 0.55)}"/>'
-               f'<path d="{ribbon([(p[0] - 3.4, p[1]) for p in TRUNK[:3]] + [(297.6, 440), (297.2, 426)], 4.6, 0.6, per=4)}" fill="{BARK_HI}"/>'
+               f'<path d="{ribbon([(p[0] - 3.4, p[1]) for p in TRUNK[:3]] + [(lambda q: (q[0] - 2.4, q[1]))(on(TRUNK, fr)) for fr in (0.38, 0.42)], 4.6, 0.6, per=4)}" fill="{BARK_HI}"/>'
                + "</g>")
     out += layers[1]
     out.append(front)

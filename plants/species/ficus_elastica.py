@@ -53,14 +53,14 @@ def at_y(pts, y):
     return s[-1], 0
 
 
-def rubber_leaf(L, bend=0.0, asym=0.0, wide=1.0, apex=0.0):
+def rubber_leaf(L, bend=0.0, asym=0.0, wide=1.0, apex=0.0, sway=0.0):
     """wide scales breadth; apex > 0 shifts the broadest part toward the tip
     (more obovate), < 0 toward the base (more ovate)."""
     r = [(0.035, 0.095), (0.13, 0.190), (0.30, 0.250), (0.50, 0.262), (0.68, 0.232),
          (0.83, 0.158), (0.925, 0.070), (0.972, 0.022)]
     r = [(t, w * wide * (1 + apex * (t - 0.45) * 1.4)) for t, w in r]
     l = [(t, w * (1 - asym)) for t, w in r]
-    return Leaf(L, r, l, bend=bend, tip_sharp=True, base_sharp=False)
+    return Leaf(L, r, l, bend=bend, tip_sharp=True, base_sharp=False, sway=sway)
 
 
 def leaf_svg(lf, tone, x, y, rot, shade_side="r"):
@@ -85,20 +85,34 @@ def leaf_svg(lf, tone, x, y, rot, shade_side="r"):
     return "".join(o)
 
 
+def bez(p0, c1, c2, p1, n=7):
+    out = []
+    for i in range(n):
+        t = i / (n - 1)
+        u = 1 - t
+        out.append(tuple(u ** 3 * p0[j] + 3 * u * u * t * c1[j] + 3 * u * t * t * c2[j] + t ** 3 * p1[j] for j in (0, 1)))
+    return out
+
+
 def petiole(p0, a, length, w, leaf_rot, L):
-    """short thick petiole from stem point p0 heading at angle a, ending tucked
-    0.07L inside the leaf base. Returns (svg, leaf base point)."""
+    """short thick petiole leaving the stem at angle a and arcing round to meet the leaf
+    along its own axis (leaf_rot), ending tucked 0.07L inside the leaf base.
+    Returns (svg, leaf base point)."""
     d = dir_of(a)
-    q = (p0[0] + d[0] * length, p0[1] + d[1] * length)
     ld = dir_of(leaf_rot)
-    mid = (p0[0] + d[0] * length * 0.55, p0[1] + d[1] * length * 0.55)
+    # chord heads between the two directions; the arc then turns smoothly into the leaf
+    m = dir_of((a + leaf_rot) / 2)
+    q = (p0[0] + m[0] * length, p0[1] + m[1] * length)
+    c1 = (p0[0] + d[0] * length * 0.45, p0[1] + d[1] * length * 0.45)
+    c2 = (q[0] - ld[0] * length * 0.4, q[1] - ld[1] * length * 0.4)
+    arc = bez(p0, c1, c2, q, 6)
     inside = (q[0] + ld[0] * L * 0.07, q[1] + ld[1] * L * 0.07)
     # start inside the stem, but on the leaf's side of the stem's centre line: a petiole
     # heading left must not reach back across the stem's shaded right half (its square
     # butt would show there); drawn in the stem colour, the join is then seamless
     k = 2.5 if d[0] < 0 else -4
     back = (p0[0] + d[0] * k, p0[1] + d[1] * k)
-    return f'<path d="{ribbon([back, mid, q, inside], w, w * 0.8)}" fill="{STEM}"/>', q
+    return f'<path d="{ribbon([back] + arc[1:] + [inside], w, w * 0.78)}" fill="{STEM}"/>', q
 
 
 def sheath(x, y, a, L, w):
@@ -115,23 +129,24 @@ def sheath(x, y, a, L, w):
 
 
 # ------------------------------------------------------------------ layout
-S1 = [(292, 612), (289, 520), (284, 420), (282, 320), (285, 230), (290, 168)]   # main stem
-S2 = [(312, 612), (322, 534), (342, 468), (366, 410), (384, 358)]              # second stem: leans out
+S1 = [(294, 612), (289, 526), (279, 436), (273, 346), (276, 262), (285, 202), (294, 166)]   # main stem: slight S lean
+S2 = [(310, 612), (318, 542), (333, 482), (354, 428), (375, 386), (390, 358)]               # second stem: arcs out
 
-# (stem, y, side, petiole angle, petiole len, leaf rot, L, tone, z, bend, asym, wide, apex)
-#   z < 0.5 = behind the stems. Internodes, sizes, angles and outlines all vary
-#   (older leaves broad and drooping, young ones narrow and upright).
+# (stem, y, side, petiole angle, petiole len, leaf rot, L, tone, z, bend, asym, wide, apex, sway)
+#   z < 0.5 = behind the stems. bend sign = droop (right-pointing leaves +, left -):
+#   old low leaves are heavy and hang, young ones near the tips stand up and stay flat.
+#   wide < 0.85 = leaf turned on its axis (foreshortened).
 LEAVES = [
-    (S1, 502, -1, -114, 22, -99, 176, "front", 3, 0.06, 0.04, 1.02, -0.1),
-    (S1, 432, -1, -72, 18, -58, 150, "back", 0.2, -0.05, 0.0, 0.92, 0.12),
-    (S1, 356, +1, 64, 18, 53, 146, "back", 0.1, 0.05, 0.08, 1.06, 0.0),
-    (S1, 316, -1, -50, 16, -37, 110, "front", 2, -0.04, 0.06, 0.88, 0.1),
-    (S1, 262, +1, 58, 14, 50, 96, "deep", 1, 0.03, 0.0, 1.0, -0.12),
-    (S1, 216, +1, 34, 10, 20, 68, "young", 2.5, 0.02, 0.04, 0.9, 0.0),
-    (S2, 470, +1, 112, 18, 100, 150, "front", 2, -0.05, 0.05, 0.96, 0.1),
-    (S2, 428, +1, 72, 15, 58, 118, "deep", 1.5, 0.04, 0.0, 1.1, -0.08),
-    (S2, 404, -1, -38, 12, -27, 84, "front", 2.2, -0.03, 0.04, 0.9, 0.06),   # added: crosses the gap, breaks the pairing
-    (S2, 378, +1, 46, 10, 34, 68, "young", 1.8, 0.02, 0.06, 0.86, 0.06),
+    (S1, 506, -1, -94, 26, -109, 178, "front", 3, -0.11, 0.04, 1.0, -0.1, 0.05),
+    (S1, 436, -1, -62, 22, -80, 150, "back", 0.2, -0.09, 0.0, 0.94, 0.12, 0.0),
+    (S1, 364, +1, 56, 22, 72, 148, "back", 0.1, 0.10, 0.08, 1.04, 0.0, -0.04),
+    (S1, 318, -1, -44, 18, -30, 112, "front", 2, -0.05, 0.10, 0.76, 0.1, 0.06),
+    (S1, 262, +1, 48, 16, 60, 98, "deep", 1, 0.07, 0.0, 0.98, -0.12, 0.0),
+    (S1, 214, -1, -18, 12, -8, 66, "young", 2.5, -0.03, 0.04, 0.84, 0.0, 0.0),
+    (S2, 474, +1, 98, 22, 116, 152, "front", 2, 0.12, 0.05, 0.96, 0.1, 0.0),
+    (S2, 428, +1, 58, 18, 74, 120, "deep", 1.5, 0.08, 0.0, 1.08, -0.08, 0.05),
+    (S2, 408, -1, -32, 14, -18, 84, "front", 2.2, -0.04, 0.06, 0.8, 0.06, 0.0),
+    (S2, 380, +1, 36, 12, 28, 68, "young", 1.8, 0.03, 0.06, 0.86, 0.06, 0.0),
 ]
 
 
@@ -140,9 +155,9 @@ def build():
     lay = []
     pets = []
     nodes = []
-    for (S, y, side, pa, pl, lr, L, tone, z, bend, asym, wide, apex) in LEAVES:
+    for (S, y, side, pa, pl, lr, L, tone, z, bend, asym, wide, apex, sway) in LEAVES:
         p0, _ = at_y(S, y)
-        lf = rubber_leaf(L, bend=bend, asym=asym, wide=wide, apex=apex)
+        lf = rubber_leaf(L, bend=bend, asym=asym, wide=wide, apex=apex, sway=sway)
         psvg, q = petiole(p0, pa, pl, max(5.0, L * 0.042), lr, L)
         shade_side = "r" if side > 0 else "l"
         lay.append((z, psvg, leaf_svg(lf, tone, q[0], q[1], lr, shade_side)))

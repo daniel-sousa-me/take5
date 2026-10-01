@@ -181,6 +181,10 @@ def zz_stalk(pts, tone, rachis, lmax, bare=0.36, base_w=19, spread=(56, 38), see
             tt = (pos + dp) / tot
             p, ang = at(s, acc, tt)
             rot = ang + side * (dev + r.uniform(-4, 4))
+            # gravity: where the rachis runs out sideways, the under-side leaflets sag toward the ground
+            g = ((180 - rot + 540) % 360) - 180
+            if abs(g) < 95:     # only the under-side leaflets (already pointing downward) hang lower
+                rot += g * 0.22 * abs(math.sin(math.radians(ang))) ** 1.5
             leaves.append((tt, p, rot, size, r.randint(0, 999), -side))
         pos += step
         k += 1
@@ -242,20 +246,20 @@ def build():
     S_FO = (P["forest"], "#384F3B")
     stalks = [
         # back: centre tallest (dark)
-        dict(pts=[(300, B), (296, 470), (286, 330), (290, 190), (308, 56)], tone=DARK,
+        dict(pts=[(300, B), (298, 470), (291, 340), (294, 210), (308, 96), (322, 58)], tone=DARK,
              rachis=S_DK, lmax=68, base_w=20, seed=3, bare=0.40, skip={(0, -1)},
              spread=(58, 36)),
         # left upright (mid): the longest, bowing out and arching over at the top
-        dict(pts=[(290, B), (262, 486), (220, 360), (160, 250), (96, 192), (62, 190)], tone=MIDT,
+        dict(pts=[(290, B), (278, 482), (252, 374), (210, 284), (154, 218), (100, 190), (64, 196)], tone=MIDT,
              rachis=S_FO, lmax=62, base_w=18, seed=11, bare=0.36, spread=(62, 40)),
         # right upright (mid): shorter, steeper and almost straight
-        dict(pts=[(310, B), (330, 486), (360, 380), (392, 290), (418, 222)], tone=MIDT,
+        dict(pts=[(310, B), (322, 482), (344, 384), (374, 302), (406, 246), (432, 222)], tone=MIDT,
              rachis=S_FO, lmax=54, base_w=18, seed=7, bare=0.38, spread=(52, 42)),
         # left arching (dark, front): long, low and drooping at the tip
-        dict(pts=[(284, B), (238, 530), (168, 482), (104, 462), (58, 478)], tone=DARK,
+        dict(pts=[(284, B), (252, 528), (198, 488), (136, 466), (88, 470), (58, 488)], tone=DARK,
              rachis=S_DK, lmax=56, base_w=17, seed=21, bare=0.40, spread=(58, 40)),
         # right arching (dark, front): short, lifting rather than drooping
-        dict(pts=[(318, B), (372, 530), (432, 474), (478, 420), (506, 380)], tone=DARK,
+        dict(pts=[(318, B), (358, 530), (410, 484), (454, 440), (486, 408), (508, 396)], tone=DARK,
              rachis=S_DK, lmax=46, base_w=16, seed=5, bare=0.46, spread=(54, 34)),
     ]
     body = [back]

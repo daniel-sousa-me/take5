@@ -29,6 +29,26 @@ VEIN_W0, VEIN_W1 = 4.4, 1.0   # world units at the dot / at the vein end
 DOT_MIN_R = 2.5               # world minor radius of the attachment dot (>= 4.5 across)
 
 
+def even(pts, step=18.0):
+    """Linear re-sample of a polyline at even arc-length steps: uneven spacing
+    makes the Catmull-Rom ribbon overshoot into little kinks."""
+    if len(pts) < 3:
+        return pts
+    acc = [0.0]
+    for a, b in zip(pts, pts[1:]):
+        acc.append(acc[-1] + math.hypot(b[0] - a[0], b[1] - a[1]))
+    n = max(3, int(round(acc[-1] / step)))
+    out, j = [], 0
+    for i in range(n + 1):
+        d = acc[-1] * i / n
+        while j < len(acc) - 2 and acc[j + 1] < d:
+            j += 1
+        u = (d - acc[j]) / ((acc[j + 1] - acc[j]) or 1)
+        a, b = pts[j], pts[j + 1]
+        out.append((a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u))
+    return out
+
+
 class Coin:
     """A round peltate leaf. c = centre, R = radius, sq = foreshortening
     (minor/major), rot = degrees of the major axis, node = petiole origin."""
@@ -89,10 +109,12 @@ class Coin:
         m = math.hypot(ux, uy) or 1
         dq = math.hypot(rim[0] - A[0], rim[1] - A[1]) + 14
         pts = [self.node] + list(self.via)
+        if getattr(self, "arc", False):
+            return stem(even(pts + [A]), self.pet_w[0], self.pet_w[1], fill)
         if m > dq + 10:
             pts.append((A[0] + ux / m * dq, A[1] + uy / m * dq))
         pts.append(A)
-        return stem(pts, self.pet_w[0], self.pet_w[1], fill)
+        return stem(even(pts), self.pet_w[0], self.pet_w[1], fill)
 
     def rim_local(self, phi=None):
         """point on the rim from the attachment point A along phi (default:
@@ -158,8 +180,45 @@ class Coin:
         return "".join(out)
 
 
-STEM_X = 298
-STEM = [(STEM_X + 2, 606), (STEM_X + 1, 530), (STEM_X - 2, 440), (STEM_X + 1, 350), (STEM_X + 2, 300)]
+# central stem: short and upright, but with a soft lean to the left and back (a gentle S)
+STEM = [(302, 606), (299, 532), (292, 452), (289, 384), (293, 330), (299, 300)]
+
+
+def stem_at(y):
+    """x of the central stem at height y (piecewise linear on the control points is plenty)."""
+    for (x0, y0), (x1, y1) in zip(STEM, STEM[1:]):
+        if y1 <= y <= y0:
+            return x0 + (x1 - x0) * (y - y0) / ((y1 - y0) or 1)
+    return STEM[-1][0]
+
+
+def arch(node, c, R, sq, rot, lift=1.0, reach=1.0):
+    """Via points for a long, thin petiole that springs up out of the stem, then
+    arcs over and out and runs straight in under the disc to the attachment dot
+    from below-inside - the 'fountain' a real pilea makes. Only the points outside
+    the disc are returned (the rest is hidden by the blade)."""
+    dx, dy = c[0] - node[0], c[1] - node[1]
+    sx = 1 if dx >= 0 else -1
+    adx, ady = abs(dx), abs(dy)
+    dist = math.hypot(dx, dy)
+    vx, vy = -sx * (0.25 + 0.75 * reach), 0.42
+    m = math.hypot(vx, vy)
+    v = (vx / m, vy / m)
+    probe = Coin(c, R, sq, rot, "mid", node, [(c[0] + v[0] * R * 3, c[1] + v[1] * R * 3)])
+    A = probe.attach_world()
+    c1 = (node[0] + sx * 0.22 * adx, node[1] - (0.34 * ady + 30) * lift)
+    c2 = (A[0] + v[0] * dist * 0.5, A[1] + v[1] * dist * 0.5)
+    out = []
+    for i in range(1, 25):
+        t = i / 25
+        u = 1 - t
+        q = tuple(u ** 3 * node[j] + 3 * u * u * t * c1[j] + 3 * u * t * t * c2[j] + t ** 3 * A[j] for j in (0, 1))
+        lx, ly = probe.to_local(q[0] - c[0], q[1] - c[1])
+        if math.hypot(lx, ly) > R * 1.08:
+            out.append(q)
+        else:
+            break
+    return out
 
 
 def leaves():
@@ -168,30 +227,31 @@ def leaves():
     cross over it."""
     L = []
 
-    def add(*a, pet=None, **k):
-        c = Coin(*a, **k)
-        c.pet_col = P[pet] if pet else None
-        L.append(c)
+    def add(c, R, sq, rot, tone, ny, pet, pw, lift=1.0, reach=1.0, **k):
+        node = (stem_at(ny), ny)
+        via = arch(node, c, R, sq, rot, lift, reach)
+        lf = Coin(c, R, sq, rot, tone, node, via, pet_w=pw, **k)
+        lf.arc = True
+        lf.pet_col = P[pet]
+        L.append(lf)
 
-    # ---- crown: young, pale leaves at the stem apex, peeking over the top leaf
-    # (lifted a little up-left off the centre leaf so a short stretch of its stalk
-    # shows between the two, entering the rim aimed at the centre dot)
-    add((247, 121), 31, .50, -16, "light", (298, 318), [(290, 252), (256, 186)], pet_w=(3.8, 2.6), pet="sage", nveins=5)
-    add((340, 114), 25, .44, 14, "pale", (299, 318), [(312, 250), (334, 148)], pet_w=(3.4, 2.2), pet="sage", nveins=5)
-    # ---- back layer: big, dark leaves
-    add((164, 322), 72, .88, -12, "deep", (298, 434), [], pet_w=(6, 3.4), pet="sage")
-    add((430, 300), 76, .84, 10, "forest", (299, 456), [(346, 400), (404, 336)], pet_w=(6, 3.4), pet="sage")
-    add((122, 486), 54, .54, -26, "forest", (298, 548), [(236, 516), (176, 503)], pet_w=(6, 3.4), pet="sage")
-    add((474, 432), 58, .76, 14, "deep", (300, 534), [(370, 478), (436, 446)], pet_w=(6, 3.4), pet="sage")
-    add((302, 186), 72, .80, -4, "mid", (300, 318), [(301, 260)], pet_w=(6, 3.6), pet="light")
+    # ---- crown: young, pale leaves at the stem apex, held up and seen almost edge-on
+    add((246, 124), 31, .48, -24, "light", 316, "sage", (3.6, 2.4), lift=1.1, nveins=5)
+    add((342, 112), 25, .38, 20, "pale", 314, "sage", (3.4, 2.2), lift=1.2, nveins=5)
+    # ---- back layer: big, dark, older leaves, arching out and tipping outward
+    add((160, 320), 72, .80, -16, "deep", 432, "sage", (5.6, 3.0))
+    add((434, 298), 76, .70, 16, "forest", 452, "sage", (5.6, 3.0))
+    add((116, 490), 54, .44, -32, "forest", 548, "sage", (5.4, 3.0), lift=0.9)
+    add((480, 436), 58, .60, 24, "deep", 534, "sage", (5.4, 3.0), lift=0.9)
+    add((300, 186), 72, .80, -6, "mid", 318, "light", (5.6, 3.4), lift=0.6, reach=0.1)
     L.append("STEM")
     # ---- middle layer (petioles start behind the centre leaf)
-    add((212, 250), 50, .66, -26, "sage", (298, 330), [(258, 296)], pet_w=(5, 3), pet="light")
-    add((382, 208), 46, .54, 22, "sage", (300, 326), [(344, 272)], pet_w=(4.6, 2.8), pet="light")
-    add((314, 286), 60, .93, 6, "light", (299, 336), [], pet_w=(5.5, 3.2), pet="light")
+    add((208, 252), 50, .58, -32, "sage", 330, "light", (4.6, 2.8), lift=0.8)
+    add((386, 206), 46, .48, 28, "sage", 326, "light", (4.4, 2.6), lift=0.9)
+    add((312, 284), 60, .90, 8, "light", 338, "light", (5.2, 3.2), lift=0.3, reach=0.3)
     # ---- front layer: nearer the viewer
-    add((212, 446), 58, .96, 4, "mid", (297, 512), [(256, 480)], pet_w=(6, 3.4), pet="light")
-    add((390, 412), 52, .62, 26, "sage", (300, 494), [(350, 448)], pet_w=(5.5, 3.2), pet="light")
+    add((208, 448), 58, .86, -8, "mid", 512, "light", (5.6, 3.2), lift=0.8)
+    add((394, 414), 52, .54, 30, "sage", 494, "light", (5.2, 3.0), lift=0.8)
     return L
 
 
@@ -209,7 +269,7 @@ def pup():
 
 def central_stem():
     # (leaf scars on the bare lower stem were hairlines: dropped for print)
-    return stem(STEM, 14, 7, P["forest"])
+    return stem(STEM, 14, 6.5, P["forest"])
 
 
 def build():

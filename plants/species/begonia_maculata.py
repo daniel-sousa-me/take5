@@ -292,11 +292,21 @@ def cane_svg(pts, w0, w1, color, node_fr, node_col):
     return "".join(o)
 
 
-def petiole(node, attach, rot, w0, w1, color, tuck=10):
+def petiole(node, attach, rot, w0, w1, color, tuck=10, rot0=None):
+    """Petiole leaving the cane at rot0 (steeper than the blade) and arcing over into
+    the leaf's own direction (rot), so the blade hangs off it like a wing."""
     a = math.radians(rot)
     inner = (attach[0] + math.sin(a) * tuck, attach[1] - math.cos(a) * tuck)
-    mid = ((node[0] + attach[0]) / 2, (node[1] + attach[1]) / 2 - 3)
-    return f'<path d="{ribbon([node, mid, attach, inner], w0, w1, per=6)}" fill="{color}"/>'
+    ln = math.hypot(attach[0] - node[0], attach[1] - node[1])
+    a0 = math.radians(rot if rot0 is None else rot0)
+    c1 = (node[0] + math.sin(a0) * ln * 0.5, node[1] - math.cos(a0) * ln * 0.5)
+    c2 = (attach[0] - math.sin(a) * ln * 0.35, attach[1] + math.cos(a) * ln * 0.35)
+    pts = []
+    for i in range(4):
+        t = i / 3
+        u = 1 - t
+        pts.append(tuple(u ** 3 * node[j] + 3 * u * u * t * c1[j] + 3 * u * t * t * c2[j] + t ** 3 * attach[j] for j in (0, 1)))
+    return f'<path d="{ribbon(pts + [inner], w0, w1, per=6)}" fill="{color}"/>'
 
 
 # ------------------------------------------------------------------ flowers
@@ -349,13 +359,13 @@ def build():
 
     RX_TIP = (408, 292)
     canes = {
-        "L": dict(pts=[(276, 606), (268, 520), (248, 430), (222, 350), (204, 288), (196, 258)],
+        "L": dict(pts=[(278, 606), (275, 522), (261, 438), (236, 364), (212, 306), (199, 262)],
                   w=(11.5, 6), nodes=[0.3, 0.52, 0.72, 0.88]),
-        "R": dict(pts=[(314, 606), (324, 520), (348, 440), (378, 372), (396, 330)],
+        "R": dict(pts=[(313, 606), (316, 526), (328, 456), (352, 392), (386, 338)],
                   w=(11, 5.8), nodes=[0.3, 0.55, 0.78, 0.92],
                   # drawn on past the big mid-green leaf so the small top leaf's join shows
-                  ext=[(RX_TIP[0] - 7, RX_TIP[1] + 22), RX_TIP]),
-        "C": dict(pts=[(292, 606), (290, 520), (286, 430), (288, 340), (294, 250), (300, 175), (304, 140)],
+                  ext=[(RX_TIP[0] - 9, RX_TIP[1] + 22), RX_TIP]),
+        "C": dict(pts=[(292, 606), (296, 520), (290, 430), (279, 340), (281, 250), (294, 175), (305, 140)],
                   w=(13, 6.5), nodes=[0.22, 0.4, 0.56, 0.7, 0.83, 0.93]),
     }
     nodes = {k: along(v["pts"], v["nodes"]) for k, v in canes.items()}
@@ -364,20 +374,21 @@ def build():
     # rot: direction of the leaf tip, degrees clockwise from straight up.
     # layer: 0 behind all canes, 1 after L/R canes, 2 after C cane, 3 in front of pot
     specs = [
-        ("C", 4, -66, 156, True, "night", "top", 0.1, 11, 0),
-        ("C", 5, 60, 126, False, "deep", "top", 0.12, 12, 2),
+        # angel wings: each blade leaves its petiole fairly level, then arches and hangs
+        # (bigger, older blades bend more under their weight; young ones stay straighter)
+        ("C", 4, -60, 156, True, "night", "top", 0.18, 11, 0),
+        ("C", 5, 56, 126, False, "deep", "top", 0.2, 12, 2),
         ("L", "tip", -20, 82, True, "deep", "under", 0.1, 13, 1),
-        ("L", 2, -100, 170, True, "deep", "top", 0.13, 21, 1),
-        ("L", 1, -134, 170, True, "forest", "top", 0.12, 23, 1),
-        ("L", 3, 116, 102, False, "deep", "top", 0.1, 22, 0),
-        ("R", "tip", 14, 90, False, "forest", "top", 0.08, 31, 1),
-        ("R", 3, 104, 166, False, "deep", "top", 0.13, 32, 1),
-        ("R", 1, 128, 186, False, "forest", "top", 0.13, 33, 1),
-        ("C", "tip", -4, 88, False, "mid", "top", 0.1, 41, 2),
-        ("C", 3, 110, 172, False, "mid", "top", 0.12, 42, 2),
-        ("C", 2, -114, 200, True, "mid", "top", 0.12, 43, 2),
-        ("C", 1, 162, 218, False, "mid", "edge", 0.06, 44, 3),  # drapes in front: tip crosses the rim band, ends on the body
-        # ("C", 0, -152, 138, True, "forest", "top", 0.1, 45, 3),
+        ("L", 2, -88, 170, True, "deep", "top", 0.25, 21, 1),
+        ("L", 1, -122, 170, True, "forest", "top", 0.22, 23, 1),
+        ("L", 3, 104, 102, False, "deep", "top", 0.2, 22, 0),
+        ("R", "tip", 14, 90, False, "forest", "top", 0.1, 31, 1),
+        ("R", 3, 92, 166, False, "deep", "top", 0.25, 32, 1),
+        ("R", 1, 116, 186, False, "forest", "top", 0.24, 33, 1),
+        ("C", "tip", -4, 88, False, "mid", "top", 0.08, 41, 2),
+        ("C", 3, 98, 172, False, "mid", "top", 0.25, 42, 2),
+        ("C", 2, -100, 200, True, "mid", "top", 0.26, 43, 2),
+        ("C", 1, 158, 218, False, "mid", "edge", 0.1, 44, 3),  # drapes in front: tip crosses the rim band, ends on the body
     ]
 
     def node_of(c, i):
@@ -395,10 +406,12 @@ def build():
             at = (nx, ny)
             pet = ""
         else:
-            plen = 14 + L * 0.05
-            a = math.radians(rot)
-            at = (nx + math.sin(a) * plen, ny - math.cos(a) * plen - 4)
-            pet = petiole((nx, ny), at, rot, cw * 0.95, cw * 0.7, CANE, tuck=12)
+            plen = 16 + L * 0.06
+            # the petiole springs up out of the node (between cane and blade direction)
+            rot0 = ca + (rot - ca) * 0.45
+            a = math.radians((rot0 + rot) / 2)
+            at = (nx + math.sin(a) * plen, ny - math.cos(a) * plen)
+            pet = petiole((nx, ny), at, rot, cw * 0.95, cw * 0.7, CANE, tuck=12, rot0=rot0)
         lf = AngelLeaf(L, seed=seed, bend=bend, lobe=1.0 if L > 130 else 0.85, wave=0.0065)
         return pet + leaf_svg(lf, at[0], at[1], rot, mirror=mir, fill=fill, face=face,
                               dot_seed=seed * 7, shade_side="l")
