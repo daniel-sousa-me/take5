@@ -278,11 +278,11 @@ def build():
     out += layers[0]
     # trunk + branch
     out.append(f'<path d="{ribbon(BRANCH, 8, 4.5)}" fill="{BARK}"/>')
-    out.append(f'<path d="{ribbon(TRUNK, 15, 6)}" fill="{BARK}"/>')
+    out.append(f'<path d="{ribbon(TRUNK, 20, 6)}" fill="{BARK}"/>')
     # bark shading: darker right edge (opaque pre-blend) + a print-safe
     # highlight rising from the soil and tapering out into the branch fork; hairline scars dropped
     tid = uid("tk")
-    out.append(f'<clipPath id="{tid}"><path d="{ribbon(TRUNK, 15, 6)}"/></clipPath>'
+    out.append(f'<clipPath id="{tid}"><path d="{ribbon(TRUNK, 20, 6)}"/></clipPath>'
                f'<g clip-path="url(#{tid})">'
                f'<path d="{ribbon([(p[0] + 5, p[1]) for p in TRUNK], 9, 3)}" fill="{mix(BARK, BARK_DK, 0.55)}"/>'
                f'<path d="{ribbon([(p[0] - 3.4, p[1]) for p in TRUNK[:3]] + [(lambda q: (q[0] - 2.4, q[1]))(on(TRUNK, fr)) for fr in (0.38, 0.42)], 4.6, 0.6, per=4)}" fill="{BARK_HI}"/>'

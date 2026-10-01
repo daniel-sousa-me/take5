@@ -129,24 +129,25 @@ def sheath(x, y, a, L, w):
 
 
 # ------------------------------------------------------------------ layout
-S1 = [(294, 612), (289, 526), (279, 436), (273, 346), (276, 262), (285, 202), (294, 166)]   # main stem: slight S lean
-S2 = [(310, 612), (318, 542), (333, 482), (354, 428), (375, 386), (390, 358)]               # second stem: arcs out
+S1 = [(280, 612), (278, 530), (267, 440), (261, 350), (267, 262), (282, 200), (296, 164)]   # main stem: slight S lean
+S2 = [(327, 612), (340, 550), (362, 496), (388, 452), (408, 426), (420, 410)]               # second stem: leaves the soil apart, leans out
 
 # (stem, y, side, petiole angle, petiole len, leaf rot, L, tone, z, bend, asym, wide, apex, sway)
 #   z < 0.5 = behind the stems. bend sign = droop (right-pointing leaves +, left -):
-#   old low leaves are heavy and hang, young ones near the tips stand up and stay flat.
-#   wide < 0.85 = leaf turned on its axis (foreshortened).
+#   old low leaves are big and heavy and hang well below level; young ones near the tips are
+#   small, stand up and stay flat. wide < 0.85 = leaf turned on its axis (foreshortened).
 LEAVES = [
-    (S1, 506, -1, -94, 26, -109, 178, "front", 3, -0.11, 0.04, 1.0, -0.1, 0.05),
-    (S1, 436, -1, -62, 22, -80, 150, "back", 0.2, -0.09, 0.0, 0.94, 0.12, 0.0),
-    (S1, 364, +1, 56, 22, 72, 148, "back", 0.1, 0.10, 0.08, 1.04, 0.0, -0.04),
-    (S1, 318, -1, -44, 18, -30, 112, "front", 2, -0.05, 0.10, 0.76, 0.1, 0.06),
-    (S1, 262, +1, 48, 16, 60, 98, "deep", 1, 0.07, 0.0, 0.98, -0.12, 0.0),
-    (S1, 214, -1, -18, 12, -8, 66, "young", 2.5, -0.03, 0.04, 0.84, 0.0, 0.0),
-    (S2, 474, +1, 98, 22, 116, 152, "front", 2, 0.12, 0.05, 0.96, 0.1, 0.0),
-    (S2, 428, +1, 58, 18, 74, 120, "deep", 1.5, 0.08, 0.0, 1.08, -0.08, 0.05),
-    (S2, 408, -1, -32, 14, -18, 84, "front", 2.2, -0.04, 0.06, 0.8, 0.06, 0.0),
-    (S2, 380, +1, 36, 12, 28, 68, "young", 1.8, 0.03, 0.06, 0.86, 0.06, 0.0),
+    (S1, 500, -1, -96, 28, -124, 178, "front", 3, -0.13, 0.04, 1.0, -0.1, 0.05),
+    (S1, 426, -1, -72, 24, -112, 148, "back", 0.2, -0.12, 0.0, 0.9, 0.14, -0.04),
+    (S1, 398, +1, 40, 18, 52, 100, "deep", 0.1, 0.07, 0.04, 0.92, 0.06, 0.03),
+    (S1, 306, +1, 52, 20, 66, 124, "back", 0.1, 0.09, 0.08, 1.06, 0.0, -0.04),
+    (S1, 340, -1, -42, 18, -40, 108, "front", 2, -0.07, 0.10, 0.74, 0.1, 0.06),
+    (S1, 238, +1, 34, 14, 40, 76, "deep", 1, 0.05, 0.0, 0.96, -0.12, 0.0),
+    (S1, 212, -1, -18, 10, -12, 56, "young", 2.5, -0.03, 0.04, 0.84, 0.0, 0.0),
+    (S2, 492, +1, 100, 26, 124, 146, "front", 2, 0.14, 0.05, 0.98, 0.1, 0.03),
+    (S2, 452, +1, 56, 20, 78, 110, "deep", 1.5, 0.10, 0.0, 1.1, -0.08, 0.05),
+    (S2, 432, -1, -32, 14, -14, 74, "front", 2.2, -0.04, 0.06, 0.8, 0.06, 0.0),
+    (S2, 416, +1, 34, 10, 26, 56, "young", 1.8, 0.03, 0.06, 0.86, 0.06, 0.0),
 ]
 
 
@@ -169,7 +170,7 @@ def build():
         if z < 0.5:
             out += [ps, ls]
     # stems: taper to the tip, a darker shaded right edge, node scars
-    for S, w0, w1 in ((S2, 11, 6), (S1, 14, 7)):
+    for S, w0, w1 in ((S2, 14, 5), (S1, 22, 5.5)):   # real taper: thick at the soil, slim at the tip
         out.append(f'<path d="{ribbon(S, w0, w1)}" fill="{STEM}"/>')
         sh = [(x + w0 * 0.22 - (w0 - w1) * 0.22 * i / (len(S) - 1), y) for i, (x, y) in enumerate(S)]
         out.append(f'<path d="{ribbon(sh, w0 * 0.35, w1 * 0.3)}" fill="{STEM_SH}"/>')
@@ -181,9 +182,13 @@ def build():
     out.append(sheath(tip1[0], tip1[1] + 8, a1, 92, 0.13))
     out.append(sheath(tip2[0], tip2[1] + 6, a2, 70, 0.13))
     for z, ps, ls in lay:
-        if z >= 0.5:
+        if 0.5 <= z < 3:
             out += [ps, ls]
     out.append(front)
+    # the big old lowest leaf hangs out over the rim, in front of the pot
+    for z, ps, ls in lay:
+        if z >= 3:
+            out += [ps, ls]
     return "".join(out)
 
 

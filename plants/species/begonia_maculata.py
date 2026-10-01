@@ -357,15 +357,17 @@ def build():
     CANE = P["sage"]
     NODE = P["plum"]
 
-    RX_TIP = (408, 292)
+    # three canes leave the soil apart and lean three ways: left cane out to the left,
+    # centre cane a soft S leaning a little right, right cane out to the right
+    RX_TIP = (458, 318)
     canes = {
-        "L": dict(pts=[(278, 606), (275, 522), (261, 438), (236, 364), (212, 306), (199, 262)],
+        "L": dict(pts=[(262, 606), (255, 524), (236, 446), (210, 376), (186, 318), (172, 276)],
                   w=(11.5, 6), nodes=[0.3, 0.52, 0.72, 0.88]),
-        "R": dict(pts=[(313, 606), (316, 526), (328, 456), (352, 392), (386, 338)],
+        "R": dict(pts=[(332, 606), (344, 530), (368, 466), (400, 412), (432, 370)],
                   w=(11, 5.8), nodes=[0.3, 0.55, 0.78, 0.92],
-                  # drawn on past the big mid-green leaf so the small top leaf's join shows
-                  ext=[(RX_TIP[0] - 9, RX_TIP[1] + 22), RX_TIP]),
-        "C": dict(pts=[(292, 606), (296, 520), (290, 430), (279, 340), (281, 250), (294, 175), (305, 140)],
+                  # drawn on past the big leaf so the small top leaf's join shows
+                  ext=[(RX_TIP[0] - 12, RX_TIP[1] + 24), RX_TIP]),
+        "C": dict(pts=[(297, 606), (301, 520), (296, 430), (298, 340), (310, 250), (326, 178), (338, 142)],
                   w=(13, 6.5), nodes=[0.22, 0.4, 0.56, 0.7, 0.83, 0.93]),
     }
     nodes = {k: along(v["pts"], v["nodes"]) for k, v in canes.items()}
@@ -374,21 +376,21 @@ def build():
     # rot: direction of the leaf tip, degrees clockwise from straight up.
     # layer: 0 behind all canes, 1 after L/R canes, 2 after C cane, 3 in front of pot
     specs = [
-        # angel wings: each blade leaves its petiole fairly level, then arches and hangs
-        # (bigger, older blades bend more under their weight; young ones stay straighter)
-        ("C", 4, -60, 156, True, "night", "top", 0.18, 11, 0),
-        ("C", 5, 56, 126, False, "deep", "top", 0.2, 12, 2),
-        ("L", "tip", -20, 82, True, "deep", "under", 0.1, 13, 1),
-        ("L", 2, -88, 170, True, "deep", "top", 0.25, 21, 1),
-        ("L", 1, -122, 170, True, "forest", "top", 0.22, 23, 1),
-        ("L", 3, 104, 102, False, "deep", "top", 0.2, 22, 0),
-        ("R", "tip", 14, 90, False, "forest", "top", 0.1, 31, 1),
-        ("R", 3, 92, 166, False, "deep", "top", 0.25, 32, 1),
-        ("R", 1, 116, 186, False, "forest", "top", 0.24, 33, 1),
-        ("C", "tip", -4, 88, False, "mid", "top", 0.08, 41, 2),
-        ("C", 3, 98, 172, False, "mid", "top", 0.25, 42, 2),
-        ("C", 2, -100, 200, True, "mid", "top", 0.26, 43, 2),
-        ("C", 1, 158, 218, False, "mid", "edge", 0.1, 44, 3),  # drapes in front: tip crosses the rim band, ends on the body
+        # angel wings: the older blades hang well below level and arch under their weight;
+        # a few small young leaves near the tips stay up and straighter
+        ("C", 4, -74, 138, True, "night", "top", 0.22, 11, 0),
+        ("C", 5, 64, 108, False, "deep", "top", 0.2, 12, 2),
+        ("L", "tip", -30, 74, True, "deep", "under", 0.1, 13, 1),
+        ("L", 3, -112, 116, True, "deep", "top", 0.22, 22, 0),
+        ("L", 2, -138, 166, True, "deep", "top", 0.26, 21, 1),
+        ("L", 1, -158, 150, True, "forest", "top", 0.18, 23, 1),
+        ("R", "tip", 30, 80, False, "forest", "top", 0.1, 31, 1),
+        ("R", 3, 126, 128, False, "deep", "top", 0.24, 32, 1),
+        ("R", 1, 150, 158, False, "forest", "top", 0.22, 33, 1),
+        ("C", "tip", 8, 78, False, "mid", "top", 0.08, 41, 2),
+        ("C", 3, 122, 158, False, "mid", "top", 0.26, 42, 2),
+        ("C", 2, -126, 184, True, "mid", "top", 0.26, 43, 2),
+        ("C", 1, 162, 204, False, "mid", "edge", 0.1, 44, 3),  # drapes in front: tip crosses the rim band, ends on the body
     ]
 
     def node_of(c, i):
