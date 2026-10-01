@@ -264,24 +264,26 @@ def build():
     # at the top, big old ones low and nodding outward under their weight.
     # (leaf base point, rotation, L, fill, seed, flip, stem start x, droop-curl, fore)
     crown_back = [
-        ((240, 428), -47, 116, P["deep"], 1, True, 280, 0.06, 1.0),
-        ((354, 404), 25, 118, P["deep"], 2, False, 316, 0.07, 0.9),
-        ((330, 330), 22, 62, P["sage"], 10, False, 304, -0.03, 0.86),  # young top leaf (peeks out behind the centre leaf)
-        ((298, 382), -4, 124, P["mid"], 3, False, 300, -0.04, 1.0),
-        ((406, 486), 70, 106, P["forest"], 4, False, 326, 0.11, 1.0),
-        ((192, 512), -100, 98, P["forest"], 5, False, 270, 0.12, 1.0),
+        ((236, 432), -50, 106, P["deep"], 1, True, 262, 0.06, 1.0),
+        ((356, 400), 25, 126, P["deep"], 2, False, 322, 0.07, 0.9),
+        ((330, 330), 22, 60, P["sage"], 10, False, 314, -0.03, 0.86),  # young top leaf (peeks out behind the centre leaf)
+        ((298, 384), -4, 132, P["mid"], 3, False, 300, -0.04, 1.0),
+        ((408, 488), 72, 96, P["forest"], 4, False, 344, 0.11, 1.0),
+        ((194, 514), -100, 106, P["forest"], 5, False, 250, 0.12, 1.0),
     ]
+    # the two front leaves close ranks over the open middle, so the long stems to the
+    # top leaves pass behind them instead of running up through a gap
     crown_front = [
-        ((262, 508), -22, 110, P["light"], 6, True, 288, 0.05, 1.0),
-        ((342, 522), 27, 102, P["sage"], 7, False, 312, 0.08, 0.84),
+        ((272, 508), -16, 120, P["light"], 6, True, 278, 0.05, 1.0),
+        ((321, 496), 24, 98, P["sage"], 7, False, 326, 0.08, 0.84),
     ]
     # low leaves leaning forward over the rim (blade drawn after the pot front)
     crown_low = [
-        ((290, 584), -76, 94, P["mid"], 8, True, 322, 0.07, 1.0),
-        ((372, 574), 84, 84, P["light"], 9, False, 320, 0.08, 0.9),
+        ((290, 584), -76, 100, P["mid"], 8, True, 314, 0.07, 1.0),
+        ((372, 574), 84, 78, P["light"], 9, False, 336, 0.08, 0.9),
     ]
     ARC = {2, 3, 10}
-    BOW = {3: -0.22, 10: 0.3, 2: 0.1, 1: -0.1}
+    BOW = {3: -0.14, 10: 0.3, 2: 0.18, 1: -0.2, 5: -0.25, 4: 0.25}
     stems, leaves, low = [], [], []
     for grp in (crown_back, crown_front, crown_low):
         for (bx, by), rot, L, fill, seed, flip, sx0, droop, fore in grp:

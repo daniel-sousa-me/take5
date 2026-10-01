@@ -127,7 +127,7 @@ class Stem:
     """Twines around the hoop from arclength d0 towards d1 (winding sine offset),
     then optionally continues free along `tail` points."""
 
-    def __init__(self, d0, d1, tail=None, amp=8.5, period=80, phase=0.0, w0=5.0, w1=2.2, base=12):
+    def __init__(self, d0, d1, tail=None, amp=7.5, period=125, phase=0.0, w0=5.0, w1=2.2, base=12):
         self.amp, self.period, self.phase = amp, period, phase
         self.base = base  # below this the stem is in front (rises from the soil before the cane)
         sg = 1 if d1 > d0 else -1
@@ -155,17 +155,30 @@ class Stem:
 
     def theta(self, s):
         # irregular twining: the pitch drifts (tight turns, then a lazy stretch)
-        return 2 * math.pi * s / self.period + self.phase + 1.1 * math.sin(s / 93.0 + self.phase * 1.7)
+        return 2 * math.pi * s / self.period + self.phase + 0.7 * math.sin(s / 160.0 + self.phase * 1.7)
 
     def wave(self, s):
-        ramp = min(1.0, s / 40.0)
+        ramp = min(1.0, s / 110.0) ** 1.5  # leaves the soil straight, the winding builds up slowly
         # loose: the vine drifts off the cane by varying amounts, now hugging it, now
         # swinging out in a slack loop
-        a = 0.6 + 0.75 * (0.5 + 0.5 * math.sin(s / 71.0 + self.phase * 2.3)) ** 2
+        a = 0.75 + 0.45 * (0.5 + 0.5 * math.sin(s / 140.0 + self.phase * 2.3)) ** 2
         return ramp * a * math.sin(self.theta(s))
+
+    def _base_switch(self):
+        """the stem stays in front from the soil until the first place past `base`
+        where it is swung fully off the cane, so it first slips behind there (a
+        clean cross, not a cut while it still lies on the cane)"""
+        if not hasattr(self, "_b2"):
+            x = self.base
+            while x < self.base + 400 and not (abs(self.wave(x)) > 0.9 and math.cos(self.theta(x)) <= 0):
+                x += 0.5
+            self._b2 = x
+        return self._b2
 
     def front(self, s):
         if s > self.hoop_len or s < self.base:
+            return True
+        if s < self._base_switch():
             return True
         return math.cos(self.theta(s)) > 0
 
@@ -466,19 +479,20 @@ A_NODES = [
     (700, [(-62, 58, "forest", 1, 3, 9), (46, 46, "mid", 0, 2, 0)]),
     (782, [(-50, 44, "light", 1, 1, 0), (40, 36, "deep", 0, 2, 0)]),
     (846, [(-64, 40, "mid", 1, 2, 0), (54, 32, "forest", 0, 1, 0)]),
-    (922, [(-58, 17, "sage", 1, 0, 0), (62, 15, "mid", 1, 0, 0)]),  # growing tip
+    (-5, [(-46, 19, "sage", 1, 0, 0), (50, 16, "mid", 1, 0, 0)]),  # growing tip: ends in a young pair
 ]
 B_NODES = [
     (70, [(62, 48, "forest", 1, 2, 0), (-58, 40, "deep", 0, 1, 0)]),
     (165, [(58, 60, "sage", 1, 1, 5), (-66, 46, "forest", 0, 2, 0)]),
     (262, [(-70, 54, "mid", 1, 3, 10), (76, 44, "forest", 1, 0, 0)]),  # dark leaf behind umbel 2 (pale stem reads on it)
     (352, [(-60, 48, "light", 1, 2, 6), (68, 44, "forest", 1, 1, 0)]),
-    (420, [(-40, 30, "sage", 1, 0, 0), (40, 26, "mid", 1, 0, 0)]),
+    (420, [(-56, 34, "sage", 1, 2, 0), (60, 30, "mid", 1, 1, 0)]),
+    (-5, [(-40, 20, "light", 1, 0, 0), (44, 17, "sage", 1, 0, 0)]),
 ]
 D_NODES = [  # short side shoot branching off A across the hoop interior
     (46, [(-64, 50, "mid", 1, 1, 0), (70, 42, "deep", 1, 2, 0)]),
     (104, [(-58, 44, "light", 1, 3, 8), (62, 38, "forest", 1, 1, 0)]),
-    (146, [(-44, 24, "sage", 1, 0, 0), (48, 20, "mid", 1, 0, 0)]),
+    (-4, [(-44, 22, "sage", 1, 0, 0), (48, 19, "mid", 1, 0, 0)]),
 ]
 E_NODES = [  # escaping runner: one young pair, then bare (hoya runners leaf out late)
     (66, [(-62, 28, "sage", 1, 2, 0), (66, 24, "mid", 1, 1, 0)]),
@@ -487,7 +501,7 @@ E_NODES = [  # escaping runner: one young pair, then bare (hoya runners leaf out
 C_NODES = [
     (70, [(-70, 40, "sage", 1, 1, 0), (64, 36, "forest", 1, 2, 7)]),
     (132, [(-62, 34, "mid", 1, 2, 0), (70, 32, "light", 1, 1, 0)]),
-    (176, [(-34, 22, "sage", 1, 0, 0), (36, 20, "forest", 1, 0, 0)]),
+    (-4, [(-34, 22, "sage", 1, 0, 0), (36, 20, "forest", 1, 0, 0)]),
 ]
 
 
@@ -506,6 +520,8 @@ def snap_front(st, s):
 def nodes_svg(st, nodes, rnd):
     back, front, stubs = [], [], []
     for s, leaves in nodes:
+        if s < 0:  # measured back from the tip: a shoot ends in its young leaf pair
+            s = st.L + s
         if s > st.L - 2:
             continue
         s = snap_front(st, s)
@@ -545,7 +561,7 @@ def build():
     # A leaves the hoop on the right and ends in a free, tapering growing tip
     # A leaves the hoop on the right as a free shoot that reaches out and curls upward,
     # still searching for support
-    A = Stem(0, 806, tail=[(436, 310), (460, 320), (484, 316), (501, 300), (508, 278), (505, 258)],
+    A = Stem(0, 806, tail=[(438, 310), (462, 316), (484, 308), (498, 292)],
              phase=0.4, w0=6, w1=0.9, base=56)
     B = Stem(HL, HL - 190, tail=[(424, 446), (462, 468), (488, 504), (499, 546), (500, 588), (492, 620), (476, 640)],
              phase=2.3, w0=5.6, w1=2.2, base=32)
@@ -561,15 +577,7 @@ def build():
     D.L = D.path.L
     D.hoop_len = 0
 
-    # E: a bare young runner escaping the hoop on the upper left, arching up and over
-    e0, _ = A.at(430)
-    E = Stem(0, 0, w0=3.4, w1=0.9)
-    E.path = Path([e0, (152, 214), (136, 190), (130, 162), (136, 138), (152, 124), (172, 120)], per=20)
-    E.L = E.path.L
-    E.hoop_len = 0
-
     ab, af, ast = nodes_svg(A, A_NODES, rnd)
-    eb, ef, est = nodes_svg(E, E_NODES, rnd)
     db, df, dst = nodes_svg(D, D_NODES, rnd)
     bb, bf, bst = nodes_svg(B, B_NODES, rnd)
     cb, cf, cst = nodes_svg(C, C_NODES, rnd)
@@ -597,8 +605,7 @@ def build():
     body.append(f'<clipPath id="{fm}"><path d="{masks}"/></clipPath><g clip-path="url(#{fm})">{full}</g>')
     body.append(emit_stubs(ast + bst))
     body.append(D.part(0, D.L))
-    body.append(E.part(0, E.L))
-    body.append(emit(af + bf + df + ef))
+    body.append(emit(af + bf + df))
     body.append(peduncle(n1, u1_top, 36))
     body.append(umbel(u1_top, R=36, seed=2, tilt=0.12))
     body.append(peduncle(n2, u2_top, 33))
