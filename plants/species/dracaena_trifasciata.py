@@ -174,12 +174,16 @@ class Sword:
         bd, bl = self.bands(m)
         # concave shade: one half of the body a step darker (leaf is slightly channelled)
         side = 1 if self.lean > 0 else -1
-        half = []
-        for i in range(0, 21):
-            t = -0.2 + i * 0.06
-            half.append(self.pt(t, 0))
-        far = [self.pt(-0.2 + i * 0.06, side * 80) for i in range(20, -1, -1)]
-        hp = "M" + "L".join(f"{f(p[0])} {f(p[1])}" for p in half + far) + "Z"
+        def half_poly(t0, t1, sg):
+            ts = [t0 + (t1 - t0) * i / 20 for i in range(21)]
+            pts = [self.pt(t, 0) for t in ts] + [self.pt(t, sg * 80) for t in ts[::-1]]
+            return "M" + "L".join(f"{f(p[0])} {f(p[1])}" for p in pts) + "Z"
+        if self.twist >= 0.3:
+            # a visibly twisting blade: the channelled (shaded) half swaps sides where
+            # the blade turns edge-on
+            hp = half_poly(-0.2, self.twist_t, side) + half_poly(self.twist_t, 1.2, -side)
+        else:
+            hp = half_poly(-0.2, 1.0, side)
         tr = f"translate({f(self.x)} {f(BASE_Y)}) rotate({f(self.lean)})"
         shade = SHADE.get(body, body)
         s = [f'<g transform="{tr}">',
@@ -216,15 +220,16 @@ LEAVES = [
     # leaf in front -- no parallel double lines with dark slivers.
     # Subtle life only: a faint S (sway) in the tall blades, two blades turning
     # a little edge-on (twist), and the outer ones arching out a touch more.
-    Sword(322, 15, 360, 25, "back", bend=0.085, seed=11, asym=0.05, fade=FADE, sway=0.02),
-    Sword(282, -8, 395, 27, "back", bend=-0.06, seed=12, asym=-0.05, fade=FADE, sway=-0.025),
-    Sword(269, -17, 300, 24, "midd", bend=-0.11, seed=13, fade=FADE, twist=0.16, twist_t=0.58),
-    Sword(333, 24, 238, 23, "midd", bend=0.13, seed=14, fade=FADE),
-    Sword(304, -2, 470, 30, "midd", bend=-0.035, seed=15, asym=0.06, fade=FADE, sway=0.035),
-    Sword(315, 9, 412, 15, "front", bend=0.02, seed=16, fade=FADE, sway=-0.03),
-    Sword(256, -40, 168, 22, "front", bend=-0.17, seed=17, fade=FADE),
-    Sword(286, -6, 222, 25, "fore", bend=-0.05, seed=18, twist=0.18, twist_t=0.66, sway=0.02),
-    Sword(319, 14, 196, 23, "front", bend=0.09, seed=19),
+    Sword(324, 19, 330, 25, "back", bend=0.15, seed=11, asym=0.05, fade=FADE, sway=0.02),
+    Sword(282, -6, 420, 27, "back", bend=-0.08, seed=12, asym=-0.05, fade=FADE, sway=-0.04,
+          twist=0.5, twist_t=0.6),
+    Sword(268, -21, 262, 24, "midd", bend=-0.13, seed=13, fade=FADE, twist=0.2, twist_t=0.55),
+    Sword(334, 27, 278, 23, "midd", bend=0.17, seed=14, fade=FADE),
+    Sword(305, 3, 478, 30, "midd", bend=-0.06, seed=15, asym=0.06, fade=FADE, sway=0.05),
+    Sword(315, 12, 352, 15, "front", bend=0.05, seed=16, fade=FADE, sway=-0.04),
+    Sword(256, -44, 150, 22, "front", bend=-0.2, seed=17, fade=FADE),
+    Sword(286, -9, 250, 25, "fore", bend=-0.08, seed=18, twist=0.52, twist_t=0.6, sway=0.03),
+    Sword(320, 17, 176, 23, "front", bend=0.11, seed=19),
 ]
 
 

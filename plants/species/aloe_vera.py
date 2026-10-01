@@ -176,9 +176,9 @@ def build():
     # --- back tier: upright, darkest
     # gently bowed (convex to the right, tip turning back in) so its margin is not a ruled line
     L.append(aloe_leaf([(318, by), (336, 480), (357, 352), (364, 262), (354, 194)], 30, P["deep"], side=1, k=0.5, seed=9))
-    L.append(aloe_leaf([(312, by), (356, 502), (428, 400), (484, 342), (518, 330)], 28, P["forest"], side=1, k=0.4, seed=10))
+    L.append(aloe_leaf([(312, by), (354, 506), (418, 410), (474, 360), (518, 356), (544, 380), (552, 414)], 28, P["forest"], side=1, k=0.4, seed=10))
     L.append(aloe_leaf([(296, by), (303, 486), (302, 362), (290, 254), (266, 166)], 34, P["forest"], side=-1, k=0.5, seed=1))
-    L.append(aloe_leaf([(284, by), (260, 490), (222, 372), (190, 284), (174, 228)], 32, P["mid"], side=-1, k=0.4, speck=0.55, seed=2))
+    L.append(aloe_leaf([(284, by), (256, 492), (214, 388), (172, 318), (136, 286), (110, 290)], 32, P["mid"], side=-1, k=0.4, speck=0.55, seed=2))
     L.append(aloe_leaf([(314, by), (342, 488), (386, 364), (424, 270), (438, 216)], 32, P["mid"], side=-1, k=0.4, speck=0.55, seed=3))
     # --- middle tier: arching outward, sage
     L.append(aloe_leaf([(292, by), (244, 540), (172, 450), (104, 414), (66, 422), (48, 444)], 32, P["sage"], side=-1, k=0.3, speck=0.6, seed=4))

@@ -132,7 +132,7 @@ def frond_parts(pts, tone, n_pairs, lmax, seed, bare=0.2, near="upper", spread=(
     for side in (1, -1):
         off = 0.0 if side == 1 else 0.45
         for i in range(n_pairs):
-            u = min((i + off + rnd.uniform(-0.18, 0.18)) / (n_pairs - 0.4), 1.0)
+            u = min((i + off + rnd.uniform(-0.08, 0.08)) / (n_pairs - 0.4), 1.0)
             u = max(u, 0.0)
             fr = bare + (1 - bare) * (u ** 0.95) * 0.975
             p, t = at(s, acc, fr)
@@ -144,13 +144,17 @@ def frond_parts(pts, tone, n_pairs, lmax, seed, bare=0.2, near="upper", spread=(
             if L < 24:          # tip leaflets this small print as noise: leave them out
                 continue
             last = max(last, fr)
-            a = math.radians(spread[0] + (spread[1] - spread[0]) * u + rnd.uniform(-7, 7)) * side
+            # smooth (not per-leaflet random) angle variation, so neighbours in a row never
+            # converge and cross at shallow angles in the same tone
+            wob = 6 * math.sin(i * 0.9 + seed * 1.7 + side) + rnd.uniform(-1.5, 1.5)
+            a = math.radians(spread[0] + (spread[1] - spread[0]) * u + wob) * side
             dx = t[0] * math.cos(a) - t[1] * math.sin(a)
             dy = t[0] * math.sin(a) + t[1] * math.cos(a)
-            if dy < -0.4:
+            if dy < -0.2:
                 # leaflets on the top of an arch lie back along the rachis rather than
-                # standing up like comb teeth
-                a *= 0.72
+                # standing up like comb teeth (blended in smoothly, so neighbours on
+                # either side of the threshold do not converge and cross)
+                a *= 1 - 0.28 * min(1.0, (-dy - 0.2) / 0.4)
                 dx = t[0] * math.cos(a) - t[1] * math.sin(a)
                 dy = t[0] * math.sin(a) + t[1] * math.cos(a)
             # leaflets hang more the further out along the arching rachis they sit
