@@ -230,7 +230,7 @@ def build():
     # --- front: lighter, lower, arching out
     fan("front", -54, 128, 154, M, 0.2, lean=1.3, pet=S, wide=0.9)
     fan("front", -4, 150, 132, S, 0.07, lean=2.2, pet=S, sway=0.1, x0=290)
-    fan("front", 34, 138, 142, M, 0.1, lean=1.4, pet=S, sx=0.86)
+    fan("front", 34, 138, 142, M, 0.1, lean=1.58, pet=S, sx=0.86)
     fan("front", 60, 118, 150, S, 0.2, lean=1.34, pet=S, wide=0.9)
     # --- drape: short leaves flopping over the rim, hiding the crown
     fan("front", 8, 76, 96, P["light"], 0.05, lean=2.7, pet=S, x0=300)

@@ -35,7 +35,7 @@ PET = {
 UNDER = (P["burgundy"], P["wine"])
 
 
-def leaf_shape(L, seed, narrow=1.0, bend=None, sway=0.0):
+def leaf_shape(L, seed, narrow=1.0, bend=None, sway=0.0, tip_t=1.0):
     rnd = random.Random(seed)
     j = lambda: rnd.uniform(-0.012, 0.012)  # noqa: E731
     right = [(0.02, 0.09), (0.11, 0.205 + j()), (0.28, 0.27 + j()), (0.48, 0.28 + j()),
@@ -45,7 +45,7 @@ def leaf_shape(L, seed, narrow=1.0, bend=None, sway=0.0):
     right = [(t, w * narrow) for t, w in right]
     left = [(t, w * narrow) for t, w in left]
     b = rnd.uniform(-0.05, 0.05)
-    return Leaf(L, right, left, bend=b if bend is None else bend, sway=sway, base_sharp=False, tip_t=1.0)
+    return Leaf(L, right, left, bend=b if bend is None else bend, sway=sway, base_sharp=False, tip_t=tip_t)
 
 
 def pinstripe(p0, p1, p2, w):
@@ -121,7 +121,7 @@ def plant_leaf(spec):
     ux, uy = unit(ang)
     under = opts.get("under", False)
     leaf = leaf_shape(L, seed, narrow=opts.get("narrow", 1.0), bend=opts.get("bend"),
-                      sway=opts.get("sway", 0.0))
+                      sway=opts.get("sway", 0.0), tip_t=opts.get("tip_t", 1.0))
     # petiole: a smooth cubic from the soil (rising nearly vertically) that
     # arrives aligned with the leaf axis, ending tucked under the blade base
     S = (sx, RIM_Y + 14)
@@ -179,7 +179,7 @@ LEAVES = [
     # front layer (forest)
     (282, 196, 474, -78, 132, "front", 6, -6, {"lean": -10, "bend": -0.16, "k2": 0.55}),
     (298, 252, 434, -28, 120, "front", 8, 0, {"under": True, "narrow": 0.76, "bend": -0.07}),
-    (306, 370, 452, 41, 150, "front", 7, 4, {"lean": -2, "bend": 0.1, "sway": -0.08, "narrow": 0.86}),
+    (306, 370, 452, 35, 150, "front", 7, 4, {"lean": -2, "bend": 0.03, "narrow": 0.84, "tip_t": 1.05}),
 ]
 
 FURLED = (298, 290, 398, -3, 108)

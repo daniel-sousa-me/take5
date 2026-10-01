@@ -84,6 +84,18 @@ def curve_to(spec, base, L, t_sinus, t_in):
     sinus = world(x, y, rot, sx, 1, 0, -t_sinus * L)
     inside = world(x, y, rot, sx, 1, 0, -t_in * L)
     # arc_pts' bow is measured to the left of an upward chord: flip so + = right
+    if spec.get("cubic"):
+        # one smooth cubic: rises from the soil, then swings round to arrive along
+        # the blade axis into the sinus (a wide, even bend -- no elbow)
+        c1 = (base[0] + spec.get("lean", 0.0), base[1] - (base[1] - sinus[1]) * spec.get("k1", 0.55))
+        c2 = world(x, y, rot, sx, 1, 0, spec["cubic"] * L)
+        pts = []
+        for i in range(9):
+            t = i / 8
+            u = 1 - t
+            pts.append(tuple(u ** 3 * base[j] + 3 * u * u * t * c1[j] + 3 * u * t * t * c2[j] + t ** 3 * sinus[j]
+                             for j in (0, 1)))
+        return pts + [inside]
     if spec.get("direct"):
         # outward / hanging blades: the stem comes up from below, without a
         # rise-and-hook,
@@ -190,7 +202,7 @@ def build():
         dict(x=256, y=350, rot=-40, L=204, col=P["mid"], side="r", bend=-0.08, lsway=-0.1,
              base=(288, 612), via=[], bow=0.04, sway=0.06, ap=0.22),
         dict(x=400, y=442, rot=84, L=162, col=P["mid"], side="l", bend=0.12, sx=0.88,
-             base=(332, 612), via=[], bow=0.07, direct=True),
+             base=(328, 612), via=[], cubic=0.4, k1=0.5, pc=P["sage"]),
         # front: G young centre leaf, E/F drooping low
         dict(x=294, y=490, rot=-6, L=122, col=P["sage"], side="r", bend=0.08, sx=0.88,
              base=(298, 612), via=[], bow=0.03, ap=0.18),
@@ -208,7 +220,7 @@ def build():
              base=(280, 612), via=[], bow=0.08, ap=0.3, z=2),
         # low, right: smaller, more turned away and leaning further out
         dict(x=464, y=382, rot=66, L=94, sx=0.55, side="r", spadix_rot=-24, curl=-0.34, bend=0.05,
-             base=(340, 612), via=[], bow=-0.12, ap=0.32, z=3),
+             base=(350, 612), via=[], bow=-0.08, ap=0.32, z=3),
     ]
 
     # every petiole / flower stalk starts from one crown point hidden below the
