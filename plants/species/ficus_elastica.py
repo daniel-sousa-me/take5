@@ -56,10 +56,16 @@ def at_y(pts, y):
 def rubber_leaf(L, bend=0.0, asym=0.0, wide=1.0, apex=0.0, sway=0.0):
     """wide scales breadth; apex > 0 shifts the broadest part toward the tip
     (more obovate), < 0 toward the base (more ovate)."""
-    r = [(0.035, 0.095), (0.13, 0.190), (0.30, 0.250), (0.50, 0.262), (0.68, 0.232),
-         (0.83, 0.158), (0.925, 0.070), (0.972, 0.022)]
+    r = [(0.035, 0.095), (0.13, 0.190), (0.30, 0.250), (0.48, 0.262), (0.62, 0.240),
+         (0.73, 0.198), (0.82, 0.142), (0.895, 0.084), (0.95, 0.040), (0.985, 0.012)]
+    # steady taper over the last third: a clean ~70 deg point that still reads as pointed when
+    # the blade is tilted or bent (a short concave drip tip on a broad end reads as chopped off)
     r = [(t, w * wide * (1 + apex * (t - 0.45) * 1.4)) for t, w in r]
     l = [(t, w * (1 - asym)) for t, w in r]
+    if bend < 0:
+        # the narrower half must sit on the outside of the midrib's curve, or one margin runs
+        # dead straight into the tip and the point looks chopped off
+        r, l = l, r
     return Leaf(L, r, l, bend=bend, tip_sharp=True, base_sharp=False, sway=sway)
 
 
@@ -158,7 +164,11 @@ def build():
     nodes = []
     for (S, y, side, pa, pl, lr, L, tone, z, bend, asym, wide, apex, sway) in LEAVES:
         p0, _ = at_y(S, y)
-        lf = rubber_leaf(L, bend=bend, asym=asym, wide=wide, apex=apex, sway=sway)
+        # a strongly bent midrib folds the outer margin round the tip (a chopped-off point);
+        # keep the blade's own curve gentle and put the rest of the droop into its rotation
+        b2 = max(-0.07, min(0.07, bend))
+        lr += math.degrees(math.atan(bend)) - math.degrees(math.atan(b2))   # same chord direction
+        lf = rubber_leaf(L, bend=b2, asym=asym, wide=wide, apex=apex, sway=max(-0.03, min(0.03, sway)))
         psvg, q = petiole(p0, pa, pl, max(5.0, L * 0.042), lr, L)
         shade_side = "r" if side > 0 else "l"
         lay.append((z, psvg, leaf_svg(lf, tone, q[0], q[1], lr, shade_side)))

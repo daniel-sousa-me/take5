@@ -409,8 +409,10 @@ def build():
             pet = ""
         else:
             plen = 16 + L * 0.06
-            # the petiole springs up out of the node (between cane and blade direction)
-            rot0 = ca + (rot - ca) * 0.45
+            # the petiole leaves the node already heading most of the way toward the blade and
+            # bends only gently into it, entering the leaf base from the side (along the midrib)
+            # - never rising and hooking over the leaf's shoulder
+            rot0 = ca + (rot - ca) * 0.82
             a = math.radians((rot0 + rot) / 2)
             at = (nx + math.sin(a) * plen, ny - math.cos(a) * plen)
             pet = petiole((nx, ny), at, rot, cw * 0.95, cw * 0.7, CANE, tuck=12, rot0=rot0)
