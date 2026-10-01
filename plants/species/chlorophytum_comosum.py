@@ -253,11 +253,13 @@ def build(report=False):
     # runners: leave the crown at the rim, arch up and out, then hang
     LB = (112, 650)
     RS = 0.78         # right pup's leaf-length scale
-    RB = (514, 700)   # right runner reaches further and hangs lower; smaller pup (no mirrored pair)
+    RB = (494, 704)   # right runner hangs lower than the left one, smaller pup (no mirrored pair)
+    # it arches low, tucked under the big right leaf with clear space between them
+    # (not tracing that leaf's edge), then drops straight to its pup
+    runR = [(338, 614), (352, 590), (374, 568), (404, 554), (436, 552), (462, 562), (479, 584),
+            (488, 614), (492, 648), (494, 680), RB]
     runL = [(262, 614), (252, 588), (238, 562), (218, 536), (192, 518), (164, 512), (140, 522),
             (124, 546), (115, 580), (112, 616), LB]
-    runR = [(338, 614), (350, 586), (370, 556), (400, 530), (436, 516), (470, 520), (494, 540),
-            (507, 572), (513, 610), (515, 650), (514, 680), RB]
     babyL = plantlet(*LB, [
         (-52, -124, 46, 6.0, "babyb"), (54, 134, 35, 5.6, "babyb"),
         (-24, -100, 64, 6.6, "baby"), (20, 76, 48, 6.4, "baby"),
