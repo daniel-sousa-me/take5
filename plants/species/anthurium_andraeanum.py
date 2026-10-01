@@ -9,7 +9,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
-from core import PAL, SHADE, Leaf, leaf_g, stem, line, cr_path, pot, svg_doc, T, f, uid, reset_ids  # noqa
+from core import PAL, SHADE, Leaf, leaf_g, stem, line, cr_path, pot, svg_doc, T, f, uid, reset_ids, arc_pts  # noqa
 
 P = PAL
 RED = P["red"]            # spathe
@@ -34,13 +34,13 @@ def world(x, y, rot, sx, s, lx, ly):
 
 
 # ------------------------------------------------------------------ shapes
-def anth_leaf(L, bend=0.0, lobe=1.0):
+def anth_leaf(L, bend=0.0, lobe=1.0, sway=0.0):
     """Cordate leaf with drip tip. Open sinus at t=0.14, rounded lobes reach t=-0.07."""
     r = [(0.14, 0), (0.07, 0.10 * lobe), (-0.02, 0.17), (-0.07, 0.25), (-0.03, 0.335), (0.11, 0.385),
          (0.32, 0.36), (0.55, 0.27), (0.76, 0.145), (0.92, 0.045)]
     l = [(0.14, 0), (0.08, 0.105 * lobe), (-0.01, 0.18), (-0.06, 0.26), (-0.01, 0.34), (0.13, 0.38),
          (0.34, 0.35), (0.57, 0.26), (0.77, 0.135), (0.92, 0.04)]
-    return Leaf(L, r, l, bend=bend, cordate=True, tip_t=1.0)
+    return Leaf(L, r, l, bend=bend, cordate=True, tip_t=1.0, sway=sway)
 
 
 def spathe(L, bend=0.0):
@@ -56,7 +56,7 @@ def spathe(L, bend=0.0):
 def draw_leaf(spec):
     x, y, rot, L, col = spec["x"], spec["y"], spec["rot"], spec["L"], spec["col"]
     sx = spec.get("sx", 1.0)
-    lf = anth_leaf(L, spec.get("bend", 0.0))
+    lf = anth_leaf(L, spec.get("bend", 0.0), sway=spec.get("lsway", 0.0))
     shade = SHADE[col]
     # vein system for this plant = one opaque, print-safe tapered midrib on every
     # leaf (the faint laterals could not survive print and were dropped)
@@ -71,13 +71,25 @@ def draw_leaf(spec):
                   transform=T(x, y, rot, 1.0, sx)), lf
 
 
-def petiole(spec, lf, base, via, w0=7.5, w1=5.0, col=None):
+def curve_to(spec, base, L, t_sinus, t_in):
+    """Stem points: a natural arc from the crown that arrives travelling along
+    the blade's own axis (so the blade continues the stem's curve), then runs
+    through the sinus to end tucked inside the blade.
+    spec: bow (sideways bulge, + = toward screen-right), sway (S), ap (how far
+    behind the sinus the arc lands, fraction of L)."""
     x, y, rot = spec["x"], spec["y"], spec["rot"]
     sx = spec.get("sx", 1.0)
-    L = lf.L
-    sinus = world(x, y, rot, sx, 1, 0, -0.08 * L)
-    inside = world(x, y, rot, sx, 1, 0, -0.23 * L)
-    pts = [base] + via + [sinus, inside]
+    ap = spec.get("ap", 0.2)
+    land = world(x, y, rot, sx, 1, 0, ap * L)
+    sinus = world(x, y, rot, sx, 1, 0, -t_sinus * L)
+    inside = world(x, y, rot, sx, 1, 0, -t_in * L)
+    # arc_pts' bow is measured to the left of an upward chord: flip so + = right
+    arc = arc_pts(base, land, -spec.get("bow", 0.0), spec.get("sway", 0.0), n=6)
+    return arc + [sinus, inside]
+
+
+def petiole(spec, lf, base, via, w0=7.5, w1=5.0, col=None):
+    pts = curve_to(spec, base, lf.L, 0.08, 0.23)
     return stem(pts, w0, w1, col or P["sage"])
 
 
@@ -149,9 +161,7 @@ def fstalk(spec, sp, base, via, w0=5.5, w1=4.0):
     x, y, rot = spec["x"], spec["y"], spec["rot"]
     sx = spec.get("sx", 1.0)
     L = sp.L
-    sinus = world(x, y, rot, sx, 1, 0, -0.10 * L)
-    inside = world(x, y, rot, sx, 1, 0, -0.19 * L)
-    return stem([base] + via + [sinus, inside], w0, w1, P["light"])
+    return stem(curve_to(spec, base, L, 0.10, 0.19), w0, w1, P["light"])
 
 
 # ------------------------------------------------------------------ build
@@ -161,35 +171,38 @@ def build():
     out = [back]
 
     # leaves, back -> front.  x,y = sinus anchor (local origin); rot 0 = tip up.
+    # bend > 0 curls the midrib toward local +x: chosen per leaf so every blade
+    # droops toward the ground under its own weight; bow arcs each petiole
+    # (outer ones rise and then sweep out, + = toward screen-right).
     leaves = [
         # back layer (deep) -- A right crown, B far left
-        dict(x=334, y=336, rot=20, L=232, col=P["deep"], side="r", bend=-0.03,
-             base=(308, 590), via=[(318, 470)]),
-        dict(x=206, y=434, rot=-70, L=180, col=P["deep"], side="l", bend=0.05, sx=0.92,
-             base=(288, 594), via=[(262, 500)]),
+        dict(x=348, y=330, rot=26, L=226, col=P["deep"], side="r", bend=0.08, lsway=0.12,
+             base=(308, 590), via=[], bow=-0.07, ap=0.22),
+        dict(x=206, y=426, rot=-80, L=166, col=P["deep"], side="l", bend=-0.11, sx=0.9,
+             base=(288, 594), via=[], bow=0.16, ap=0.26),
         # middle layer (mid) -- C upper left, D right
-        dict(x=266, y=360, rot=-34, L=212, col=P["mid"], side="r", bend=0.04,
-             base=(296, 592), via=[(282, 470)]),
-        dict(x=388, y=440, rot=74, L=166, col=P["mid"], side="l", bend=0.05, sx=0.92,
-             base=(314, 592), via=[(344, 490)]),
+        dict(x=256, y=350, rot=-40, L=204, col=P["mid"], side="r", bend=-0.08, lsway=-0.1,
+             base=(296, 592), via=[], bow=0.05, sway=0.08, ap=0.22),
+        dict(x=400, y=442, rot=84, L=162, col=P["mid"], side="l", bend=0.12, sx=0.88,
+             base=(314, 592), via=[], bow=-0.16, ap=0.26),
         # front: G young centre leaf, E/F drooping low
-        dict(x=292, y=490, rot=5, L=126, col=P["sage"], side="r", bend=0.06, sx=0.9,
-             base=(298, 594), via=[(295, 548)]),
-        dict(x=352, y=518, rot=100, L=112, col=P["sage"], side="l", bend=0.08, sx=0.8,
-             base=(312, 596), via=[(330, 556)]),
-        dict(x=246, y=508, rot=-122, L=150, col=P["sage"], side="r", bend=-0.05, sx=0.86,
-             base=(292, 596), via=[(270, 556)]),
+        dict(x=294, y=490, rot=-6, L=122, col=P["sage"], side="r", bend=0.08, sx=0.88,
+             base=(298, 594), via=[], bow=0.03, ap=0.18),
+        dict(x=360, y=516, rot=96, L=110, col=P["sage"], side="l", bend=0.16, sx=0.76,
+             base=(270, 596), via=[], bow=-0.16, ap=0.3, pc=P["sage"]),
+        dict(x=240, y=506, rot=-98, L=146, col=P["sage"], side="r", bend=-0.14, sx=0.84,
+             base=(330, 596), via=[], bow=0.16, ap=0.28),
     ]
     flowers = [
-        # face-on, highest
-        dict(x=300, y=210, rot=4, L=144, side="r", spadix_rot=22, curl=0.16,
-             base=(298, 592), via=[(292, 420), (298, 290)], z=1),
+        # highest, nodding a little to the right on a gently S-curved stalk
+        dict(x=314, y=208, rot=14, L=140, side="r", spadix_rot=20, curl=0.16, bend=0.04,
+             base=(298, 592), via=[], bow=0.03, sway=0.07, ap=0.28, z=1),
         # tilted, left: higher and larger, only half turned
-        dict(x=168, y=262, rot=-30, L=132, sx=0.8, side="l", spadix_rot=30, curl=0.28,
-             base=(292, 592), via=[(250, 470), (200, 342)], z=2),
+        dict(x=172, y=270, rot=-38, L=130, sx=0.8, side="l", spadix_rot=30, curl=0.28, bend=-0.05,
+             base=(292, 592), via=[], bow=0.12, ap=0.3, z=2),
         # low, right: smaller, more turned away and leaning further out
-        dict(x=468, y=372, rot=58, L=98, sx=0.55, side="r", spadix_rot=-24, curl=-0.34,
-             base=(306, 594), via=[(328, 500), (368, 436), (418, 396)], z=3),
+        dict(x=464, y=382, rot=66, L=94, sx=0.55, side="r", spadix_rot=-24, curl=-0.34, bend=0.05,
+             base=(306, 594), via=[], bow=-0.2, ap=0.32, z=3),
     ]
 
     # every petiole / flower stalk starts from one crown point hidden below the
@@ -203,7 +216,7 @@ def build():
 
     def leaf_item(s):
         g, lf = draw_leaf(s)
-        pc = {P["deep"]: P["sage"], P["mid"]: P["light"], P["sage"]: P["mid"]}[s["col"]]
+        pc = s.get("pc") or {P["deep"]: P["sage"], P["mid"]: P["light"], P["sage"]: P["mid"]}[s["col"]]
         return petiole(s, lf, s["base"], s["via"], 7.0 if s["L"] > 150 else 6.0,
                        4.6 if s["L"] > 150 else 3.8, pc) + g
 

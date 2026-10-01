@@ -35,14 +35,14 @@ def world(bx, by, deg, p, sx=1.0):
 
 
 # ------------------------------------------------------------------ leaves
-def lily_leaf(L, bend, wide=1.0, lean=0.0):
+def lily_leaf(L, bend, wide=1.0, lean=0.0, sway=0.0):
     """Glossy elliptic-lanceolate blade, cuneate base, acuminate tip."""
     r = [(0.0, 0.0), (0.06, 0.07), (0.2, 0.155), (0.4, 0.2), (0.6, 0.18),
          (0.78, 0.11), (0.9, 0.05), (0.96, 0.018)]
     right = [(t, w * wide * (1 + lean)) for t, w in r]
     left = [(t, w * wide * (1 - lean)) for t, w in r]
     right[0] = left[0] = (0.0, 0.0)
-    return Leaf(L, right, left, bend=bend)
+    return Leaf(L, right, left, bend=bend, sway=sway)
 
 
 def half(lf, side, reach=3.0):
@@ -115,14 +115,14 @@ class Plant:
         self.parts = []
 
     def leaf(self, x0, bx, by, deg, L, fill, bend=0.0, side="r", ctrl=None, sx=1.0,
-             pet=None, wide=1.0, lean=0.0, pw=(8.5, 5.0), pre_k=0.16):
-        lf = lily_leaf(L, bend, wide, lean)
+             pet=None, wide=1.0, lean=0.0, pw=(8.5, 5.0), pre_k=0.2, sway=0.0, rise=0.18):
+        lf = lily_leaf(L, bend, wide, lean, sway)
         # petiole: soil -> ctrl -> just below blade base, tangent to blade, ending inside blade
         d = rot_pt(0, -1, deg)
         pre = (bx - d[0] * L * pre_k, by - d[1] * L * pre_k)
         inside = world(bx, by, deg, lf.axis(0.07), sx)
-        if ctrl is None:  # rise from the soil, then sweep out into the blade
-            ctrl = (x0 + (pre[0] - x0) * 0.4, pre[1] + (SOIL_Y - pre[1]) * 0.5)
+        if ctrl is None:  # rise steeply from the soil, then arch out into the blade
+            ctrl = (x0 + (pre[0] - x0) * rise, pre[1] + (SOIL_Y - pre[1]) * 0.42)
         pts = [(x0, SOIL_Y), ctrl, pre, inside]
         pcol = pet or P["mid"]
         s = f'<path d="{ribbon(pts, pw[0], pw[1], per=4)}" fill="{pcol}"/>'
@@ -191,7 +191,7 @@ def build():
     def add(layer, pair):
         layers[layer].append(pair)
 
-    def fan(layer, a, r, L, fill, bend=0.05, lean=1.25, wide=1.0, pet=None, x0=None):
+    def fan(layer, a, r, L, fill, bend=0.05, lean=1.25, wide=1.0, pet=None, x0=None, sway=0.0, sx=1.0):
         """Leaf placed on a fan around the crown: petiole direction a (deg),
         blade leaning out a bit more than its petiole (arching habit)."""
         ra = math.radians(a)
@@ -199,37 +199,39 @@ def build():
         side = "l" if a < 0 else "r"
         sg = -1 if a < 0 else 1
         x0 = 300 + a * 0.22 if x0 is None else x0
-        add(layer, pl.leaf(x0, bx, by, a * lean, L, fill, bend=sg * bend, side=side,
-                           wide=wide, pet=pet))
+        # arching habit: the longer and more outward the leaf, the more its tip droops
+        droop = bend * (2.0 + abs(a) / 45)
+        add(layer, pl.leaf(x0, bx, by, a * lean, L, fill, bend=sg * droop, side=side,
+                           wide=wide, pet=pet, sway=sway, sx=sx))
 
     N = P["night"]
     # --- back: tall dark leaves, the backdrop for the spathes
     fan("back", -34, 222, 180, D, 0.07, lean=1.62, pet=F)
     fan("back", 44, 196, 160, D, 0.06, lean=1.45, pet=F)
-    add("back", pl.leaf(292, 252, 362, -29, 196, N, bend=-0.03, side="l", pet=F))
-    add("back", pl.leaf(310, 386, 366, 38, 196, N, bend=0.04, side="r", pet=F))
-    add("back", pl.leaf(300, 300, 350, -7, 186, D, bend=-0.03, side="r", pet=F, wide=0.95))
+    add("back", pl.leaf(292, 248, 364, -31, 196, N, bend=-0.09, sway=0.08, side="l", pet=F))
+    add("back", pl.leaf(310, 388, 368, 40, 192, N, bend=0.11, side="r", pet=F))
+    add("back", pl.leaf(300, 298, 352, -10, 186, D, bend=0.07, sway=-0.12, side="r", pet=F, wide=0.92))
     # --- flowers (stalks behind the foliage, spathes on top of it)
-    add("flow", flower(296, [(290, 470), (268, 384), (238, 332), (224, 303)], 98, -31, bend=0.06, flip=True,
+    add("flow", flower(296, [(292, 480), (280, 400), (254, 340), (226, 306)], 98, -36, bend=0.08, flip=True,
                        lt=SPATHE_FREE_LT, sh=SPATHE_FREE_SH))
     # the tallest spathe rises clear of the foliage into open paper: its stalk runs behind the
     # centre leaf and emerges from its right edge; on bare paper the lit half is a cream tint
     # (paper white would vanish) and the cupped half a step deeper
-    tall = flower(316, [(326, 470), (338, 340), (350, 230), (354, 196)], 112, 4, bend=-0.05, open_=0.9,
+    tall = flower(312, [(318, 480), (322, 360), (338, 262), (360, 206)], 112, 14, bend=0.04, open_=0.9,
                   lt=SPATHE_FREE_LT, sh=SPATHE_FREE_SH)
     layers["back"].insert(0, (tall[0], ""))
     layers["flow"].append(("", tall[1]))
     # the third spathe only half overlaps its leaf: base on the blade, hood in the open gap
-    add("flow", flower(310, [(352, 500), (398, 420), (418, 318)], 92, 6, bend=0.07, open_=0.85,
+    add("flow", flower(310, [(336, 500), (380, 430), (410, 364), (436, 322)], 92, 22, bend=0.08, open_=0.85,
                        lt=SPATHE_FREE_LT, sh=SPATHE_FREE_SH))
     # --- mid: forest leaves filling the clump
-    fan("mid", -25, 192, 164, M, 0.05, lean=1.3, pet=M)
-    fan("mid", 15, 184, 156, F, 0.05, lean=1.55, pet=M)
+    fan("mid", -25, 192, 164, M, 0.08, lean=1.3, pet=M, sway=0.06)
+    fan("mid", 15, 184, 156, F, 0.08, lean=1.55, pet=M, sx=0.88)
     # --- front: lighter, lower, arching out
-    fan("front", -54, 128, 182, M, 0.14, lean=1.32, pet=S)
-    fan("front", -4, 150, 132, S, 0.04, lean=2.2, pet=S)
-    fan("front", 34, 138, 142, M, 0.07, lean=1.4, pet=S)
-    fan("front", 60, 118, 150, S, 0.15, lean=1.38, pet=S)
+    fan("front", -54, 128, 154, M, 0.2, lean=1.3, pet=S, wide=0.9)
+    fan("front", -4, 150, 132, S, 0.07, lean=2.2, pet=S, sway=0.1)
+    fan("front", 34, 138, 142, M, 0.1, lean=1.4, pet=S, sx=0.86)
+    fan("front", 60, 118, 150, S, 0.2, lean=1.34, pet=S, wide=0.9)
     # --- drape: short leaves flopping over the rim, hiding the crown
     fan("front", 8, 76, 96, P["light"], 0.05, lean=2.7, pet=S)
     # deliberately unequal: a long leaf flopping low over the left rim, a short one

@@ -128,10 +128,12 @@ def taper(pts, w0, w1):
     return f"M{q(A[0])}Q{q(A[1])} {q(A[2])}L{q(B[2])}Q{q(B[1])} {q(B[0])}Z"
 
 
-def leaf_svg(a, x, y, rot, fill, side=1, s=1.0, flip=False, vein=VEIN, rim=VEIN):
+def leaf_svg(a, x, y, rot, fill, side=1, s=1.0, flip=False, vein=VEIN, rim=VEIN, fs=1.0):
+    """fs < 1 foreshortens the blade across its midrib (leaf turned away)."""
     d = a.outline()
     cid = uid("ac")
-    sc = f" scale({-1 if flip else 1} 1)" if flip else ""
+    sx = (-1 if flip else 1) * fs
+    sc = f" scale({f(sx)} 1)" if sx != 1 else ""
     g = [f'<g transform="{T(x, y, rot, s)}{sc}">',
          f'<clipPath id="{cid}"><path d="{d}"/></clipPath>',
          f'<path d="{d}" fill="{fill}"/>',
@@ -140,7 +142,7 @@ def leaf_svg(a, x, y, rot, fill, side=1, s=1.0, flip=False, vein=VEIN, rim=VEIN)
     vd = "".join(taper(p, w0, w1) for p, w0, w1 in a.veins())
     g.append(f'<path d="{vd}" fill="{vein}"/>')
     # pale margin: clipped stroke, ~4 units visible inside the blade
-    g.append(f'<path d="{d}" fill="none" stroke="{rim}" stroke-width="7.6" stroke-linejoin="round"/>')
+    g.append(f'<path d="{d}" fill="none" stroke="{rim}" stroke-width="{f(7.6 / min(fs, 1.0))}" stroke-linejoin="round"/>')
     g.append("</g></g>")
     return "".join(g)
 
@@ -184,28 +186,29 @@ def rolled(x, y, rot, H, col, shade):
 N, D, F = P["night"], P["deep"], P["forest"]
 PET, PET2 = P["sage"], P["light"]
 # x, y = petiole attachment; rot 0 = tip straight up (clockwise positive)
+# The petiole arrives along the blade's own axis (see petiole()), so a blade
+# whose tip points outward-and-down makes its petiole arch over first and the
+# arrow hangs from it, as on a real Alocasia. curl bends the midrib toward the
+# ground on the hanging blades (heavy tips dip); fs foreshortens turned blades.
 LEAVES = [
-    # --- back tier: tall, night
-    dict(x=240, y=238, rot=-42, L=150, col=N, side=1, x0=288,
-         via=[(288, 420)], w=(8.5, 5.5), pc=PET2, asym=0.04, curl=-0.04),
-    dict(x=384, y=224, rot=56, L=156, col=N, side=-1, x0=310,
-         via=[(312, 420)], w=(8.5, 5.5), pc=PET2, asym=-0.04, curl=0.05),
-    # --- middle tier: held out sideways; petiole arches up and the blade
-    # hangs from the sinus
-    dict(x=192, y=356, rot=-96, L=132, col=D, side=-1, x0=286,
-         via=[(282, 400)], w=(8, 5), pc=PET, curl=-0.05, lobe=0.95, ap=0.6),
-    dict(x=416, y=376, rot=106, L=128, col=D, side=1, x0=314,
-         via=[(318, 410)], w=(8, 5), pc=PET, curl=0.05, lobe=0.95, ap=0.6),
+    # --- back tier: tall, night; petioles lean out in long soft curves
+    dict(x=226, y=236, rot=-56, L=148, col=N, side=1, x0=290,
+         via=[(296, 380)], w=(8.5, 5.0), pc=PET2, asym=0.04, curl=-0.07, ap=0.5),
+    dict(x=394, y=214, rot=64, L=156, col=N, side=-1, x0=306,
+         via=[(300, 390)], w=(8.5, 5.0), pc=PET2, asym=-0.04, curl=0.08, ap=0.5, fs=0.9),
+    # --- middle tier: petiole arches up and out, the blade hangs from the
+    # sinus with its tip dipping below the attachment
+    dict(x=174, y=330, rot=-113, L=128, col=D, side=-1, x0=284,
+         via=[(266, 380)], w=(8, 4.6), pc=PET, curl=-0.11, lobe=0.95, ap=0.75),
+    dict(x=440, y=372, rot=114, L=118, col=D, side=1, x0=294,
+         via=[(334, 430)], w=(8, 4.6), pc=PET, curl=0.11, lobe=0.95, ap=0.75, fs=0.86),
 ]
-# --- front focal leaf: lighter, fairly upright, slightly foreshortened
-FOCAL = dict(x=298, y=338, rot=-8, L=150, col=F, side=1, x0=300,
-             via=[(300, 450)], w=(9, 6), pc=PET, curl=0.03)
-# --- turned leaf showing its burgundy underside, low left
-# its petiole rises on its own, left of the others, and only hooks over at
-# the very top into the sinus (never meeting a neighbouring petiole)
-UNDER = dict(x=222, y=472, rot=-108, L=104, col=P["burgundy"], x0=272,
-             via=[(268, 446)], w=(7, 4.5), pc=PET, ap=0.5)
-
+# --- front focal leaf: lighter, leaning right, its tip nodding over
+FOCAL = dict(x=312, y=334, rot=11, L=146, col=F, side=1, x0=300,
+             via=[(296, 450)], w=(9, 5.5), pc=PET, curl=0.03, ap=0.55, fs=0.94)
+# --- turned leaf showing its burgundy underside, low left, hanging
+UNDER = dict(x=204, y=458, rot=-122, L=104, col=P["burgundy"], x0=276,
+             via=[(262, 470)], w=(7, 4.2), pc=PET, ap=0.7, curl=0.08, fs=0.92)
 
 
 def build():
@@ -219,14 +222,14 @@ def build():
         out.append(petiole(sp["x"], sp["y"], sp["x0"], sp["via"], *sp["w"], sp["pc"],
                            rot=sp["rot"], L=sp["L"], ap=sp.get("ap", 0.4)))
         out.append(leaf_svg(a, sp["x"], sp["y"], sp["rot"], sp["col"], sp.get("side", 1),
-                            flip=flip, vein=vein, rim=rim))
+                            flip=flip, vein=vein, rim=rim, fs=sp.get("fs", 1.0)))
 
     for sp in LEAVES[:2]:
         put(sp)
     # furled new leaf (paler, as new Polly leaves are) in front of the right back leaf
-    rl_base = (320, 236)
-    out.append(petiole(*rl_base, 305, [(310, 440)], 8, 7, PET2))
-    out.append(rolled(rl_base[0], rl_base[1] + 6, 7, 140, P["mid"], SHADE_OF.get(P["mid"], "#4B6349")))
+    rl_base = (300, 236)
+    out.append(petiole(*rl_base, 302, [(298, 470), (296, 340)], 8, 7, PET2))
+    out.append(rolled(rl_base[0], rl_base[1] + 6, -5, 132, P["mid"], SHADE_OF.get(P["mid"], "#4B6349")))
     for sp in LEAVES[2:]:
         put(sp)
     put(UNDER, flip=True, vein=P["rose"], rim=P["rose"])
