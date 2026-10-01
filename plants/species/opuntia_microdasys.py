@@ -288,13 +288,13 @@ def build():
     e5a = p3.top(-2, 6)
     e5 = Pad(e5a[0], e5a[1], -13, 104, 80, Lt, seed=9)
     ea = p1.top(-40, 11)
-    e1 = Pad(ea[0], ea[1], -32, 104, 78, Lt, seed=6)
+    e1 = Pad(ea[0], ea[1], -39, 104, 78, Lt, seed=6)
     eb = p1.top(12, 11)
-    e2 = Pad(eb[0], eb[1], -13, 124, 92, Pa, seed=7)
+    e2 = Pad(eb[0], eb[1], -5, 124, 92, Pa, seed=7)
     ec = p2.top(-8, 11)
-    e3 = Pad(ec[0], ec[1], 9, 114, 86, Pa, seed=8)
+    e3 = Pad(ec[0], ec[1], 15, 114, 86, Pa, seed=8)
     ed = p2.top(48, 11)
-    e4 = Pad(ed[0], ed[1], 54, 92, 68, Lt, seed=10)
+    e4 = Pad(ed[0], ed[1], 60, 92, 68, Lt, seed=10)
 
     pads = [p0, p3, p1, p2, e5, e1, e4, e2, e3]
     body = [glochid_defs(), back]
@@ -317,10 +317,10 @@ def build():
         def blocked(w, occ=occ):
             return under_rim(w) or any(_inside(q, w) or _edge_dist(q, w) < EDGE_CLEAR for q in occ)
         body.append(p.svg(blocked=blocked))
-    fa = e2.top(8, 3)
-    body.append(flower(fa[0], fa[1], -6, 1.5))
+    fa = e2.top(30, 3)
+    body.append(flower(fa[0], fa[1], 16, 1.5))
     fb = e3.top(-26, 3)
-    body.append(flower(fb[0], fb[1], -14, 1.05, bud=True))
+    body.append(flower(fb[0], fb[1], -4, 1.05, bud=True))
     body.append("</g>")
     body.append(front)
     return "".join(body)

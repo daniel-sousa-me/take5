@@ -250,8 +250,10 @@ def rosette(cx, cy, s=1.0, rings=RINGS, hook=None, hook_after=0, blush=True, jit
         for i in range(n):
             j = ((i * 7 + ri * 3) % 5 - 2) / 2 if jitter else 0
             th = ph + i * 360 / n + j * 4
-            Ls = L * s * (1 + j * 0.03)
-            leaves.append(Leaf(cx, cy, th, al + j * 2, curl, Ls, Ls * wf, r0=2 * s, z0=ri * 3 * s))
+            # subtle life: lengths, lift and curl vary a little leaf to leaf (rigid plant: kept small)
+            Ls = L * s * (1 + j * 0.05)
+            leaves.append(Leaf(cx, cy, th, al + j * 3.5, curl * (1 - j * 0.15), Ls, Ls * wf,
+                               r0=2 * s, z0=ri * 3 * s))
         leaves.sort(key=lambda lf: lf.depth)
         face = RAMP[ci]
         shade = mix(RAMP[ci], RAMP[ci - 1], 0.75)
@@ -403,9 +405,12 @@ def build():
     back, front = pot(kind="bowl", cx=CX, rim_y=RIM_Y, bottom=752, rx=POT_RX, rim_h=RIM_H,
                       base_w=67)
     # tall stalk: rises from the leaf axils behind the heart, arches right and nods
-    stalk1 = [(314, 516), (318, 420), (320, 322), (330, 240), (354, 176), (392, 144), (432, 148),
-              (460, 174), (468, 204)]
-    stalk2 = [(270, 520), (258, 466), (238, 416), (208, 384), (178, 376), (156, 388), (148, 408)]
+    # one continuous arch (no straight cane + hook): a slight lean from the base, the
+    # curvature building steadily up to the nodding raceme
+    stalk1 = [(314, 516), (318, 440), (326, 362), (340, 290), (362, 228), (394, 180), (430, 156),
+              (460, 160), (478, 184), (482, 210)]
+    stalk2 = [(270, 520), (262, 472), (246, 428), (222, 396), (192, 380), (164, 384), (148, 402),
+              (144, 422)]
     fl1 = [(0.58, (0.18, 1), 1.08), (0.66, (0.12, 1), 1.06), (0.74, (0.04, 1), 1.02),
            (0.81, (-0.08, 1), 0.98), (0.875, (-0.25, 1), 0.92), (0.935, (-0.45, 1), 0.84),
            (0.99, (-0.7, 1), 0.76)]

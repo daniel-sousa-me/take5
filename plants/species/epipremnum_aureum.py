@@ -8,6 +8,7 @@ strand over the front of the rim).
 import math
 import os
 import random
+import re
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
@@ -89,9 +90,9 @@ class PLeaf:
     def vpt(self, t, side, frac):
         return self.warp(side * self.width(t, side) * frac, -t)
 
-    def half(self, side):
+    def half(self, side, off=0.0):
         ts = [-0.4, 0.3, 0.55, 0.7, 0.8, 0.9, 1.0, 1.1]
-        a = [self.warp(0, -t) for t in ts]
+        a = [self.warp(-side * off * min(1.0, max(0.0, 1.0 - t) * 1.6), -t) for t in ts]
         b = [self.warp(side * 3, -t) for t in (ts[-1], ts[0])][::-1]
         pts = a + b[::-1]
         return "M" + "L".join(f"{f(x)} {f(y)}" for x, y in pts) + "Z"
@@ -116,12 +117,14 @@ def spindle(p0, p1, p2, w):
 
 
 def leaf_svg(x, y, rot, L, fill, seed, flip=False, curl=None, asym=None, streak=None,
-             wide=1.0, vein_col=None):
+             wide=1.0, vein_col=None, fore=1.0):
     rnd = random.Random(seed * 7 + 3)
     curl = rnd.uniform(0.03, 0.07) * rnd.choice((1, -1)) if curl is None else curl
     asym = rnd.uniform(0.84, 0.93) if asym is None else asym
     lf = PLeaf(L, seed, asym=asym, curl=curl, wide=wide)
     d = lf.outline()
+    if L < 60:  # small vine leaves: whole units are plenty (file size)
+        d = re.sub(r"-?\d+\.\d+", lambda m: str(round(float(m.group()))), d)
     sx = -1 if flip else 1
     # shade the half that faces world-right (light from upper left)
     a = math.radians(rot)
@@ -150,12 +153,13 @@ def leaf_svg(x, y, rot, L, fill, seed, flip=False, curl=None, asym=None, streak=
     # midrib: filled taper, widest (>= 4 units) at the sinus, low-contrast solid
     vc = vein_col or RIB.get(fill, P["pale"])
     hw = max(2.1, L * 0.02)
-    ts = [0.0, 0.2, 0.4, 0.6, 0.8, 0.93]
+    ts = [0.0, 0.3, 0.62, 0.93]
     rr = [lf.warp(hw / L * (1 - 0.8 * t), -t) for t in ts]
     ll = [lf.warp(-hw / L * (1 - 0.8 * t), -t) for t in ts]
     ring = rr + ll[::-1]
     inner.append(f'<path d="{cr_path(ring, closed=True, sharp={0, len(rr) - 1, len(rr), len(ring) - 1})}" fill="{vc}"/>')
-    tr = f"translate({f(x)} {f(y)}) rotate({f(rot)})" + (" scale(-1 1)" if flip else "")
+    sxx = round((-1 if flip else 1) * fore, 2)
+    tr = f"translate({f(x)} {f(y)}) rotate({f(rot)})" + (f" scale({sxx:g} 1)" if sxx != 1 else "")
     pid = cid + "p"
     return (f'<g transform="{tr}"><path id="{pid}" d="{d}" fill="{fill}"/>'
             f'<clipPath id="{cid}"><use href="#{pid}"/></clipPath>'
@@ -177,7 +181,7 @@ def petiole(a, b, u_end, w0, w1, col, bow=0.0):
     L = math.hypot(dx, dy)
     m = (a[0] + dx * 0.5 - dy / L * bow * L, a[1] + dy * 0.5 + dx / L * bow * L)
     c = (b[0] - u_end[0] * L * 0.22, b[1] - u_end[1] * L * 0.22)
-    return f'<path d="{ribbon([a, m, c, b], w0, w1)}" fill="{col}"/>'
+    return f'<path d="{ribbon([a, m, c, b], w0, w1, per=4)}" fill="{col}"/>'
 
 
 def petiole_arc(a, b, u_end, w0, w1, col, k=0.45):
@@ -214,9 +218,11 @@ def vine(pts, leaves, w0, w1, col, pcol=None, anchor=None, clip=None):
     s = cr_sample(pts, 10)
     sa = cr_sample(anchor, 10) if anchor else s
     cp = f' clip-path="url(#{clip})"' if clip else ""
-    stems, blades = [f'<path d="{ribbon(pts, w0, w1)}" fill="{col}"{cp}/>'], []
+    stems, blades = [f'<path d="{ribbon(pts, w0, w1, per=4)}" fill="{col}"{cp}/>'], []
     pcol = pcol or col
-    for fr, side, L, fill, seed, out, droop, flip in leaves:
+    for lv in leaves:
+        fr, side, L, fill, seed, out, droop, flip = lv[:8]
+        fore = lv[8] if len(lv) > 8 else 1.0
         n, t = along(sa, fr)
         if anchor:
             i = min(range(1, len(s)), key=lambda k: math.hypot(s[k][0] - n[0], s[k][1] - n[1]))
@@ -229,68 +235,91 @@ def vine(pts, leaves, w0, w1, col, pcol=None, anchor=None, clip=None):
         u = unit((d[0] * (1 - droop), d[1] * (1 - droop) + droop))  # gravity pulls the blade down
         tip_w = max(2.8, L * 0.045)
         stems.append(petiole(n, base, u, tip_w * 1.15, tip_w * 0.9, pcol))
-        blades.append(leaf_svg(base[0], base[1], rot_of(u), L, fill, seed, flip=flip))
+        blades.append(leaf_svg(base[0], base[1], rot_of(u), L, fill, seed, flip=flip, fore=fore))
     return "".join(stems), "".join(blades)
 
+def bez(p0, p1, p2, p3, n=9):
+    return [tuple((1 - t) ** 3 * p0[j] + 3 * (1 - t) ** 2 * t * p1[j] + 3 * (1 - t) * t * t * p2[j] + t ** 3 * p3[j]
+                  for j in (0, 1)) for t in (i / (n - 1) for i in range(n))]
 
-# ------------------------------------------------------------------ plant
+
+def crown_petiole(a, b, u_end, w0, w1, col, rise=0.42, arrive=0.34, bow=0.0):
+    """Soil -> leaf as one graceful C: it leaves the soil close to vertical (stems spring
+    from a tight cluster), then bends over to arrive along the blade axis, so outer
+    petioles arc outward more than inner ones."""
+    L = math.hypot(b[0] - a[0], b[1] - a[1])
+    lean = (b[0] - a[0]) / L
+    d0 = unit((lean * 0.45 + bow, -1.0))
+    p1 = (a[0] + d0[0] * L * rise, a[1] + d0[1] * L * rise)
+    p2 = (b[0] - u_end[0] * L * arrive, b[1] - u_end[1] * L * arrive)
+    return f'<path d="{ribbon(bez(a, p1, p2, b, 6), w0, w1, per=4)}" fill="{col}"/>'
+
+
 def build():
     back, front = pot("classic", rx=90, rim_y=588, base_w=66, band=False)
     out = [back]
 
-    # --- crown: (leaf base point, rotation, L, fill, seed, flip, stem start x, bow)
+    # --- crown. The plant has a gentle sweep up and to the right (balanced by the long
+    # left drape): leaves higher up are pushed a little right (LEAN), young small leaves
+    # at the top, big old ones low and nodding outward under their weight.
+    # (leaf base point, rotation, L, fill, seed, flip, stem start x, droop-curl, fore)
     crown_back = [
-        # back tier, darkest; C (centre top) sits over A and B
-        ((252, 410), -36, 120, P["deep"], 1, True, 276, -0.05),
-        ((352, 400), 28, 124, P["deep"], 2, False, 318, 0.05),
-        ((302, 376), -7, 128, P["mid"], 3, False, 298, 0.01),
-        ((402, 478), 64, 108, P["forest"], 4, False, 330, 0.07),
-        ((196, 510), -110, 100, P["forest"], 5, False, 266, -0.12),
+        ((240, 428), -47, 116, P["deep"], 1, True, 280, 0.06, 1.0),
+        ((354, 404), 25, 118, P["deep"], 2, False, 316, 0.07, 0.9),
+        ((330, 330), 22, 62, P["sage"], 10, False, 304, -0.03, 0.86),  # young top leaf (peeks out behind the centre leaf)
+        ((298, 382), -4, 124, P["mid"], 3, False, 300, -0.04, 1.0),
+        ((406, 486), 70, 106, P["forest"], 4, False, 326, 0.11, 1.0),
+        ((192, 512), -100, 98, P["forest"], 5, False, 270, 0.12, 1.0),
     ]
     crown_front = [
-        ((266, 506), -17, 112, P["light"], 6, True, 286, -0.03),
-        ((340, 518), 22, 106, P["sage"], 7, False, 312, 0.04),
+        ((262, 508), -22, 110, P["light"], 6, True, 288, 0.05, 1.0),
+        ((342, 522), 27, 102, P["sage"], 7, False, 312, 0.08, 0.84),
     ]
     # low leaves leaning forward over the rim (blade drawn after the pot front)
     crown_low = [
-        ((290, 582), -72, 96, P["mid"], 8, True, 326, 0.04),
-        ((372, 572), 80, 86, P["light"], 9, False, 322, 0.05),
+        ((290, 584), -76, 94, P["mid"], 8, True, 322, 0.07, 1.0),
+        ((372, 574), 84, 84, P["light"], 9, False, 320, 0.08, 0.9),
     ]
-    ARC = {2, 3}
+    ARC = {2, 3, 10}
+    BOW = {3: -0.22, 10: 0.3, 2: 0.1, 1: -0.1}
     stems, leaves, low = [], [], []
     for grp in (crown_back, crown_front, crown_low):
-        for (bx, by), rot, L, fill, seed, flip, sx0, bow in grp:
+        for (bx, by), rot, L, fill, seed, flip, sx0, droop, fore in grp:
             if grp is not crown_low:  # grow the crown a little about the soil centre
                 bx, by, L = 300 + (bx - 300) * CS, 612 + (by - 612) * CS, L * CS
+                lift = (612 - by) / 260.0
+                bx += 26 * lift * lift  # gesture: the upper crown leans right
+                rot += 7 * lift
             u = (math.sin(math.radians(rot)), -math.cos(math.radians(rot)))
             w = max(3.0, L * 0.036)
-            if seed in ARC:  # the two long centre petioles crossing open ground: one arc each
-                stems.append(petiole_arc((sx0, 612), (bx, by), u, w * 1.3, w, P["sage"]))
-            else:
-                stems.append(petiole((sx0, 612), (bx, by), u, w * 1.3, w, P["sage"], bow))
-            (low if grp is crown_low else leaves).append(leaf_svg(bx, by, rot, L, fill, seed, flip=flip))
+            stems.append(crown_petiole((sx0, 612), (bx, by), u, w * 1.35, w * 0.95, P["sage"],
+                                       rise=0.5 if seed in ARC else 0.4, bow=BOW.get(seed, 0.0)))
+            # tip droops toward the ground: sign follows which way "down" is in leaf coords
+            sgn = (1 if rot > 0 else -1) * (-1 if flip else 1)
+            curl = sgn * droop * min(1.0, abs(math.sin(math.radians(rot))) + 0.25)
+            (low if grp is crown_low else leaves).append(
+                leaf_svg(bx, by, rot, L, fill, seed, flip=flip, curl=curl, fore=fore))
     out += stems + leaves
 
-    # --- vines (drawn after the pot front: they spill over the rim)
-    # long vine, left side; leaves alternate irregularly and shrink to the tip
-    # it rises from the soil under the big low front leaf (stem drawn before that
-    # leaf, so its start is hidden), crosses the lip and drapes over the left shoulder
-    Lv = [(250, 594), (230, 590), (210, 588), (184, 592), (160, 618), (143, 656), (128, 688), (108, 708), (84, 716)]
+    # --- vines (drawn after the pot front: they spill over the rim and hang under
+    # their own weight: a smooth catenary-like drop, tips curling up slightly)
+    # long left vine: rises from under the big low front leaf, crosses the lip and
+    # drops in one long sweep down the left side of the pot
+    Lv = [(250, 594), (226, 588), (198, 591), (170, 606), (146, 632), (127, 664), (114, 694),
+          (102, 712), (86, 719), (70, 713), (59, 698)]
     s1, b1 = vine(Lv, [
-        (0.14, -1, 68, P["light"], 21, 50, 0.5, True),
-        (0.33, 1, 60, P["forest"], 22, 60, 0.55, False),
-        (0.50, -1, 54, P["mid"], 23, 55, 0.6, True),
-        (0.65, 1, 46, P["sage"], 24, 58, 0.55, False),
-        (0.83, -1, 38, P["forest"], 25, 50, 0.5, True),
-        (0.98, 1, 28, P["mid"], 26, 40, 0.45, False),
-    ], 5.2, 2.2, P["forest"], P["sage"], anchor=[(236, 604), (212, 588)] + Lv[3:])
-    # short right vine: arches over the rim and hangs, ending on a small young leaf
-    # (pothos has no tendrils, so no bare hooked tip)
-    # it rises from the soil (its start is clipped by the rim front, see RIM_HOLE),
-    # lies across the lip over the pale low leaf and arches over the right shoulder
-    Rv = [(346, 608), (360, 594), (378, 590), (396, 589), (424, 596), (452, 620), (466, 650), (470, 676), (468, 694)]
-    # clip = everything but a patch of the rim front just below its top edge, so the
-    # start of the right vine dips behind the rim into the soil
+        (0.11, -1, 66, P["light"], 21, 52, 0.45, True),
+        (0.26, 1, 60, P["forest"], 22, 64, 0.38, False, 0.86),
+        (0.40, -1, 54, P["mid"], 23, 58, 0.62, True),
+        (0.54, 1, 48, P["sage"], 24, 66, 0.35, False, 0.82),
+        (0.67, -1, 42, P["forest"], 25, 56, 0.55, True),
+        (0.79, 1, 35, P["light"], 27, 60, 0.3, False, 0.88),
+        (0.90, -1, 28, P["mid"], 26, 50, 0.4, True),
+        (0.995, 1, 21, P["sage"], 28, 30, 0.2, False),
+    ], 5.2, 1.9, P["forest"], P["sage"], anchor=[(236, 604), (212, 588)] + Lv[3:])
+    # right vine: arches over the rim and hangs to mid-pot height
+    Rv = [(346, 608), (360, 594), (380, 589), (402, 590), (430, 600), (456, 622), (474, 652),
+          (483, 680), (487, 698), (491, 712), (499, 721)]
     rx, ry, rim_y = 90, 90 * 0.15, 588
     arc = [(x, rim_y + ry * math.sqrt(max(0.0, 1 - ((x - 300) / rx) ** 2))) for x in range(334, 367, 4)]
     hole = uid("vh")
@@ -299,23 +328,27 @@ def build():
                f'M{f(arc[0][0])} 640L{f(arc[-1][0])} 640'
                + "".join(f"L{f(x)} {f(y)}" for x, y in arc[::-1]) + 'Z"/></clipPath>')
     s2, b2 = vine(Rv, [
-        (0.18, 1, 68, P["mid"], 31, 58, 0.4, False),
-        (0.50, -1, 54, P["forest"], 32, 62, 0.55, True),
-        (0.76, 1, 36, P["sage"], 33, 60, 0.35, False),
-        (0.99, -1, 26, P["mid"], 34, 34, 0.45, True),
-    ], 4.6, 2.2, P["mid"], P["sage"], anchor=[(372, 604), (394, 590)] + Rv[4:], clip=hole)
-    # short strand over the front of the rim
-    Fv = [(322, 600), (330, 612), (336, 638), (334, 668), (326, 690)]
+        (0.16, 1, 66, P["mid"], 31, 58, 0.4, False),
+        (0.36, -1, 56, P["forest"], 32, 64, 0.58, True, 0.85),
+        (0.55, 1, 46, P["sage"], 33, 64, 0.35, False),
+        (0.73, -1, 37, P["deep"], 35, 58, 0.5, True),
+        (0.87, 1, 29, P["light"], 36, 54, 0.45, False, 0.86),
+        (0.995, -1, 22, P["mid"], 34, 30, 0.25, True),
+    ], 4.6, 1.9, P["mid"], P["sage"], anchor=[(372, 604), (394, 590)] + Rv[4:], clip=hole)
+    # short strand over the front of the rim, with a soft S
+    Fv = [(322, 600), (331, 614), (337, 640), (333, 668), (325, 690), (322, 708)]
     s3, b3 = vine(Fv, [
-        (0.30, 1, 54, P["deep"], 41, 60, 0.5, False),
-        (0.66, -1, 44, P["forest"], 42, 58, 0.55, True),
-        (0.98, 1, 32, P["deep"], 43, 30, 0.4, False),
-    ], 4.4, 2.0, P["forest"], P["mid"])
+        (0.26, 1, 52, P["deep"], 41, 62, 0.5, False),
+        (0.58, -1, 42, P["forest"], 42, 58, 0.55, True, 0.86),
+        (0.98, 1, 30, P["deep"], 43, 34, 0.35, False),
+    ], 4.4, 1.9, P["forest"], P["mid"])
     out.append(front)
     out.append(s1)  # under the low leaves: the left vine's start is tucked under the big front leaf
     out += low
     out += [s2, s3, b3, b2, b1]
     return "".join(out)
+
+
 
 
 if __name__ == "__main__":

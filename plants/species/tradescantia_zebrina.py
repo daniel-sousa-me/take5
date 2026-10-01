@@ -50,9 +50,10 @@ PROF = [(-0.06, 0.0), (-0.045, 0.075), (0.0, 0.14), (0.08, 0.205), (0.2, 0.25),
         (0.34, 0.262), (0.48, 0.243), (0.62, 0.195), (0.76, 0.13), (0.88, 0.062),
         (0.95, 0.024), (1.0, 0.0)]
 SHAPES = {  # name: (width scale, tip curl)
-    "a": (1.0, 0.0),
+    "a": (1.0, 0.04),
     "b": (0.9, 0.07),
-    "c": (1.08, -0.05),
+    "c": (1.06, -0.09),
+    "d": (0.88, 0.13),    # narrower, tip swept hard one way (an arching leaf; large size only)
 }
 
 
@@ -178,11 +179,11 @@ def defs():
 def place(tid, x, y, rot, L):
     """shaded half (+x local) must face world right; flip when it would not."""
     flip = math.cos(math.radians(rot)) < 0
+    if tid.startswith("z") and L < SMALL_L and tid[2] == "d":
+        tid = tid.replace("d", "b")  # swept variant only on big leaves (file size)
     if tid.startswith("z") and L < SMALL_L:
-        if L < TINY_L:  # tiny leaves: two outline variants are plenty
-            tid = tid.replace("c", "a") + "t"
-        else:
-            tid += "s"
+        # small / tiny leaves: two outline variants are plenty (file size)
+        tid = tid.replace("c", "a") + ("t" if L < TINY_L else "s")
     sx = (-1 if flip else 1) * L / 100
     return (f'<use href="#{tid}" transform="translate({f(x)} {f(y)}) rotate({f(rot)}) '
             f'scale({sx:.3f} {L / 100:.3f})"/>')
@@ -297,7 +298,7 @@ def grow(n, L0, L1, tier, first=1, f0=0.2, ang0=58, ang1=26, up=0.25, under=(), 
         uu = up * rnd.uniform(0.7, 1.3)
         shp = shapes[i % len(shapes)]
         tr = tier if (tier_tip is None or u < 0.6) else tier_tip
-        tid = f"u{utone}{'a' if shp == 'c' else shp}" if i in under else f"z{tr}{shp}"
+        tid = f"u{utone}{shp if shp in 'ab' else 'a'}" if i in under else f"z{tr}{shp}"
         if i not in drop:
             out.append((min(fr, 1.0), side, L, tid, a, uu))
         side = -side
@@ -318,8 +319,9 @@ def build():
     # back, low bushy ones in front hide the stem bases.
     crown = [
         # --- back tier (dusky)
-        Shoot([(297, Y), (292, 530), (282, 450), (278, 370), (286, 296), (304, 236)], 7.0, 3.8, 0,
-              grow(7, 96, 44, 0, first=1, f0=0.26, seed=1, ang0=56, up=0.1, tier_tip=1, drop={0, 1})),
+        Shoot([(297, Y), (290, 530), (276, 452), (270, 378), (280, 308), (302, 254), (330, 224)], 7.0, 3.8, 0,
+              grow(7, 96, 44, 0, first=1, f0=0.26, seed=1, ang0=56, up=0.1, tier_tip=1, drop={0, 1},
+                   shapes="adcba")),
         Shoot([(308, Y), (320, 540), (346, 468), (388, 408), (436, 374), (484, 368)], 6.8, 3.6, 0,
               # all upper sides: this shoot's leaves stand upright, so none is turned to show its underside
               # (plum undersides are kept for the trailing / turned leaves)
@@ -378,17 +380,19 @@ def trail_shoots():
     hanging stems; some twist to show the plum underside."""
     return [
         # long left strand: hangs down the pot side, tip turning out well above the ground line
-        Shoot([(239, 600), (208, 594), (172, 610), (150, 644), (134, 674), (116, 694), (98, 700)], 5.4, 2.8, 2,
-              grow(8, 74, 34, 2, first=-1, f0=0.08, seed=11, ang0=78, ang1=44, up=0.9, under={2, 5},
-                   utone=1, shapes="abcab", tier_tip=1, bracts=True),
+        Shoot([(239, 600), (206, 595), (174, 606), (150, 630), (132, 660), (116, 690), (98, 711),
+               (78, 721), (58, 718)], 5.4, 2.6, 2,
+              grow(10, 74, 30, 2, first=-1, f0=0.07, seed=11, ang0=78, ang1=40, up=0.8, under={2, 6},
+                   utone=1, shapes="abdcba", tier_tip=1, bracts=True),
               tip_flower=(15, 10, 10), lead=[(272, 614), (268, 597), (254, 592)]),
         # medium right strand: tip lifted ~26 units so its last leaves clear the card's bottom-right marks
-        Shoot([(363, 600), (396, 594), (432, 610), (453, 644), (461, 680), (463, 704)], 5.2, 2.8, 2,
-              grow(7, 72, 34, 2, first=1, f0=0.08, seed=12, ang0=78, ang1=44, up=0.9, under={3},
-                   utone=0, shapes="cabca", tier_tip=1), lead=[(318, 614), (325, 596), (345, 592)]),
+        Shoot([(363, 600), (398, 596), (430, 607), (455, 632), (469, 662), (476, 690), (482, 708),
+               (494, 716)], 5.2, 2.6, 2,
+              grow(9, 72, 30, 2, first=1, f0=0.07, seed=12, ang0=78, ang1=40, up=0.8, under={3},
+                   utone=0, shapes="cabdca", tier_tip=1), lead=[(318, 614), (325, 596), (345, 592)]),
         # short front drape
-        Shoot([(326, 602), (344, 614), (352, 638), (352, 662)], 4.4, 2.8, 2,
-              grow(3, 58, 36, 2, first=1, f0=0.35, seed=13, ang0=74, ang1=50, up=0.8, under={1},
+        Shoot([(326, 602), (344, 615), (354, 640), (353, 668), (345, 692), (342, 712)], 4.6, 2.6, 2,
+              grow(5, 60, 30, 2, first=1, f0=0.35, seed=13, ang0=74, ang1=50, up=0.8, under={1},
                    utone=0, shapes="bac")),
     ]
 

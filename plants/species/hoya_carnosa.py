@@ -84,9 +84,27 @@ class Path:
 
 
 # ------------------------------------------------------------------ hoop
-HOOP_PTS = [(268, 612), (268, 560), (262, 505), (236, 462), (198, 420), (176, 360), (172, 292),
-            (186, 224), (220, 170), (262, 140), (304, 132), (346, 142), (384, 172), (414, 222),
-            (428, 292), (424, 360), (402, 420), (364, 462), (338, 505), (332, 560), (332, 612)]
+_HOOP0 = [(268, 612), (268, 560), (262, 505), (236, 462), (198, 420), (176, 360), (172, 292),
+          (186, 224), (220, 170), (262, 140), (304, 132), (346, 142), (384, 172), (414, 222),
+          (428, 292), (424, 360), (402, 420), (364, 462), (338, 505), (332, 560), (332, 612)]
+
+
+def _hand_bent(p):
+    """a hand-bent cane, not a drawn ellipse: the loop leans a little left, its left
+    shoulder sits higher and fuller than the right, the right flank is flatter"""
+    x, y = p
+    h = max(0.0, (612 - y) / 480.0)
+    x -= 22 * h * h
+    if x < 300:
+        x -= 6 * math.sin(math.pi * min(1.0, h * 1.25))
+        y -= 8 * h * h
+    else:
+        x -= 7 * math.sin(math.pi * min(1.0, h * 1.6)) * (1 - h)
+        y += 4 * h * h
+    return (x, y)
+
+
+HOOP_PTS = [_hand_bent(p) for p in _HOOP0]
 CX, CY = 300, 300
 HP = Path(HOOP_PTS)
 
@@ -109,7 +127,7 @@ class Stem:
     """Twines around the hoop from arclength d0 towards d1 (winding sine offset),
     then optionally continues free along `tail` points."""
 
-    def __init__(self, d0, d1, tail=None, amp=6.0, period=80, phase=0.0, w0=5.0, w1=2.2, base=12):
+    def __init__(self, d0, d1, tail=None, amp=8.5, period=80, phase=0.0, w0=5.0, w1=2.2, base=12):
         self.amp, self.period, self.phase = amp, period, phase
         self.base = base  # below this the stem is in front (rises from the soil before the cane)
         sg = 1 if d1 > d0 else -1
@@ -124,21 +142,32 @@ class Stem:
         self.hoop_len = abs(d1 - d0)
         if tail:
             # blend from the last hoop point into the free tail
-            tp = cr_sample([pts[-1]] + tail, 16)
+            # (leading out along the vine's last direction of travel: no kink where it leaves)
+            a, b = pts[-6], pts[-1]
+            m = math.hypot(b[0] - a[0], b[1] - a[1]) or 1
+            lead = (b[0] + (b[0] - a[0]) / m * 14, b[1] + (b[1] - a[1]) / m * 14)
+            tp = cr_sample([pts[-1], lead] + tail, 16)
             pts += tp[1:]
         self.path = Path(pts, raw=True)
         self.L = self.path.L
         self.hoop_len = min(self.hoop_len, self.L)
         self.w0, self.w1 = w0, w1
 
+    def theta(self, s):
+        # irregular twining: the pitch drifts (tight turns, then a lazy stretch)
+        return 2 * math.pi * s / self.period + self.phase + 1.1 * math.sin(s / 93.0 + self.phase * 1.7)
+
     def wave(self, s):
         ramp = min(1.0, s / 40.0)
-        return ramp * math.sin(2 * math.pi * s / self.period + self.phase)
+        # loose: the vine drifts off the cane by varying amounts, now hugging it, now
+        # swinging out in a slack loop
+        a = 0.6 + 0.75 * (0.5 + 0.5 * math.sin(s / 71.0 + self.phase * 2.3)) ** 2
+        return ramp * a * math.sin(self.theta(s))
 
     def front(self, s):
         if s > self.hoop_len or s < self.base:
             return True
-        return math.cos(2 * math.pi * s / self.period + self.phase) > 0
+        return math.cos(self.theta(s)) > 0
 
     def at(self, s):
         return self.path.at(s)
@@ -152,7 +181,7 @@ class Stem:
 
     def ribbon_ab(self, a, b):
         """filled ribbon between arclengths a..b with the stem's own width profile"""
-        k = max(3, int((b - a) / 11))
+        k = max(3, int((b - a) / 16))
         ss = [a + (b - a) * i / k for i in range(k + 1)]
         L, R = [], []
         for s_ in ss:
@@ -217,7 +246,7 @@ class Stem:
 
         def side(s0, s1, sgn):
             s0, s1 = max(0.0, s0), min(self.L, s1)
-            n = max(2, int((s1 - s0) / 3.0))
+            n = max(2, int((s1 - s0) / 5.0))
             out = []
             for i in range(n + 1):
                 s_ = s0 + (s1 - s0) * i / n
@@ -451,6 +480,10 @@ D_NODES = [  # short side shoot branching off A across the hoop interior
     (104, [(-58, 44, "light", 1, 3, 8), (62, 38, "forest", 1, 1, 0)]),
     (146, [(-44, 24, "sage", 1, 0, 0), (48, 20, "mid", 1, 0, 0)]),
 ]
+E_NODES = [  # escaping runner: one young pair, then bare (hoya runners leaf out late)
+    (66, [(-62, 28, "sage", 1, 2, 0), (66, 24, "mid", 1, 1, 0)]),
+    (132, [(-92, 13, "light", 1, 0, 0), (66, 12, "sage", 1, 0, 0)]),
+]
 C_NODES = [
     (70, [(-70, 40, "sage", 1, 1, 0), (64, 36, "forest", 1, 2, 7)]),
     (132, [(-62, 34, "mid", 1, 2, 0), (70, 32, "light", 1, 1, 0)]),
@@ -510,12 +543,15 @@ def build():
     rnd = random.Random(7)
     HL = HP.L
     # A leaves the hoop on the right and ends in a free, tapering growing tip
-    A = Stem(0, 840, tail=[(433, 352), (443, 367), (455, 377), (468, 380)], phase=0.4, w0=6, w1=0.9, base=56)
-    B = Stem(HL, HL - 190, tail=[(424, 446), (462, 468), (488, 506), (498, 552), (494, 596), (484, 628)],
+    # A leaves the hoop on the right as a free shoot that reaches out and curls upward,
+    # still searching for support
+    A = Stem(0, 806, tail=[(436, 310), (460, 320), (484, 316), (501, 300), (508, 278), (505, 258)],
+             phase=0.4, w0=6, w1=0.9, base=56)
+    B = Stem(HL, HL - 190, tail=[(424, 446), (462, 468), (488, 504), (499, 546), (500, 588), (492, 620), (476, 640)],
              phase=2.3, w0=5.6, w1=2.2, base=32)
     C = Stem(0, 0, w0=4.2, w1=1.8)
-    C.path = Path([(268, 594), (246, 603), (222, 617), (204, 638), (192, 666), (190, 694),
-                   (198, 720)], per=20)
+    C.path = Path([(268, 594), (246, 603), (222, 617), (204, 638), (192, 666), (192, 694),
+                   (204, 716), (220, 728)], per=20)
     C.L = C.path.L
     C.hoop_len = 0
 
@@ -525,7 +561,15 @@ def build():
     D.L = D.path.L
     D.hoop_len = 0
 
+    # E: a bare young runner escaping the hoop on the upper left, arching up and over
+    e0, _ = A.at(430)
+    E = Stem(0, 0, w0=3.4, w1=0.9)
+    E.path = Path([e0, (152, 214), (136, 190), (130, 162), (136, 138), (152, 124), (172, 120)], per=20)
+    E.L = E.path.L
+    E.hoop_len = 0
+
     ab, af, ast = nodes_svg(A, A_NODES, rnd)
+    eb, ef, est = nodes_svg(E, E_NODES, rnd)
     db, df, dst = nodes_svg(D, D_NODES, rnd)
     bb, bf, bst = nodes_svg(B, B_NODES, rnd)
     cb, cf, cst = nodes_svg(C, C_NODES, rnd)
@@ -553,7 +597,8 @@ def build():
     body.append(f'<clipPath id="{fm}"><path d="{masks}"/></clipPath><g clip-path="url(#{fm})">{full}</g>')
     body.append(emit_stubs(ast + bst))
     body.append(D.part(0, D.L))
-    body.append(emit(af + bf + df))
+    body.append(E.part(0, E.L))
+    body.append(emit(af + bf + df + ef))
     body.append(peduncle(n1, u1_top, 36))
     body.append(umbel(u1_top, R=36, seed=2, tilt=0.12))
     body.append(peduncle(n2, u2_top, 33))
